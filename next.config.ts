@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Exclude Firebase Admin SDK from bundling
+  serverExternalPackages: ['firebase-admin'],
 };
 
 export default nextConfig;

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
+// Force dynamic rendering to avoid static generation issues with Firebase
+export const dynamic = 'force-dynamic';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { getDbInstance, getStorageInstance } from '@/lib/firebase';
 
 export default function Home() {
   const { user, userData, loading, signIn, signInWithGoogle, signOut, register } = useAuth();
@@ -55,26 +58,32 @@ export default function Home() {
   useEffect(() => {
     if (userData?.role === 'admin') {
       const fetchPending = async () => {
-        const q = query(collection(db, 'users'), where('approved', '==', false), where('role', '==', 'agency'));
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
+        const q = query(collection(dbInstance, 'users'), where('approved', '==', false), where('role', '==', 'agency'));
         const querySnapshot = await getDocs(q);
         const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setPendingAgencies(agencies);
       };
 
       const fetchAllAgencies = async () => {
-        const q = query(collection(db, 'users'), where('role', '==', 'agency'));
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
+        const q = query(collection(dbInstance, 'users'), where('role', '==', 'agency'));
         const querySnapshot = await getDocs(q);
         const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setAllAgencies(agencies);
       };
 
       const fetchPendingListings = async () => {
-        const q = query(collection(db, 'listings'), where('approved', '==', false));
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
+        const q = query(collection(dbInstance, 'listings'), where('approved', '==', false));
         const querySnapshot = await getDocs(q);
         const listings = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
           const listingData = docSnapshot.data() as any;
           // Get agency name
-          const agencyDoc = await getDoc(doc(db, 'users', listingData.agencyId));
+          const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
           const agencyName = agencyDoc.exists() ? (agencyDoc.data() as any).companyName : 'Unknown Agency';
           return { id: docSnapshot.id, ...listingData, agencyName };
         }));
@@ -89,10 +98,13 @@ export default function Home() {
 
   useEffect(() => {
     if (user && userData?.role === 'user') {
-      const chatId = `${user.uid}_${currentChatAgency}`;
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+
       const messagesQuery = query(
-        collection(db, 'messages'),
-        where('chatId', '==', chatId)
+        collection(dbInstance, 'chat_messages'),
+        where('from_user_id', '==', user.uid),
+        where('to_user_id', '==', currentChatAgency)
       );
 
       const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
@@ -111,13 +123,16 @@ export default function Home() {
 
   useEffect(() => {
     if (user && userData?.role === 'agency') {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+
       // Agencies listen for messages where they are either sender or receiver
-      const unsubscribe = onSnapshot(collection(db, 'messages'), (snapshot) => {
+      const unsubscribe = onSnapshot(collection(dbInstance, 'chat_messages'), (snapshot) => {
         const messages: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Include messages where agency is sender OR receiver
-          if (msgData.sender === user.uid || msgData.receiverId === user.uid) {
+          if (msgData.from_user_id === user.uid || msgData.to_user_id === user.uid) {
             messages.push({ id: doc.id, ...msgData });
           }
         });
@@ -131,7 +146,7 @@ export default function Home() {
           for (const msg of messages) {
             try {
               // For conversations, we want the other party (not the agency)
-              const otherUserId = msg.sender === user.uid ? msg.receiverId : msg.sender;
+              const otherUserId = msg.from_user_id === user.uid ? msg.to_user_id : msg.from_user_id;
 
               // Skip messages with invalid user IDs
               if (!otherUserId || typeof otherUserId !== 'string' || otherUserId.trim() === '') {
@@ -142,14 +157,14 @@ export default function Home() {
               if (!conversationsMap.has(otherUserId)) {
                 try {
                   // Fetch user name
-                  const userDoc = await getDoc(doc(db, 'users', otherUserId));
+                  const userDoc = await getDoc(doc(dbInstance, 'users', otherUserId));
                   const userName = userDoc.exists() ? (userDoc.data() as any).name || 'Unknown User' : 'Unknown User';
 
                   conversationsMap.set(otherUserId, {
                     userId: otherUserId,
                     userName,
-                    chatId: msg.chatId,
-                    lastMessage: msg.text,
+                    chatId: `${otherUserId}_${user.uid}`,
+                    lastMessage: msg.content,
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0, // Could implement read status
                   });
@@ -159,8 +174,8 @@ export default function Home() {
                   conversationsMap.set(otherUserId, {
                     userId: otherUserId,
                     userName: 'Unknown User',
-                    chatId: msg.chatId,
-                    lastMessage: msg.text,
+                    chatId: `${otherUserId}_${user.uid}`,
+                    lastMessage: msg.content,
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0,
                   });
@@ -189,12 +204,15 @@ export default function Home() {
   useEffect(() => {
     // Fetch listings for users
     const fetchListings = async () => {
-      const listingsQuery = query(collection(db, 'listings'), where('approved', '==', true));
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+
+      const listingsQuery = query(collection(dbInstance, 'listings'), where('approved', '==', true));
       const querySnapshot = await getDocs(listingsQuery);
       const listingsData = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
         const listingData = docSnapshot.data() as any;
         // Get agency name
-        const agencyDoc = await getDoc(doc(db, 'users', listingData.agencyId));
+        const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
         const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
         const agencyName = agencyData?.companyName || 'Unknown Agency';
         return { id: docSnapshot.id, ...listingData, agencyName, agencyData };
@@ -208,7 +226,9 @@ export default function Home() {
     // Fetch agency's own listings
     if (user && userData?.role === 'agency') {
       const fetchAgencyListings = async () => {
-        const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user.uid));
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
+        const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user.uid));
         const querySnapshot = await getDocs(agencyListingsQuery);
         const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setAgencyListings(listingsData);
@@ -219,10 +239,12 @@ export default function Home() {
 
   const approveAgency = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'users', id), { approved: true });
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      await updateDoc(doc(dbInstance, 'users', id), { approved: true });
       setPendingAgencies(prev => prev.filter(agency => agency.id !== id));
       // Refresh all agencies data
-      const q = query(collection(db, 'users'), where('role', '==', 'agency'));
+      const q = query(collection(dbInstance, 'users'), where('role', '==', 'agency'));
       const querySnapshot = await getDocs(q);
       const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllAgencies(agencies);
@@ -235,7 +257,9 @@ export default function Home() {
 
   const approveListing = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'listings', id), { approved: true });
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      await updateDoc(doc(dbInstance, 'listings', id), { approved: true });
       setPendingListings(prev => prev.filter(listing => listing.id !== id));
       alert('Listing approved successfully!');
     } catch (error) {
@@ -264,31 +288,33 @@ export default function Home() {
 
   const sendMessage = async () => {
     if (!chatInput.trim() || !user) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
     const messageData = {
-      text: chatInput,
-      sender: user.uid,
-      receiverId: currentChatAgency,
-      chatId: `${user.uid}_${currentChatAgency}`,
+      from_user_id: user.uid,
+      to_user_id: currentChatAgency,
+      content: chatInput,
       timestamp: Date.now(),
+      status: 'sent'
     };
-    await addDoc(collection(db, 'messages'), messageData);
+    await addDoc(collection(dbInstance, 'chat_messages'), messageData);
     setChatInput('');
   };
 
   const sendAgencyMessage = async () => {
     if (!agencyChatInput.trim() || !user || !selectedConversation) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
 
-    // For agency replies, we need to send to the user's chatId
-    // The selectedConversation should have the user's chatId
     const messageData = {
-      text: agencyChatInput,
-      sender: user.uid,
-      receiverId: selectedConversation.userId,
-      chatId: selectedConversation.chatId,
+      from_user_id: user.uid,
+      to_user_id: selectedConversation.userId,
+      content: agencyChatInput,
       timestamp: Date.now(),
+      status: 'sent'
     };
 
-    await addDoc(collection(db, 'messages'), messageData);
+    await addDoc(collection(dbInstance, 'chat_messages'), messageData);
     setAgencyChatInput('');
   };
 
@@ -299,18 +325,23 @@ export default function Home() {
   const handleAddListing = async () => {
     if (!user || !newListing.title.trim()) return;
     try {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      const storageInstance = getStorageInstance();
+      if (!storageInstance) return;
+
       // Upload photos if any
       const photoUrls: string[] = [];
       if (tempPhotoFiles.length > 0) {
         for (const file of tempPhotoFiles) {
-          const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${file.name}`);
+          const storageRef = ref(storageInstance, `listings/${user.uid}/${Date.now()}_${file.name}`);
           await uploadBytes(storageRef, file);
           const downloadURL = await getDownloadURL(storageRef);
           photoUrls.push(downloadURL);
         }
       }
 
-      await addDoc(collection(db, 'listings'), {
+      await addDoc(collection(dbInstance, 'listings'), {
         ...newListing,
         photos: photoUrls,
         agencyId: user.uid,
@@ -321,7 +352,7 @@ export default function Home() {
       setTempPhotoFiles([]);
       setShowListingForm(false);
       // Refresh listings
-      const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user.uid));
+      const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user.uid));
       const querySnapshot = await getDocs(agencyListingsQuery);
       const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAgencyListings(listingsData);
@@ -351,7 +382,9 @@ export default function Home() {
   const handleUpdateListing = async () => {
     if (!editingListing || !newListing.title.trim()) return;
     try {
-      await updateDoc(doc(db, 'listings', editingListing.id), {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      await updateDoc(doc(dbInstance, 'listings', editingListing.id), {
         ...newListing,
         updatedAt: new Date(),
       });
@@ -359,7 +392,7 @@ export default function Home() {
       setNewListing({ title: '', description: '', price: '', duration: '', destination: '', type: 'adventure', photos: [], rating: 0, reviewsCount: 0 });
       setShowListingForm(false);
       // Refresh listings
-      const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user?.uid));
+      const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user?.uid));
       const querySnapshot = await getDocs(agencyListingsQuery);
       const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAgencyListings(listingsData);
@@ -373,9 +406,11 @@ export default function Home() {
   const handleDeleteListing = async (listingId: string) => {
     if (!confirm('Are you sure you want to delete this listing?')) return;
     try {
-      await deleteDoc(doc(db, 'listings', listingId));
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      await deleteDoc(doc(dbInstance, 'listings', listingId));
       // Refresh listings
-      const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user?.uid));
+      const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user?.uid));
       const querySnapshot = await getDocs(agencyListingsQuery);
       const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAgencyListings(listingsData);
@@ -1019,9 +1054,9 @@ export default function Home() {
                     <div className="h-96 bg-gray-50 rounded-lg p-4 flex flex-col">
                       <div className="flex-1 overflow-y-auto space-y-3 mb-4">
                         {chatMessages.map((msg, index) => (
-                          <div key={index} className={`flex ${msg.sender === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.sender === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
-                              <p className="text-sm">{msg.text}</p>
+                          <div key={index} className={`flex ${msg.from_user_id === user?.uid ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.from_user_id === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
+                              <p className="text-sm">{msg.content}</p>
                               <p className="text-xs opacity-75">{new Date(msg.timestamp).toLocaleTimeString()}</p>
                             </div>
                           </div>
@@ -1656,12 +1691,12 @@ export default function Home() {
                               <div className="h-96 bg-gray-50 rounded-lg p-4 flex flex-col">
                                 <div className="flex-1 overflow-y-auto space-y-3 mb-4">
                                   {agencyChatMessages
-                                    .filter(msg => msg.chatId === selectedConversation.chatId)
+                                    .filter(msg => msg.from_user_id === selectedConversation.userId || msg.to_user_id === selectedConversation.userId)
                                     .sort((a, b) => a.timestamp - b.timestamp)
                                     .map((msg, index) => (
-                                      <div key={index} className={`flex ${msg.sender === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.sender === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
-                                          <p className="text-sm">{msg.text}</p>
+                                      <div key={index} className={`flex ${msg.from_user_id === user?.uid ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.from_user_id === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
+                                          <p className="text-sm">{msg.content}</p>
                                           <p className="text-xs opacity-75">{new Date(msg.timestamp).toLocaleTimeString()}</p>
                                         </div>
                                       </div>
