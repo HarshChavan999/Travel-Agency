@@ -202,25 +202,27 @@ export default function Home() {
   }, [user, userData, selectedConversation]);
 
   useEffect(() => {
-    // Fetch listings for users
-    const fetchListings = async () => {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
+    // Fetch listings for users - only when user is authenticated
+    if (user) {
+      const fetchListings = async () => {
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
 
-      const listingsQuery = query(collection(dbInstance, 'listings'), where('approved', '==', true));
-      const querySnapshot = await getDocs(listingsQuery);
-      const listingsData = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
-        const listingData = docSnapshot.data() as any;
-        // Get agency name
-        const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
-        const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
-        const agencyName = agencyData?.companyName || 'Unknown Agency';
-        return { id: docSnapshot.id, ...listingData, agencyName, agencyData };
-      }));
-      setListings(listingsData);
-    };
-    fetchListings();
-  }, []);
+        const listingsQuery = query(collection(dbInstance, 'listings'), where('approved', '==', true));
+        const querySnapshot = await getDocs(listingsQuery);
+        const listingsData = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
+          const listingData = docSnapshot.data() as any;
+          // Get agency name
+          const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
+          const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
+          const agencyName = agencyData?.companyName || 'Unknown Agency';
+          return { id: docSnapshot.id, ...listingData, agencyName, agencyData };
+        }));
+        setListings(listingsData);
+      };
+      fetchListings();
+    }
+  }, [user]);
 
   useEffect(() => {
     // Fetch agency's own listings
