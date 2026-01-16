@@ -1,12 +1,24 @@
 rules_version = '2';
-
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    // Allow authenticated users to read/write their own proof documents
+    match /proofs/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Allow authenticated users to read/write listing photos
+    match /listings/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Allow all authenticated users to read listing photos (for viewing)
+    match /listings/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Allow admin users full access to everything
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null && request.auth.token.email == 'phitanshu962@gmail.com';
     }
   }
 }

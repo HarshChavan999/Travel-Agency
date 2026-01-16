@@ -1,9 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-// Force dynamic rendering to avoid static generation issues with Firebase
-export const dynamic = 'force-dynamic';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getDbInstance, getStorageInstance } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
 
 export default function Home() {
   const { user, userData, loading, signIn, signInWithGoogle, signOut, register } = useAuth();
@@ -54,36 +52,43 @@ export default function Home() {
   const [editingListing, setEditingListing] = useState<any>(null);
   const [viewingListing, setViewingListing] = useState<any>(null);
   const [tempPhotoFiles, setTempPhotoFiles] = useState<File[]>([]);
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [bookingListing, setBookingListing] = useState<any>(null);
+  const [bookingStep, setBookingStep] = useState(1);
+  const [bookingData, setBookingData] = useState({
+    travelers: 1,
+    travelDate: '',
+    specialRequests: '',
+    contactName: '',
+    contactEmail: '',
+    contactPhone: '',
+    preferences: [] as string[]
+  });
+  const [agencyBookings, setAgencyBookings] = useState<any[]>([]);
 
   useEffect(() => {
     if (userData?.role === 'admin') {
       const fetchPending = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const q = query(collection(dbInstance, 'users'), where('approved', '==', false), where('role', '==', 'agency'));
+        const q = query(collection(db, 'users'), where('approved', '==', false), where('role', '==', 'agency'));
         const querySnapshot = await getDocs(q);
         const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setPendingAgencies(agencies);
       };
 
       const fetchAllAgencies = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const q = query(collection(dbInstance, 'users'), where('role', '==', 'agency'));
+        const q = query(collection(db, 'users'), where('role', '==', 'agency'));
         const querySnapshot = await getDocs(q);
         const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setAllAgencies(agencies);
       };
 
       const fetchPendingListings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const q = query(collection(dbInstance, 'listings'), where('approved', '==', false));
+        const q = query(collection(db, 'listings'), where('approved', '==', false));
         const querySnapshot = await getDocs(q);
         const listings = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
           const listingData = docSnapshot.data() as any;
           // Get agency name
-          const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
+          const agencyDoc = await getDoc(doc(db, 'users', listingData.agencyId));
           const agencyName = agencyDoc.exists() ? (agencyDoc.data() as any).companyName : 'Unknown Agency';
           return { id: docSnapshot.id, ...listingData, agencyName };
         }));
@@ -98,13 +103,10 @@ export default function Home() {
 
   useEffect(() => {
     if (user && userData?.role === 'user') {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
-
+      const chatId = `${user.uid}_${currentChatAgency}`;
       const messagesQuery = query(
-        collection(dbInstance, 'chat_messages'),
-        where('from_user_id', '==', user.uid),
-        where('to_user_id', '==', currentChatAgency)
+        collection(db, 'messages'),
+        where('chatId', '==', chatId)
       );
 
       const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
@@ -123,16 +125,13 @@ export default function Home() {
 
   useEffect(() => {
     if (user && userData?.role === 'agency') {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
-
       // Agencies listen for messages where they are either sender or receiver
-      const unsubscribe = onSnapshot(collection(dbInstance, 'chat_messages'), (snapshot) => {
+      const unsubscribe = onSnapshot(collection(db, 'messages'), (snapshot) => {
         const messages: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Include messages where agency is sender OR receiver
-          if (msgData.from_user_id === user.uid || msgData.to_user_id === user.uid) {
+          if (msgData.sender === user.uid || msgData.receiverId === user.uid) {
             messages.push({ id: doc.id, ...msgData });
           }
         });
@@ -146,7 +145,7 @@ export default function Home() {
           for (const msg of messages) {
             try {
               // For conversations, we want the other party (not the agency)
-              const otherUserId = msg.from_user_id === user.uid ? msg.to_user_id : msg.from_user_id;
+              const otherUserId = msg.sender === user.uid ? msg.receiverId : msg.sender;
 
               // Skip messages with invalid user IDs
               if (!otherUserId || typeof otherUserId !== 'string' || otherUserId.trim() === '') {
@@ -157,14 +156,14 @@ export default function Home() {
               if (!conversationsMap.has(otherUserId)) {
                 try {
                   // Fetch user name
-                  const userDoc = await getDoc(doc(dbInstance, 'users', otherUserId));
+                  const userDoc = await getDoc(doc(db, 'users', otherUserId));
                   const userName = userDoc.exists() ? (userDoc.data() as any).name || 'Unknown User' : 'Unknown User';
 
                   conversationsMap.set(otherUserId, {
                     userId: otherUserId,
                     userName,
-                    chatId: `${otherUserId}_${user.uid}`,
-                    lastMessage: msg.content,
+                    chatId: msg.chatId,
+                    lastMessage: msg.text,
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0, // Could implement read status
                   });
@@ -174,8 +173,8 @@ export default function Home() {
                   conversationsMap.set(otherUserId, {
                     userId: otherUserId,
                     userName: 'Unknown User',
-                    chatId: `${otherUserId}_${user.uid}`,
-                    lastMessage: msg.content,
+                    chatId: msg.chatId,
+                    lastMessage: msg.text,
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0,
                   });
@@ -205,15 +204,12 @@ export default function Home() {
     // Fetch listings for users - only when user is authenticated
     if (user) {
       const fetchListings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-
-        const listingsQuery = query(collection(dbInstance, 'listings'), where('approved', '==', true));
+        const listingsQuery = query(collection(db, 'listings'), where('approved', '==', true));
         const querySnapshot = await getDocs(listingsQuery);
         const listingsData = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
           const listingData = docSnapshot.data() as any;
           // Get agency name
-          const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
+          const agencyDoc = await getDoc(doc(db, 'users', listingData.agencyId));
           const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
           const agencyName = agencyData?.companyName || 'Unknown Agency';
           return { id: docSnapshot.id, ...listingData, agencyName, agencyData };
@@ -228,9 +224,7 @@ export default function Home() {
     // Fetch agency's own listings
     if (user && userData?.role === 'agency') {
       const fetchAgencyListings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user.uid));
+        const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user.uid));
         const querySnapshot = await getDocs(agencyListingsQuery);
         const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setAgencyListings(listingsData);
@@ -239,14 +233,27 @@ export default function Home() {
     }
   }, [user, userData]);
 
+  useEffect(() => {
+    // Fetch agency's bookings
+    if (user && userData?.role === 'agency') {
+      const fetchAgencyBookings = async () => {
+        const bookingsQuery = query(collection(db, 'bookings'), where('agencyId', '==', user.uid));
+        const querySnapshot = await getDocs(bookingsQuery);
+        const bookingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Sort bookings by createdAt in descending order (most recent first)
+        bookingsData.sort((a, b) => new Date((b as any).createdAt).getTime() - new Date((a as any).createdAt).getTime());
+        setAgencyBookings(bookingsData);
+      };
+      fetchAgencyBookings();
+    }
+  }, [user, userData]);
+
   const approveAgency = async (id: string) => {
     try {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
-      await updateDoc(doc(dbInstance, 'users', id), { approved: true });
+      await updateDoc(doc(db, 'users', id), { approved: true });
       setPendingAgencies(prev => prev.filter(agency => agency.id !== id));
       // Refresh all agencies data
-      const q = query(collection(dbInstance, 'users'), where('role', '==', 'agency'));
+      const q = query(collection(db, 'users'), where('role', '==', 'agency'));
       const querySnapshot = await getDocs(q);
       const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllAgencies(agencies);
@@ -259,9 +266,7 @@ export default function Home() {
 
   const approveListing = async (id: string) => {
     try {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
-      await updateDoc(doc(dbInstance, 'listings', id), { approved: true });
+      await updateDoc(doc(db, 'listings', id), { approved: true });
       setPendingListings(prev => prev.filter(listing => listing.id !== id));
       alert('Listing approved successfully!');
     } catch (error) {
@@ -290,33 +295,31 @@ export default function Home() {
 
   const sendMessage = async () => {
     if (!chatInput.trim() || !user) return;
-    const dbInstance = getDbInstance();
-    if (!dbInstance) return;
     const messageData = {
-      from_user_id: user.uid,
-      to_user_id: currentChatAgency,
-      content: chatInput,
+      text: chatInput,
+      sender: user.uid,
+      receiverId: currentChatAgency,
+      chatId: `${user.uid}_${currentChatAgency}`,
       timestamp: Date.now(),
-      status: 'sent'
     };
-    await addDoc(collection(dbInstance, 'chat_messages'), messageData);
+    await addDoc(collection(db, 'messages'), messageData);
     setChatInput('');
   };
 
   const sendAgencyMessage = async () => {
     if (!agencyChatInput.trim() || !user || !selectedConversation) return;
-    const dbInstance = getDbInstance();
-    if (!dbInstance) return;
 
+    // For agency replies, we need to send to the user's chatId
+    // The selectedConversation should have the user's chatId
     const messageData = {
-      from_user_id: user.uid,
-      to_user_id: selectedConversation.userId,
-      content: agencyChatInput,
+      text: agencyChatInput,
+      sender: user.uid,
+      receiverId: selectedConversation.userId,
+      chatId: selectedConversation.chatId,
       timestamp: Date.now(),
-      status: 'sent'
     };
 
-    await addDoc(collection(dbInstance, 'chat_messages'), messageData);
+    await addDoc(collection(db, 'messages'), messageData);
     setAgencyChatInput('');
   };
 
@@ -327,23 +330,18 @@ export default function Home() {
   const handleAddListing = async () => {
     if (!user || !newListing.title.trim()) return;
     try {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
-      const storageInstance = getStorageInstance();
-      if (!storageInstance) return;
-
       // Upload photos if any
       const photoUrls: string[] = [];
       if (tempPhotoFiles.length > 0) {
         for (const file of tempPhotoFiles) {
-          const storageRef = ref(storageInstance, `listings/${user.uid}/${Date.now()}_${file.name}`);
+          const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${file.name}`);
           await uploadBytes(storageRef, file);
           const downloadURL = await getDownloadURL(storageRef);
           photoUrls.push(downloadURL);
         }
       }
 
-      await addDoc(collection(dbInstance, 'listings'), {
+      await addDoc(collection(db, 'listings'), {
         ...newListing,
         photos: photoUrls,
         agencyId: user.uid,
@@ -354,7 +352,7 @@ export default function Home() {
       setTempPhotoFiles([]);
       setShowListingForm(false);
       // Refresh listings
-      const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user.uid));
+      const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user.uid));
       const querySnapshot = await getDocs(agencyListingsQuery);
       const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAgencyListings(listingsData);
@@ -384,9 +382,7 @@ export default function Home() {
   const handleUpdateListing = async () => {
     if (!editingListing || !newListing.title.trim()) return;
     try {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
-      await updateDoc(doc(dbInstance, 'listings', editingListing.id), {
+      await updateDoc(doc(db, 'listings', editingListing.id), {
         ...newListing,
         updatedAt: new Date(),
       });
@@ -394,7 +390,7 @@ export default function Home() {
       setNewListing({ title: '', description: '', price: '', duration: '', destination: '', type: 'adventure', photos: [], rating: 0, reviewsCount: 0 });
       setShowListingForm(false);
       // Refresh listings
-      const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user?.uid));
+      const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user?.uid));
       const querySnapshot = await getDocs(agencyListingsQuery);
       const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAgencyListings(listingsData);
@@ -408,11 +404,9 @@ export default function Home() {
   const handleDeleteListing = async (listingId: string) => {
     if (!confirm('Are you sure you want to delete this listing?')) return;
     try {
-      const dbInstance = getDbInstance();
-      if (!dbInstance) return;
-      await deleteDoc(doc(dbInstance, 'listings', listingId));
+      await deleteDoc(doc(db, 'listings', listingId));
       // Refresh listings
-      const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user?.uid));
+      const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user?.uid));
       const querySnapshot = await getDocs(agencyListingsQuery);
       const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAgencyListings(listingsData);
@@ -425,6 +419,74 @@ export default function Home() {
 
   const handleViewListing = (listing: any) => {
     setViewingListing(listing);
+  };
+
+  const startBooking = (listing: any) => {
+    setBookingListing(listing);
+    setShowBookingForm(true);
+    setBookingStep(1);
+    // Pre-fill user data
+    setBookingData({
+      ...bookingData,
+      contactName: userData?.name || '',
+      contactEmail: user?.email || '',
+    });
+  };
+
+  const nextBookingStep = () => {
+    if (bookingStep < 4) {
+      setBookingStep(bookingStep + 1);
+    }
+  };
+
+  const prevBookingStep = () => {
+    if (bookingStep > 1) {
+      setBookingStep(bookingStep - 1);
+    }
+  };
+
+  const submitBooking = async () => {
+    if (!user || !bookingListing) return;
+
+    try {
+      const bookingDoc = {
+        userId: user.uid,
+        userName: bookingData.contactName,
+        userEmail: bookingData.contactEmail,
+        userPhone: bookingData.contactPhone,
+        listingId: bookingListing.id,
+        listingTitle: bookingListing.title,
+        agencyId: bookingListing.agencyId,
+        agencyName: bookingListing.agencyName,
+        travelers: bookingData.travelers,
+        travelDate: bookingData.travelDate,
+        specialRequests: bookingData.specialRequests,
+        preferences: bookingData.preferences,
+        totalAmount: parseFloat(bookingListing.price) * bookingData.travelers,
+        status: 'pending',
+        createdAt: new Date(),
+        bookingReference: `BK${Date.now().toString().slice(-6)}`,
+      };
+
+      await addDoc(collection(db, 'bookings'), bookingDoc);
+
+      alert(`Booking submitted successfully! Reference: ${bookingDoc.bookingReference}`);
+      setShowBookingForm(false);
+      setBookingListing(null);
+      setBookingStep(1);
+      setBookingData({
+        travelers: 1,
+        travelDate: '',
+        specialRequests: '',
+        contactName: '',
+        contactEmail: '',
+        contactPhone: '',
+        preferences: []
+      });
+    } catch (error) {
+      console.error('Error submitting booking:', error);
+      alert('Failed to submit booking. Please try again.');
+    }
   };
 
   if (loading) {
@@ -580,44 +642,44 @@ export default function Home() {
                             <span className="text-2xl">📈</span>
                           </div>
                           <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Revenue</p>
-                            <p className="text-2xl font-bold text-gray-900">$12,450</p>
+                            <p className="text-sm font-medium text-gray-600">Total Listings</p>
+                            <p className="text-2xl font-bold text-gray-900">{listings.length}</p>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Recent Activity */}
+                  {/* System Overview */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center">
-                        <span className="mr-2">📋</span>
-                        Recent Activity
+                        <span className="mr-2">📊</span>
+                        System Overview
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        <div className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">New agency registered: "Adventure Travels"</p>
-                            <p className="text-xs text-gray-500">2 hours ago</p>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="text-sm font-medium">Active Travel Packages</p>
+                            <p className="text-xs text-gray-500">Approved listings available to users</p>
                           </div>
+                          <span className="text-lg font-bold text-blue-600">{listings.length}</span>
                         </div>
-                        <div className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Agency "Global Tours" was approved</p>
-                            <p className="text-xs text-gray-500">4 hours ago</p>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="text-sm font-medium">Pending Approvals</p>
+                            <p className="text-xs text-gray-500">Listings and agencies awaiting review</p>
                           </div>
+                          <span className="text-lg font-bold text-yellow-600">{pendingListings.length + pendingAgencies.length}</span>
                         </div>
-                        <div className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Monthly analytics report generated</p>
-                            <p className="text-xs text-gray-500">1 day ago</p>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="text-sm font-medium">System Status</p>
+                            <p className="text-xs text-gray-500">All services operational</p>
                           </div>
+                          <span className="text-sm font-semibold text-green-600">✅ Online</span>
                         </div>
                       </div>
                     </CardContent>
@@ -703,27 +765,31 @@ export default function Home() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Top Performing Agencies</CardTitle>
+                      <CardTitle>All Agencies</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {allAgencies.filter(a => a.approved).slice(0, 5).map(agency => (
-                          <div key={agency.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <span className="text-sm">🏢</span>
+                        {allAgencies.filter(a => a.approved).length === 0 ? (
+                          <p className="text-gray-500 text-center py-8">No approved agencies yet</p>
+                        ) : (
+                          allAgencies.filter(a => a.approved).slice(0, 5).map(agency => (
+                            <div key={agency.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <span className="text-sm">🏢</span>
+                                </div>
+                                <div>
+                                  <p className="font-medium">{agency.companyName}</p>
+                                  <p className="text-sm text-gray-600">{agencyListings.filter(l => l.agencyId === agency.id).length} listings</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">{agency.companyName}</p>
-                                <p className="text-sm text-gray-600">156 bookings • $8,420 revenue</p>
+                              <div className="text-right">
+                                <p className="font-semibold text-blue-600">{agencyListings.filter(l => l.agencyId === agency.id && l.approved).length}</p>
+                                <p className="text-xs text-gray-500">Active</p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-semibold text-green-600">⭐ 4.8</p>
-                              <p className="text-xs text-gray-500">Rating</p>
-                            </div>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -934,48 +1000,284 @@ export default function Home() {
             </header>
 
             <main className="p-6">
-              {userActiveSection === 'listings' && !viewingListing && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <span className="mr-2">🏖️</span>
-                      Available Travel Packages
-                    </CardTitle>
-                    <CardDescription>
-                      Browse and book amazing travel experiences
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {listings.length === 0 ? (
-                        <p className="text-gray-500 text-center py-8">No travel packages available yet.</p>
-                      ) : (
-                        listings.map((listing) => (
-                          <div key={listing.id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <span className="text-lg">🏖️</span>
+              {userActiveSection === 'listings' && !viewingListing && !showBookingForm && (
+                <>
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Available Travel Packages</h2>
+                    <p className="text-gray-600">Browse and book amazing travel experiences</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {listings.length === 0 ? (
+                      <div className="col-span-full text-center py-12">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-3xl">🏖️</span>
+                        </div>
+                        <p className="text-gray-500">No travel packages available yet.</p>
+                      </div>
+                    ) : (
+                      listings.map((listing) => (
+                        <Card key={listing.id} className="hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-3">
+                            {listing.photos && listing.photos.length > 0 && (
+                              <div className="w-full h-48 bg-gray-100 rounded-lg mb-4 overflow-hidden">
+                                <img
+                                  src={listing.photos[0]}
+                                  alt={listing.title}
+                                  className="w-full h-full object-cover"
+                                />
                               </div>
-                              <div>
-                                <h3 className="font-semibold">{listing.title}</h3>
-                                <p className="text-sm text-gray-600">{listing.duration} days • ${listing.price} • {listing.type} • By {listing.agencyName}</p>
-                              </div>
+                            )}
+                            <CardTitle className="text-lg">{listing.title}</CardTitle>
+                            <CardDescription className="flex items-center space-x-2">
+                              <span>{listing.type}</span>
+                              <span>•</span>
+                              <span>{listing.duration} days</span>
+                              <span>•</span>
+                              <span>${listing.price}</span>
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <p className="text-sm text-gray-600 mb-4 line-clamp-2">{listing.description}</p>
+                            <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                              <span>By {listing.agencyName}</span>
+                              {listing.rating > 0 && (
+                                <span className="flex items-center">
+                                  ⭐ {listing.rating} ({listing.reviewsCount} reviews)
+                                </span>
+                              )}
                             </div>
                             <div className="flex space-x-2">
-                              <Button variant="outline" size="sm" onClick={() => setViewingListing(listing)}>View Details</Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => setViewingListing(listing)}
+                              >
+                                View Details
+                              </Button>
                               <Button
                                 size="sm"
+                                className="flex-1"
+                                onClick={() => startBooking(listing)}
+                              >
+                                Book Now
+                              </Button>
+                            </div>
+                            <div className="mt-2 text-center">
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="text-xs text-blue-600"
                                 onClick={() => {
                                   setCurrentChatAgency(listing.agencyId);
                                   setCurrentChatAgencyName(listing.agencyName);
                                   setUserActiveSection('chat');
                                 }}
                               >
-                                Chat with Agency
+                                💬 Chat Support
                               </Button>
                             </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+
+              {showBookingForm && userActiveSection === 'listings' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <span className="mr-2">📅</span>
+                      Book Your Trip - Step {bookingStep} of 4
+                    </CardTitle>
+                    <CardDescription>
+                      {bookingListing?.title} • By {bookingListing?.agencyName}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Progress Indicator */}
+                    <div className="flex items-center space-x-4 mb-6">
+                      {[1, 2, 3, 4].map((step) => (
+                        <div key={step} className="flex items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                            step <= bookingStep ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+                          }`}>
+                            {step}
                           </div>
-                        ))
+                          {step < 4 && (
+                            <div className={`w-12 h-1 mx-2 ${
+                              step < bookingStep ? 'bg-blue-500' : 'bg-gray-200'
+                            }`} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {bookingStep === 1 && (
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Package Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="travelers">Number of Travelers</Label>
+                            <select
+                              id="travelers"
+                              className="w-full p-2 border rounded-lg"
+                              value={bookingData.travelers}
+                              onChange={(e) => setBookingData({ ...bookingData, travelers: parseInt(e.target.value) })}
+                            >
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                                <option key={num} value={num}>{num} {num === 1 ? 'Traveler' : 'Travelers'}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <Label htmlFor="travelDate">Preferred Travel Date</Label>
+                            <Input
+                              id="travelDate"
+                              type="date"
+                              value={bookingData.travelDate}
+                              onChange={(e) => setBookingData({ ...bookingData, travelDate: e.target.value })}
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="specialRequests">Special Requests or Notes</Label>
+                          <textarea
+                            id="specialRequests"
+                            className="w-full p-2 border rounded-lg"
+                            rows={3}
+                            value={bookingData.specialRequests}
+                            onChange={(e) => setBookingData({ ...bookingData, specialRequests: e.target.value })}
+                            placeholder="Any special requirements, dietary restrictions, or preferences..."
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {bookingStep === 2 && (
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Travel Preferences</h3>
+                        <div className="space-y-3">
+                          <Label>Select your interests (optional)</Label>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {['Adventure', 'Culture', 'Food', 'Relaxation', 'Shopping', 'Nightlife'].map(pref => (
+                              <label key={pref} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={bookingData.preferences.includes(pref)}
+                                  onChange={(e) => {
+                                    const newPrefs = e.target.checked
+                                      ? [...bookingData.preferences, pref]
+                                      : bookingData.preferences.filter(p => p !== pref);
+                                    setBookingData({ ...bookingData, preferences: newPrefs });
+                                  }}
+                                  className="rounded"
+                                />
+                                <span className="text-sm">{pref}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {bookingStep === 3 && (
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Contact Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="contactName">Full Name</Label>
+                            <Input
+                              id="contactName"
+                              value={bookingData.contactName}
+                              onChange={(e) => setBookingData({ ...bookingData, contactName: e.target.value })}
+                              placeholder="Enter your full name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="contactEmail">Email Address</Label>
+                            <Input
+                              id="contactEmail"
+                              type="email"
+                              value={bookingData.contactEmail}
+                              onChange={(e) => setBookingData({ ...bookingData, contactEmail: e.target.value })}
+                              placeholder="Enter your email"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label htmlFor="contactPhone">Phone Number</Label>
+                            <Input
+                              id="contactPhone"
+                              value={bookingData.contactPhone}
+                              onChange={(e) => setBookingData({ ...bookingData, contactPhone: e.target.value })}
+                              placeholder="Enter your phone number"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {bookingStep === 4 && (
+                      <div className="space-y-6">
+                        <h3 className="text-lg font-semibold">Booking Summary</h3>
+                        <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                          <div className="flex justify-between">
+                            <span>Package:</span>
+                            <span className="font-semibold">{bookingListing?.title}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Travelers:</span>
+                            <span>{bookingData.travelers}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Travel Date:</span>
+                            <span>{bookingData.travelDate || 'Not specified'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Price per person:</span>
+                            <span>${bookingListing?.price}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-lg border-t pt-2">
+                            <span>Total Amount:</span>
+                            <span>${(parseFloat(bookingListing?.price || '0') * bookingData.travelers).toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <h4 className="font-semibold text-blue-800 mb-2">Important Notes:</h4>
+                          <ul className="text-sm text-blue-700 space-y-1">
+                            <li>• Booking will be confirmed within 24 hours</li>
+                            <li>• Payment details will be shared after confirmation</li>
+                            <li>• You can modify or cancel your booking before payment</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={prevBookingStep}
+                        disabled={bookingStep === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowBookingForm(false)}
+                      >
+                        Cancel
+                      </Button>
+                      {bookingStep < 4 ? (
+                        <Button onClick={nextBookingStep}>
+                          Next
+                        </Button>
+                      ) : (
+                        <Button onClick={submitBooking} className="bg-green-600 hover:bg-green-700">
+                          Confirm Booking
+                        </Button>
                       )}
                     </div>
                   </CardContent>
@@ -1056,9 +1358,9 @@ export default function Home() {
                     <div className="h-96 bg-gray-50 rounded-lg p-4 flex flex-col">
                       <div className="flex-1 overflow-y-auto space-y-3 mb-4">
                         {chatMessages.map((msg, index) => (
-                          <div key={index} className={`flex ${msg.from_user_id === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.from_user_id === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
-                              <p className="text-sm">{msg.content}</p>
+                          <div key={index} className={`flex ${msg.sender === user?.uid ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.sender === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
+                              <p className="text-sm">{msg.text}</p>
                               <p className="text-xs opacity-75">{new Date(msg.timestamp).toLocaleTimeString()}</p>
                             </div>
                           </div>
@@ -1208,11 +1510,11 @@ export default function Home() {
                         <CardContent className="p-6">
                           <div className="flex items-center">
                             <div className="p-2 bg-green-100 rounded-lg">
-                              <span className="text-2xl">👥</span>
+                              <span className="text-2xl">💬</span>
                             </div>
                             <div className="ml-4">
-                              <p className="text-sm font-medium text-gray-600">Total Bookings</p>
-                              <p className="text-2xl font-bold text-gray-900">156</p>
+                              <p className="text-sm font-medium text-gray-600">Active Chats</p>
+                              <p className="text-2xl font-bold text-gray-900">{agencyConversations.length}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -1222,11 +1524,11 @@ export default function Home() {
                         <CardContent className="p-6">
                           <div className="flex items-center">
                             <div className="p-2 bg-yellow-100 rounded-lg">
-                              <span className="text-2xl">💰</span>
+                              <span className="text-2xl">⏳</span>
                             </div>
                             <div className="ml-4">
-                              <p className="text-sm font-medium text-gray-600">Revenue</p>
-                              <p className="text-2xl font-bold text-gray-900">$8,420</p>
+                              <p className="text-sm font-medium text-gray-600">Pending Listings</p>
+                              <p className="text-2xl font-bold text-gray-900">{agencyListings.filter(l => !l.approved).length}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -1440,30 +1742,8 @@ export default function Home() {
                             <CardTitle>Popular Destinations</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            <div className="space-y-3">
-                              <div className="flex justify-between">
-                                <span>Bali</span>
-                                <span className="font-semibold">45%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '45%' }}></div>
-                              </div>
-
-                              <div className="flex justify-between">
-                                <span>Switzerland</span>
-                                <span className="font-semibold">32%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '32%' }}></div>
-                              </div>
-
-                              <div className="flex justify-between">
-                                <span>Japan</span>
-                                <span className="font-semibold">23%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '23%' }}></div>
-                              </div>
+                            <div className="h-32 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <p className="text-gray-500">📊 Analytics Coming Soon</p>
                             </div>
                           </CardContent>
                         </Card>
@@ -1471,24 +1751,16 @@ export default function Home() {
 
                       <Card>
                         <CardHeader>
-                          <CardTitle>Recent Bookings</CardTitle>
+                          <CardTitle>Recent Activity</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
                             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                               <div>
-                                <p className="font-medium">John Smith</p>
-                                <p className="text-sm text-gray-600">Bali Paradise Package • $2,499</p>
+                                <p className="font-medium">No Recent Bookings</p>
+                                <p className="text-sm text-gray-600">Booking system integration pending</p>
                               </div>
-                              <span className="text-green-600 font-semibold">Confirmed</span>
-                            </div>
-
-                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                              <div>
-                                <p className="font-medium">Sarah Johnson</p>
-                                <p className="text-sm text-gray-600">Swiss Alps Adventure • $4,299</p>
-                              </div>
-                              <span className="text-yellow-600 font-semibold">Pending</span>
+                              <span className="text-gray-600 font-semibold">Coming Soon</span>
                             </div>
                           </div>
                         </CardContent>
@@ -1497,75 +1769,145 @@ export default function Home() {
                   )}
 
                   {agencyActiveSection === 'bookings' && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          <span className="mr-2">📅</span>
-                          Booking Management
-                        </CardTitle>
-                        <CardDescription>
-                          Manage customer bookings and inquiries
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center p-4 border rounded-lg">
-                            <div>
-                              <p className="font-medium">John Smith</p>
-                              <p className="text-sm text-gray-600">Bali Paradise Package • 2 adults, 2 children • $4,998</p>
-                              <p className="text-xs text-gray-500">Booked on Dec 15, 2025 • Check-in: Jan 10, 2026</p>
-                            </div>
-                            <div className="text-right">
-                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                                Confirmed
-                              </span>
-                              <div className="mt-2">
-                                <Button variant="outline" size="sm" className="mr-2">View Details</Button>
-                                <Button variant="outline" size="sm">Contact</Button>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card>
+                          <CardContent className="p-6">
+                            <div className="flex items-center">
+                              <div className="p-2 bg-blue-100 rounded-lg">
+                                <span className="text-2xl">📅</span>
+                              </div>
+                              <div className="ml-4">
+                                <p className="text-sm font-medium text-gray-600">Total Bookings</p>
+                                <p className="text-2xl font-bold text-gray-900">{agencyBookings.length}</p>
                               </div>
                             </div>
-                          </div>
+                          </CardContent>
+                        </Card>
 
-                          <div className="flex justify-between items-center p-4 border rounded-lg">
-                            <div>
-                              <p className="font-medium">Sarah Johnson</p>
-                              <p className="text-sm text-gray-600">Swiss Alps Adventure • 2 adults • $8,598</p>
-                              <p className="text-xs text-gray-500">Booked on Dec 20, 2025 • Check-in: Feb 5, 2026</p>
-                            </div>
-                            <div className="text-right">
-                              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
-                                Pending Payment
-                              </span>
-                              <div className="mt-2">
-                                <Button variant="outline" size="sm" className="mr-2">Confirm</Button>
-                                <Button variant="outline" size="sm">Contact</Button>
+                        <Card>
+                          <CardContent className="p-6">
+                            <div className="flex items-center">
+                              <div className="p-2 bg-yellow-100 rounded-lg">
+                                <span className="text-2xl">⏳</span>
+                              </div>
+                              <div className="ml-4">
+                                <p className="text-sm font-medium text-gray-600">Pending</p>
+                                <p className="text-2xl font-bold text-gray-900">{agencyBookings.filter(b => b.status === 'pending').length}</p>
                               </div>
                             </div>
-                          </div>
+                          </CardContent>
+                        </Card>
 
-                          <div className="flex justify-between items-center p-4 border rounded-lg">
-                            <div>
-                              <p className="font-medium">Mike Chen</p>
-                              <p className="text-sm text-gray-600">Tokyo Discovery • 1 adult • $2,999</p>
-                              <p className="text-xs text-gray-500">Booked on Dec 22, 2025 • Check-in: Mar 15, 2026</p>
-                            </div>
-                            <div className="text-right">
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
-                                Processing
-                              </span>
-                              <div className="mt-2">
-                                <Button variant="outline" size="sm" className="mr-2">Update Status</Button>
-                                <Button variant="outline" size="sm">Contact</Button>
+                        <Card>
+                          <CardContent className="p-6">
+                            <div className="flex items-center">
+                              <div className="p-2 bg-green-100 rounded-lg">
+                                <span className="text-2xl">✅</span>
+                              </div>
+                              <div className="ml-4">
+                                <p className="text-sm font-medium text-gray-600">Confirmed</p>
+                                <p className="text-2xl font-bold text-gray-900">{agencyBookings.filter(b => b.status === 'confirmed').length}</p>
                               </div>
                             </div>
-                          </div>
-                        </div>
+                          </CardContent>
+                        </Card>
+                      </div>
 
-                        <div className="mt-6 text-center">
-                          <p className="text-gray-500">Real booking data will be integrated with payment systems</p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center">
+                            <span className="mr-2">📅</span>
+                            Recent Bookings
+                          </CardTitle>
+                          <CardDescription>
+                            Manage customer bookings and inquiries
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {agencyBookings.length === 0 ? (
+                            <div className="text-center py-12">
+                              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <span className="text-2xl">📅</span>
+                              </div>
+                              <h3 className="text-lg font-semibold mb-2">No Bookings Yet</h3>
+                              <p className="text-gray-600 mb-4">
+                                When customers book your travel packages, they will appear here for you to manage.
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                You can confirm bookings, communicate with customers, and track payments.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {agencyBookings.map((booking) => (
+                                <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
+                                  <div className="flex items-center space-x-4">
+                                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                      <span className="text-lg">👤</span>
+                                    </div>
+                                    <div>
+                                      <h3 className="font-semibold">{booking.userName}</h3>
+                                      <p className="text-sm text-gray-600">
+                                        {booking.listingTitle} • {booking.travelers} traveler{booking.travelers > 1 ? 's' : ''} • ${booking.totalAmount}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        Travel Date: {booking.travelDate || 'Not specified'} • Ref: {booking.bookingReference}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {booking.userEmail} • {booking.userPhone || 'No phone'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end space-y-2">
+                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                      booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                      booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-red-100 text-red-800'
+                                    }`}>
+                                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                    </span>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          // TODO: Implement booking details modal
+                                          alert(`Booking Details:\n\n${booking.specialRequests || 'No special requests'}\n\nPreferences: ${booking.preferences.join(', ') || 'None'}`);
+                                        }}
+                                      >
+                                        Details
+                                      </Button>
+                                      {booking.status === 'pending' && (
+                                        <Button
+                                          size="sm"
+                                          onClick={async () => {
+                                            try {
+                                              await updateDoc(doc(db, 'bookings', booking.id), { status: 'confirmed' });
+                                              // Refresh bookings
+                                              const updatedBookings = agencyBookings.map(b =>
+                                                b.id === booking.id ? { ...b, status: 'confirmed' } : b
+                                              );
+                                              setAgencyBookings(updatedBookings);
+                                              alert('Booking confirmed successfully!');
+                                            } catch (error) {
+                                              console.error('Error confirming booking:', error);
+                                              alert('Failed to confirm booking. Please try again.');
+                                            }
+                                          }}
+                                        >
+                                          Confirm
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
                   )}
 
                   {agencyActiveSection === 'revenue' && (
@@ -1574,7 +1916,7 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-green-600">$8,420</p>
+                              <p className="text-2xl font-bold text-green-600">$0</p>
                               <p className="text-sm text-gray-600">This Month</p>
                             </div>
                           </CardContent>
@@ -1583,7 +1925,7 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-blue-600">$24,580</p>
+                              <p className="text-2xl font-bold text-blue-600">$0</p>
                               <p className="text-sm text-gray-600">This Year</p>
                             </div>
                           </CardContent>
@@ -1592,7 +1934,7 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-purple-600">156</p>
+                              <p className="text-2xl font-bold text-purple-600">0</p>
                               <p className="text-sm text-gray-600">Total Bookings</p>
                             </div>
                           </CardContent>
@@ -1601,7 +1943,7 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-yellow-600">4.8</p>
+                              <p className="text-2xl font-bold text-yellow-600">N/A</p>
                               <p className="text-sm text-gray-600">Avg Rating</p>
                             </div>
                           </CardContent>
@@ -1610,22 +1952,11 @@ export default function Home() {
 
                       <Card>
                         <CardHeader>
-                          <CardTitle>Revenue Breakdown</CardTitle>
+                          <CardTitle>Revenue Overview</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <span>Bali Paradise Package</span>
-                              <span className="font-semibold">$5,247 (62%)</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span>Swiss Alps Adventure</span>
-                              <span className="font-semibold">$2,937 (35%)</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span>Tokyo Discovery</span>
-                              <span className="font-semibold">$236 (3%)</span>
-                            </div>
+                          <div className="text-center py-8">
+                            <p className="text-gray-500">Revenue tracking will be available once booking system is implemented</p>
                           </div>
                         </CardContent>
                       </Card>
@@ -1693,12 +2024,12 @@ export default function Home() {
                               <div className="h-96 bg-gray-50 rounded-lg p-4 flex flex-col">
                                 <div className="flex-1 overflow-y-auto space-y-3 mb-4">
                                   {agencyChatMessages
-                                    .filter(msg => msg.from_user_id === selectedConversation.userId || msg.to_user_id === selectedConversation.userId)
+                                    .filter(msg => msg.chatId === selectedConversation.chatId)
                                     .sort((a, b) => a.timestamp - b.timestamp)
                                     .map((msg, index) => (
-                                      <div key={index} className={`flex ${msg.from_user_id === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.from_user_id === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
-                                          <p className="text-sm">{msg.content}</p>
+                                      <div key={index} className={`flex ${msg.sender === user?.uid ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.sender === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
+                                          <p className="text-sm">{msg.text}</p>
                                           <p className="text-xs opacity-75">{new Date(msg.timestamp).toLocaleTimeString()}</p>
                                         </div>
                                       </div>

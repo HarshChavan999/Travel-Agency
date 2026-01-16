@@ -57,6 +57,27 @@ service cloud.firestore {
                        request.auth.uid == request.resource.data.from_user_id;
     }
 
+    // Messages collection - authenticated users can read/write messages they're involved in
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() &&
+                     (request.auth.uid == resource.data.sender ||
+                      request.auth.uid == resource.data.receiverId);
+      allow write: if isAuthenticated() &&
+                      request.auth.uid == request.resource.data.sender;
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == request.resource.data.sender;
+    }
+
+    // Bookings collection - users can create bookings, agencies can read their own bookings, admins can read all
+    match /bookings/{bookingId} {
+      allow read: if isAdmin() ||
+                     (isAgency() && resource.data.agencyId == request.auth.uid) ||
+                     (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow write: if isAdmin() ||
+                      (isAgency() && resource.data.agencyId == request.auth.uid);
+    }
+
     // Allow read access to public data for authenticated users
     match /{document=**} {
       allow read: if isAuthenticated();
