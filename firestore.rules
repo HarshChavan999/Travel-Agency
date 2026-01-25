@@ -56,6 +56,9 @@ service cloud.firestore {
                       request.auth.uid == request.resource.data.from_user_id;
       allow create: if isAuthenticated() &&
                        request.auth.uid == request.resource.data.from_user_id;
+      allow update: if isAuthenticated() &&
+                       request.auth.uid == request.resource.data.to_user_id &&
+                       request.resource.data.status == 'delivered';
     }
 
     // Messages collection - authenticated users can read/write messages they're involved in
