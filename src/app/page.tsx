@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import AgencyListingForm from '@/components/AgencyListingForm';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
@@ -21,6 +22,22 @@ export default function Home() {
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  // Agency Registration Fields
+  const [contactNumber, setContactNumber] = useState('');
+  const [businessLocation, setBusinessLocation] = useState('');
+  const [fullAddress, setFullAddress] = useState('');
+  const [panCard, setPanCard] = useState<File | null>(null);
+  const [gstCertificate, setGstCertificate] = useState<File | null>(null);
+  const [businessProof, setBusinessProof] = useState<File | null>(null);
+  const [agencyDescription, setAgencyDescription] = useState('');
+  const [operatingFromHome, setOperatingFromHome] = useState(false);
+  const [operatingFromOffice, setOperatingFromOffice] = useState(false);
+  const [officeAddress, setOfficeAddress] = useState('');
+  const [uploadOfficePhotos, setUploadOfficePhotos] = useState(false);
+  const [uploadBranding, setUploadBranding] = useState(false);
+  const [agencyPhotos, setAgencyPhotos] = useState<File[]>([]);
+  const [refundPolicy, setRefundPolicy] = useState('');
+  const [declarationChecked, setDeclarationChecked] = useState(false);
   const [pendingAgencies, setPendingAgencies] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [allAgencies, setAllAgencies] = useState<any[]>([]);
@@ -323,8 +340,54 @@ export default function Home() {
         await signIn(email, password);
       } else {
         const role = isAgencyRegistration ? 'agency' : 'user';
-        const userDataInput = isAgencyRegistration ? { name, companyName } : { name };
-        await register(email, password, role, userDataInput, file || undefined);
+
+        if (isAgencyRegistration) {
+          // Validate mandatory fields
+          if (!declarationChecked) {
+            throw new Error('Please accept the declaration to proceed with registration.');
+          }
+
+          if (!contactNumber || !businessLocation || !fullAddress || !agencyDescription || !refundPolicy) {
+            throw new Error('Please fill in all required fields.');
+          }
+
+          if (operatingFromOffice && !officeAddress) {
+            throw new Error('Please provide office address when operating from office.');
+          }
+
+          // Create agency data object
+          const agencyData = {
+            contactNumber,
+            businessLocation,
+            fullAddress,
+            agencyDescription,
+            refundPolicy,
+            operatingFromHome,
+            operatingFromOffice,
+            officeAddress: operatingFromOffice ? officeAddress : '',
+            uploadOfficePhotos,
+            uploadBranding,
+            // Files will be handled separately
+          };
+
+          // For now, we'll use the existing register function but pass the additional data
+          // In a real implementation, you would extend the AuthContext to handle all this data
+          const userDataInput = { name, companyName, ...agencyData };
+          await register(email, password, role, userDataInput, file || undefined);
+
+          // Handle file uploads (this would need to be implemented in the AuthContext)
+          console.log('Agency registration data:', {
+            panCard,
+            gstCertificate,
+            businessProof,
+            agencyPhotos
+          });
+        } else {
+          // User registration
+          const userDataInput = { name };
+          await register(email, password, role, userDataInput, file || undefined);
+        }
+
         alert(`Registration successful! ${role === 'agency' ? 'Please wait for admin approval.' : ''}`);
         setIsLogin(true);
       }
@@ -1190,10 +1253,16 @@ export default function Home() {
                       listings
                         .filter(listing => {
                           // Apply search filter
-                          if (searchTerm && !listing.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                              !listing.description.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                              !listing.destination.toLowerCase().includes(searchTerm.toLowerCase())) {
-                            return false;
+                          if (searchTerm) {
+                            const title = listing.title || '';
+                            const description = listing.description || '';
+                            const destination = listing.destination || '';
+                            
+                            if (!title.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                                !description.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                                !destination.toLowerCase().includes(searchTerm.toLowerCase())) {
+                              return false;
+                            }
                           }
 
                           // Apply price filter
@@ -1256,11 +1325,12 @@ export default function Home() {
                               </Button>
                             </div>
 
-                            {listing.photos && listing.photos.length > 0 && (
+                            {/* Display package photos - get from first place's images */}
+                            {listing.placesCovered && listing.placesCovered.length > 0 && listing.placesCovered[0].imageUrls && listing.placesCovered[0].imageUrls.length > 0 && (
                               <div className="w-full h-48 bg-gray-100 rounded-lg mb-4 overflow-hidden">
                                 <img
-                                  src={listing.photos[0]}
-                                  alt={listing.title}
+                                  src={listing.placesCovered[0].imageUrls[0]}
+                                  alt={listing.placesCovered[0].name || 'Package Image'}
                                   className="w-full h-full object-cover"
                                 />
                               </div>
@@ -1274,11 +1344,16 @@ export default function Home() {
                               )}
                             </CardTitle>
                             <CardDescription className="flex items-center space-x-2">
-                              <span>{listing.type}</span>
+                              <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm">
+                                {listing.packageType === 'international' ? '🌍 International' : '🏠 Domestic'}
+                              </span>
                               <span>•</span>
-                              <span>{listing.duration} days</span>
-                              <span>•</span>
-                              <span>${listing.price}</span>
+                              <span className="font-medium">
+                                {listing.packageType === 'international' 
+                                  ? listing.countryName || 'Country not specified'
+                                  : listing.stateName || 'State not specified'
+                                }
+                              </span>
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="pt-0">
@@ -1290,6 +1365,12 @@ export default function Home() {
                                   ⭐ {listing.rating} ({listing.reviewsCount} reviews)
                                 </span>
                               )}
+                            </div>
+                            <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                              <span>Duration: {listing.itinerary?.length || 0} days / {listing.itinerary && listing.itinerary.length > 0 ? listing.itinerary.length - 1 : 0} nights</span>
+                              <span className="font-semibold text-blue-600">
+                                Cost: {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'N/A'}
+                              </span>
                             </div>
                             <div className="flex space-x-2">
                               <Button
@@ -1541,30 +1622,41 @@ export default function Home() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {viewingListing.photos && viewingListing.photos.length > 0 && (
+                    {/* Display package photos from placesCovered */}
+                    {viewingListing.placesCovered && viewingListing.placesCovered.length > 0 && (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {viewingListing.photos.map((photo: string, index: number) => (
-                          <img
-                            key={index}
-                            src={photo}
-                            alt={`${viewingListing.title} ${index + 1}`}
-                            className="w-full h-48 object-cover rounded-lg"
-                          />
+                        {viewingListing.placesCovered.map((place: any, index: number) => (
+                          place.imageUrls && place.imageUrls.length > 0 && (
+                            <img
+                              key={`${viewingListing.id}-${place.id}-${index}`}
+                              src={place.imageUrls[0]}
+                              alt={`${place.name || 'Place'} - ${viewingListing.title}`}
+                              className="w-full h-48 object-cover rounded-lg"
+                            />
+                          )
                         ))}
                       </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <h3 className="font-semibold text-lg mb-2">Package Details</h3>
-                        <div className="space-y-2">
-                          <p><strong>Destination:</strong> {viewingListing.destination}</p>
-                          <p><strong>Duration:</strong> {viewingListing.duration} days</p>
-                          <p><strong>Price:</strong> ${viewingListing.price}</p>
-                          <p><strong>Type:</strong> {viewingListing.type}</p>
-                          {viewingListing.rating > 0 && (
-                            <p><strong>Rating:</strong> ⭐ {viewingListing.rating} ({viewingListing.reviewsCount} reviews)</p>
-                          )}
-                        </div>
+                          <div className="space-y-2">
+                            <p><strong>Package Type:</strong> {viewingListing.packageType === 'international' ? '🌍 International' : '🏠 Domestic'}</p>
+                            {viewingListing.packageType === 'international' && viewingListing.countryName && (
+                              <p><strong>Country:</strong> {viewingListing.countryName}</p>
+                            )}
+                            {viewingListing.packageType === 'domestic' && viewingListing.stateName && (
+                              <p><strong>State:</strong> {viewingListing.stateName}</p>
+                            )}
+                            <p><strong>Places Covered:</strong> {viewingListing.placesCovered?.map((place: any) => place.name).join(', ') || 'Not specified'}</p>
+                            <p><strong>Duration:</strong> {viewingListing.itinerary?.length || 0} days / {viewingListing.itinerary && viewingListing.itinerary.length > 0 ? viewingListing.itinerary.length - 1 : 0} nights</p>
+                            <p><strong>Price:</strong> ${viewingListing.cost || viewingListing.price || 'N/A'}</p>
+                            <p><strong>Hotel Type:</strong> {viewingListing.hotelType || 'Not specified'}</p>
+                            <p><strong>Meal Plan:</strong> {viewingListing.mealPlan || 'Not specified'}</p>
+                            {viewingListing.rating > 0 && (
+                              <p><strong>Rating:</strong> ⭐ {viewingListing.rating} ({viewingListing.reviewsCount} reviews)</p>
+                            )}
+                          </div>
                       </div>
                       <div>
                         <h3 className="font-semibold text-lg mb-2">Description</h3>
@@ -1931,188 +2023,152 @@ export default function Home() {
 
                   {agencyActiveSection === 'listings' && (
                     <div className="space-y-6">
+                      {/* Navigation Buttons */}
+                      <div className="flex gap-4 mb-6">
+                        <Button
+                          variant={!showListingForm ? 'default' : 'outline'}
+                          onClick={() => {
+                            setShowListingForm(false);
+                            setEditingListing(null);
+                            setViewingListing(null);
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          📋 My Listings
+                        </Button>
+                        <Button
+                          variant={showListingForm ? 'default' : 'outline'}
+                          onClick={() => {
+                            setShowListingForm(true);
+                            setEditingListing(null);
+                            setViewingListing(null);
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          ➕ New Listing
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setAgencyActiveSection('chat')}
+                          className="flex items-center gap-2"
+                        >
+                          💬 Chat
+                        </Button>
+                      </div>
+
+                      {/* New Listing Form */}
                       {showListingForm && (
+                        <AgencyListingForm
+                          agencyId={user?.uid || ''}
+                          onSuccess={() => {
+                            setShowListingForm(false);
+                            setEditingListing(null);
+                            setViewingListing(null);
+                            // Refresh listings
+                            const fetchAgencyListings = async () => {
+                              const agencyListingsQuery = query(collection(db, 'listings'), where('agencyId', '==', user?.uid));
+                              const querySnapshot = await getDocs(agencyListingsQuery);
+                              const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                              setAgencyListings(listingsData);
+                            };
+                            fetchAgencyListings();
+                          }}
+                          initialData={editingListing || undefined}
+                        />
+                      )}
+
+                      {/* My Listings */}
+                      {!showListingForm && !viewingListing && (
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center">
-                              <span className="mr-2">{editingListing ? '✏️' : '➕'}</span>
-                              {editingListing ? 'Edit Listing' : 'Add New Listing'}
+                              <span className="mr-2">🏖️</span>
+                              Your Travel Listings
                             </CardTitle>
                             <CardDescription>
-                              {editingListing ? 'Update your travel package details' : 'Create a new travel package for customers'}
+                              Manage your travel packages and destinations
                             </CardDescription>
                           </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor="listingTitle">Title</Label>
-                                <Input
-                                  id="listingTitle"
-                                  value={newListing.title}
-                                  onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
-                                  placeholder="e.g., Bali Paradise Package"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="listingDestination">Destination</Label>
-                                <Input
-                                  id="listingDestination"
-                                  value={newListing.destination}
-                                  onChange={(e) => setNewListing({ ...newListing, destination: e.target.value })}
-                                  placeholder="e.g., Bali, Indonesia"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="listingPrice">Price ($)</Label>
-                                <Input
-                                  id="listingPrice"
-                                  type="number"
-                                  value={newListing.price}
-                                  onChange={(e) => setNewListing({ ...newListing, price: e.target.value })}
-                                  placeholder="2499"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="listingDuration">Duration (days)</Label>
-                                <Input
-                                  id="listingDuration"
-                                  type="number"
-                                  value={newListing.duration}
-                                  onChange={(e) => setNewListing({ ...newListing, duration: e.target.value })}
-                                  placeholder="7"
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <Label htmlFor="listingDescription">Description</Label>
-                              <textarea
-                                id="listingDescription"
-                                className="w-full p-2 border rounded-lg"
-                                rows={4}
-                                value={newListing.description}
-                                onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
-                                placeholder="Describe your travel package..."
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="listingType">Package Type</Label>
-                              <select
-                                id="listingType"
-                                className="w-full p-2 border rounded-lg"
-                                value={newListing.type}
-                                onChange={(e) => setNewListing({ ...newListing, type: e.target.value })}
-                              >
-                                <option value="adventure">Adventure</option>
-                                <option value="luxury">Luxury</option>
-                                <option value="budget">Budget</option>
-                                <option value="cultural">Cultural</option>
-                                <option value="family">Family</option>
-                                <option value="romantic">Romantic</option>
-                              </select>
-                            </div>
-                            <div>
-                              <Label htmlFor="listingPhotos">Photos</Label>
-                              <Input
-                                id="listingPhotos"
-                                type="file"
-                                multiple
-                                onChange={(e) => setTempPhotoFiles(Array.from(e.target.files || []))}
-                              />
-                              <p className="text-xs text-gray-500 mt-1">
-                                Upload multiple photos of your travel package
-                              </p>
-                            </div>
-                            <div className="flex space-x-2">
-                              <Button
-                                onClick={editingListing ? handleUpdateListing : handleAddListing}
-                                disabled={!newListing.title.trim()}
-                              >
-                                {editingListing ? 'Update Listing' : 'Add Listing'}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setShowListingForm(false);
-                                  setEditingListing(null);
-                                  setNewListing({ title: '', description: '', price: '', duration: '', destination: '', type: 'adventure', photos: [], rating: 0, reviewsCount: 0 });
-                                }}
-                              >
-                                Cancel
-                              </Button>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {agencyListings.length === 0 ? (
+                                <div className="text-center py-8">
+                                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <span className="text-2xl">📋</span>
+                                  </div>
+                                  <h3 className="text-lg font-semibold mb-2">No Listings Yet</h3>
+                                  <p className="text-gray-600 mb-4">
+                                    Create your first travel package to start attracting customers.
+                                  </p>
+                                  <Button
+                                    onClick={() => {
+                                      setShowListingForm(true);
+                                      setEditingListing(null);
+                                    }}
+                                    className="flex items-center gap-2"
+                                  >
+                                    ➕ Create Your First Listing
+                                  </Button>
+                                </div>
+                              ) : (
+                                agencyListings.map((listing) => (
+                                  <div key={listing.id} className="flex items-center justify-between p-4 border rounded-lg">
+                                    <div className="flex items-center space-x-4">
+                                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <span className="text-lg">🏖️</span>
+                                      </div>
+                                      <div>
+                                        <h3 className="font-semibold">{listing.title}</h3>
+                                        <p className="text-sm text-gray-600">
+                                          {listing.duration} days • ${listing.price} • {listing.destination}
+                                          <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                                            listing.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                          }`}>
+                                            {listing.approved ? 'Approved' : 'Pending'}
+                                          </span>
+                                        </p>
+                                        {listing.packageType && (
+                                          <p className="text-xs text-gray-500">
+                                            {listing.packageType === 'international' ? '🌍 International' : '🏠 Domestic'}
+                                            {listing.packageType === 'international' && listing.countryName && ` • ${listing.countryName}`}
+                                            {listing.packageType === 'domestic' && listing.stateName && ` • ${listing.stateName}`}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleViewListing(listing)}
+                                      >
+                                        View
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setShowListingForm(true);
+                                          setEditingListing(listing);
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => handleDeleteListing(listing.id)}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
                             </div>
                           </CardContent>
                         </Card>
                       )}
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center">
-                            <span className="mr-2">🏖️</span>
-                            Your Travel Listings
-                          </CardTitle>
-                          <CardDescription>
-                            Manage your travel packages and destinations
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            {agencyListings.length === 0 ? (
-                              <p className="text-gray-500 text-center py-8">No listings yet. Add your first travel package!</p>
-                            ) : (
-                              agencyListings.map((listing) => (
-                                <div key={listing.id} className="flex items-center justify-between p-4 border rounded-lg">
-                                  <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                      <span className="text-lg">🏖️</span>
-                                    </div>
-                                    <div>
-                                      <h3 className="font-semibold">{listing.title}</h3>
-                                      <p className="text-sm text-gray-600">
-                                        {listing.duration} days • ${listing.price} • {listing.destination}
-                                        <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                                          listing.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                        }`}>
-                                          {listing.approved ? 'Approved' : 'Pending'}
-                                        </span>
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleViewListing(listing)}
-                                    >
-                                      View
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEditListing(listing)}
-                                    >
-                                      Edit
-                                    </Button>
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => handleDeleteListing(listing.id)}
-                                    >
-                                      Delete
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))
-                            )}
-
-                            <Button
-                              className="w-full"
-                              onClick={() => setShowListingForm(true)}
-                            >
-                              + Add New Listing
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
                     </div>
                   )}
 
@@ -2779,7 +2835,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-xl">
         <CardHeader>
           <CardTitle>{isLogin ? 'Login' : `Register as ${isAgencyRegistration ? 'Agency' : 'User'}`}</CardTitle>
           <CardDescription>
@@ -2809,58 +2865,311 @@ export default function Home() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {!isLogin && (
+            {!isLogin && !isAgencyRegistration ? (
+              // User Registration - Email and Password fields
               <>
                 <div>
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
-                {isAgencyRegistration && (
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
+            ) : isLogin ? (
+              // Login - Email and Password fields
+              <>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
+            ) : (
+              // Agency Registration - No email and password fields
+              <></>
+            )}
+            {!isLogin && (
+              <>
+                {isAgencyRegistration ? (
+                  // Agency Registration Form
+                  <>
+                    <div className="space-y-6">
+                      {/* 1. Agency Basic Details */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-4">1. Agency Basic Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="agencyName">Agency Name</Label>
+                            <Input
+                              id="agencyName"
+                              value={name}
+                              onChange={(e) => setName(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="websiteUrl">Website URL (optional)</Label>
+                            <Input
+                              id="websiteUrl"
+                              value={companyName}
+                              onChange={(e) => setCompanyName(e.target.value)}
+                              placeholder="https://your-agency.com"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="email">Email Address</Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="contactNumber">Contact Number</Label>
+                            <Input
+                              id="contactNumber"
+                              type="tel"
+                              value={contactNumber}
+                              onChange={(e) => setContactNumber(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="businessLocation">Business Location (City, State)</Label>
+                            <Input
+                              id="businessLocation"
+                              value={businessLocation}
+                              onChange={(e) => setBusinessLocation(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label htmlFor="fullAddress">Full Address</Label>
+                            <textarea
+                              id="fullAddress"
+                              className="w-full p-2 border rounded-lg"
+                              rows={3}
+                              value={fullAddress}
+                              onChange={(e) => setFullAddress(e.target.value)}
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. Legal & Verification Documents */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-4">2. Legal & Verification Documents</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="panCard">Upload PAN Card (PDF/JPG/PNG)</Label>
+                            <Input
+                              id="panCard"
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => setPanCard(e.target.files?.[0] || null)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="gstCertificate">Upload GST Certificate (PDF/JPG/PNG)</Label>
+                            <Input
+                              id="gstCertificate"
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => setGstCertificate(e.target.files?.[0] || null)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="businessProof">Upload Registration / Shop Act / Other Business Proof (PDF/JPG/PNG)</Label>
+                            <Input
+                              id="businessProof"
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => setBusinessProof(e.target.files?.[0] || null)}
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. Agency Description */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-4">3. Agency Description</h3>
+                        <div>
+                          <Label htmlFor="agencyDescription">Text area for agency overview (Max 500 words)</Label>
+                          <p className="text-xs text-gray-500 mb-2">Should describe experience, services, and specialization</p>
+                          <textarea
+                            id="agencyDescription"
+                            className="w-full p-2 border rounded-lg"
+                            rows={6}
+                            value={agencyDescription}
+                            onChange={(e) => setAgencyDescription(e.target.value)}
+                            maxLength={500}
+                            required
+                          />
+                          <p className="text-xs text-gray-500 mt-1">{agencyDescription.length}/500 words</p>
+                        </div>
+                      </div>
+
+                      {/* 4. Operating Details */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-4">4. Operating Details</h3>
+                        <div>
+                          <Label>Operating From (select one or more):</Label>
+                          <div className="space-y-2 mt-2">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={operatingFromHome}
+                                onChange={(e) => setOperatingFromHome(e.target.checked)}
+                                className="mr-2"
+                              />
+                              <span>Home</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={operatingFromOffice}
+                                onChange={(e) => setOperatingFromOffice(e.target.checked)}
+                                className="mr-2"
+                              />
+                              <span>Office</span>
+                            </label>
+                          </div>
+                          {operatingFromOffice && (
+                            <div className="mt-4">
+                              <Label htmlFor="officeAddress">Office Address</Label>
+                              <textarea
+                                id="officeAddress"
+                                className="w-full p-2 border rounded-lg"
+                                rows={3}
+                                value={officeAddress}
+                                onChange={(e) => setOfficeAddress(e.target.value)}
+                                required
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 5. Media Uploads */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-4">5. Media Uploads</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Upload agency photos:</Label>
+                            <div className="space-y-2">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={uploadOfficePhotos}
+                                  onChange={(e) => setUploadOfficePhotos(e.target.checked)}
+                                  className="mr-2"
+                                />
+                                <span>Office photos</span>
+                              </label>
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={uploadBranding}
+                                  onChange={(e) => setUploadBranding(e.target.checked)}
+                                  className="mr-2"
+                                />
+                                <span>Branding or certificates</span>
+                              </label>
+                            </div>
+                          </div>
+                          <div>
+                            <Label>Upload Photos (Multiple allowed)</Label>
+                            <Input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={(e) => setAgencyPhotos(Array.from(e.target.files || []))}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 6. Refund Policy */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-4">6. Refund Policy</h3>
+                        <div>
+                          <Label htmlFor="refundPolicy">Text area for agency refund & cancellation policy</Label>
+                          <p className="text-xs text-gray-500 mb-2">Required field</p>
+                          <textarea
+                            id="refundPolicy"
+                            className="w-full p-2 border rounded-lg"
+                            rows={4}
+                            value={refundPolicy}
+                            onChange={(e) => setRefundPolicy(e.target.value)}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* 7. Declaration */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-4">7. Declaration</h3>
+                        <label className="flex items-start">
+                          <input
+                            type="checkbox"
+                            checked={declarationChecked}
+                            onChange={(e) => setDeclarationChecked(e.target.checked)}
+                            className="mr-2 mt-1"
+                            required
+                          />
+                          <span className="text-sm">
+                            I declare that all the information provided is true and correct, and I agree to the platform's terms and policies.
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  // User Registration Form
                   <>
                     <div>
-                      <Label htmlFor="companyName">Company Name</Label>
+                      <Label htmlFor="name">Name</Label>
                       <Input
-                        id="companyName"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
+                        id="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
                         required
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="file">Proof Document (Optional - Storage needs billing)</Label>
-                      <Input
-                        id="file"
-                        type="file"
-                        onChange={(e) => setFile(e.target.files?.[0] || null)}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        File upload requires Firebase billing. You can register without a file for now.
-                      </p>
                     </div>
                   </>
                 )}

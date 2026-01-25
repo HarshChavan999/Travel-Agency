@@ -96,7 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserData(data);
       } else {
         // For Google sign-in, if no document exists, create one as agency (or check if it's admin email)
-        const isAdmin = userCredential.user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+        const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',').map(email => email.trim()) || [];
+        const isAdmin = adminEmails.includes(userCredential.user.email || '');
         const userDataToSave = {
           role: isAdmin ? 'admin' : 'agency',
           approved: isAdmin, // Auto-approve admin
