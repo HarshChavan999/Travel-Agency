@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useComparison } from '@/contexts/ComparisonContext';
 import { 
   Star, 
   Share2, 
@@ -20,7 +21,9 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
-  MessageCircle
+  MessageCircle,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface PackageDetailViewProps {
@@ -72,9 +75,13 @@ export default function PackageDetailView({
   isWishlisted 
 }: PackageDetailViewProps) {
   const [activeImageTab, setActiveImageTab] = useState<'sightseeing' | 'hotel' | 'video'>('sightseeing');
-  const [expandedDays, setExpandedDays] = useState<number[]>([1]); // Day 1 expanded by default
+  const [expandedDays, setExpandedDays] = useState<number[]>([1]);
   const [expandedFAQs, setExpandedFAQs] = useState<number[]>([]);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const [showCompareToast, setShowCompareToast] = useState(false);
+  const [compareToastMessage, setCompareToastMessage] = useState('');
+  
+  const { addToComparison, isInComparison, canAddMore, comparisonList } = useComparison();
 
   // Get all images from placesCovered
   const getAllImages = () => {
@@ -225,11 +232,59 @@ export default function PackageDetailView({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="flex items-center gap-2"
-                  onClick={() => alert('Compare functionality coming soon!')}
+                  className={`flex items-center gap-2 ${isInComparison(listing.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : ''}`}
+                  onClick={() => {
+                    if (isInComparison(listing.id)) {
+                      setCompareToastMessage('This package is already in your comparison list!');
+                      setShowCompareToast(true);
+                      setTimeout(() => setShowCompareToast(false), 3000);
+                    } else if (!canAddMore) {
+                      setCompareToastMessage('You can only compare up to 3 packages. Remove one to add this.');
+                      setShowCompareToast(true);
+                      setTimeout(() => setShowCompareToast(false), 3000);
+                    } else {
+                      const success = addToComparison({
+                        id: listing.id,
+                        title: listing.title,
+                        description: listing.description,
+                        cost: listing.cost,
+                        price: listing.price,
+                        packageType: listing.packageType,
+                        stateName: listing.stateName,
+                        countryName: listing.countryName,
+                        duration: listing.duration,
+                        itinerary: listing.itinerary,
+                        placesCovered: listing.placesCovered,
+                        hotelTypes: listing.hotelTypes,
+                        inclusions: listing.inclusions,
+                        exclusions: listing.exclusions,
+                        agencyName: listing.agencyName,
+                        agencyId: listing.agencyId,
+                        agencyData: listing.agencyData,
+                        photos: listing.photos,
+                        rating: listing.rating,
+                        reviewsCount: listing.reviewsCount,
+                        tourCategories: listing.tourCategories,
+                      });
+                      if (success) {
+                        setCompareToastMessage(`Added to comparison! (${comparisonList.length + 1}/3 packages)`);
+                        setShowCompareToast(true);
+                        setTimeout(() => setShowCompareToast(false), 3000);
+                      }
+                    }
+                  }}
                 >
-                  <Scale className="h-4 w-4" />
-                  Compare
+                  {isInComparison(listing.id) ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Added
+                    </>
+                  ) : (
+                    <>
+                      <Scale className="h-4 w-4" />
+                      Compare
+                    </>
+                  )}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -242,12 +297,12 @@ export default function PackageDetailView({
                 </Button>
               </div>
               
-              <Button 
+              {/* <Button 
                 className="bg-gray-500 hover:bg-gray-600 text-white px-8"
                 onClick={() => onBook(listing)}
               >
                 View Price for My Tour
-              </Button>
+              </Button> */}
             </div>
           </div>
         </div>
@@ -643,6 +698,24 @@ export default function PackageDetailView({
           </div>
         </div>
       </div>
+
+      {/* Compare Toast Notification */}
+      {showCompareToast && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+            compareToastMessage.includes('already') || compareToastMessage.includes('only compare') 
+              ? 'bg-amber-500 text-white' 
+              : 'bg-green-500 text-white'
+          }`}>
+            {compareToastMessage.includes('already') || compareToastMessage.includes('only compare') ? (
+              <AlertCircle className="h-5 w-5" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5" />
+            )}
+            <span className="font-medium">{compareToastMessage}</span>
+          </div>
+        </div>
+      )}
 
       {/* Photo Gallery Modal */}
       {showAllPhotos && (

@@ -10,6 +10,8 @@ import AgencyListingForm from '@/components/AgencyListingForm';
 import SearchFilters from '@/components/SearchFilters';
 import ListingCard from '@/components/ListingCard';
 import PackageDetailView from '@/components/PackageDetailView';
+import PackageComparison from '@/components/PackageComparison';
+import { useComparison } from '@/contexts/ComparisonContext';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
@@ -113,7 +115,6 @@ export default function Home() {
     amenities: [] as string[]
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [comparisonList, setComparisonList] = useState<any[]>([]);
   const [showComparison, setShowComparison] = useState(false);
   // Reviews & Ratings
   const [reviews, setReviews] = useState<any[]>([]);
@@ -128,6 +129,9 @@ export default function Home() {
   // Wishlist functionality
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [showWishlist, setShowWishlist] = useState(false);
+
+  // Comparison functionality
+  const { comparisonList, clearComparison } = useComparison();
 
   // Fetch user's wishlist from Firestore with real-time listener
   useEffect(() => {
@@ -1602,7 +1606,7 @@ export default function Home() {
             </header>
 
             <main className="p-6">
-              {userActiveSection === 'listings' && !viewingListing && !showBookingForm && (
+              {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
                 <>
                   <div className="mb-6">
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Available Travel Packages</h2>
@@ -1620,25 +1624,39 @@ export default function Home() {
 
                   {/* Comparison Bar */}
                   {comparisonList.length > 0 && (
-                    <Card className="mb-6 bg-blue-50 border-blue-200">
+                    <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-md">
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">Comparing {comparisonList.length} packages:</span>
-                            {comparisonList.map(listing => (
-                              <span key={listing.id} className="bg-blue-100 px-2 py-1 rounded text-xs">
-                                {listing.title.slice(0, 20)}...
-                              </span>
-                            ))}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-lg">⚖️</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                Comparing {comparisonList.length} of 3 packages
+                              </p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {comparisonList.map(pkg => (
+                                  <span key={pkg.id} className="bg-white px-2 py-0.5 rounded text-xs border border-blue-200 truncate max-w-[150px]">
+                                    {pkg.title ? `${pkg.title.slice(0, 25)}${pkg.title.length > 25 ? '...' : ''}` : 'Untitled Package'}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => setShowComparison(true)}>
-                              Compare ({comparisonList.length})
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <Button 
+                              size="sm" 
+                              onClick={() => setShowComparison(true)}
+                              className="flex-1 sm:flex-none"
+                            >
+                              Compare Now ({comparisonList.length})
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setComparisonList([])}
+                              onClick={clearComparison}
+                              className="flex-1 sm:flex-none"
                             >
                               Clear
                             </Button>
@@ -2033,7 +2051,7 @@ export default function Home() {
                 </Card>
               )}
 
-              {viewingListing && userActiveSection === 'listings' && (
+              {viewingListing && userActiveSection === 'listings' && !showComparison && (
                 <PackageDetailView 
                   listing={viewingListing}
                   onBack={() => setViewingListing(null)}
@@ -2052,6 +2070,17 @@ export default function Home() {
                     );
                   }}
                   isWishlisted={wishlist.includes(viewingListing.id)}
+                />
+              )}
+
+              {/* Package Comparison View */}
+              {showComparison && userActiveSection === 'listings' && (
+                <PackageComparison
+                  onBack={() => setShowComparison(false)}
+                  onBook={(listing) => {
+                    setShowComparison(false);
+                    startBooking(listing);
+                  }}
                 />
               )}
 
@@ -3898,74 +3927,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Comparison Modal */}
-      {showComparison && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <span className="mr-2">⚖️</span>
-                Package Comparison
-              </CardTitle>
-              <CardDescription>
-                Compare travel packages side by side to find your perfect match
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {comparisonList.map((listing) => (
-                  <Card key={listing.id} className="border-2 border-blue-200">
-                    <CardHeader className="pb-3">
-                      {listing.photos && listing.photos.length > 0 && (
-                        <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
-                          <img
-                            src={listing.photos[0]}
-                            alt={listing.title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <CardTitle className="text-lg">{listing.title}</CardTitle>
-                      <CardDescription>By {listing.agencyName}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div><strong>Duration:</strong> {listing.duration} days</div>
-                        <div><strong>Price:</strong> ${listing.price}</div>
-                        <div><strong>Type:</strong> {listing.type}</div>
-                        <div><strong>Rating:</strong> {listing.rating > 0 ? `${listing.rating} ⭐` : 'No rating'}</div>
-                      </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button size="sm" className="flex-1" onClick={() => startBooking(listing)}>
-                          Book Now
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setComparisonList(comparisonList.filter(item => item.id !== listing.id));
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <div className="flex justify-center mt-6 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowComparison(false)}
-                >
-                  Close Comparison
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

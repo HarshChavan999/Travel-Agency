@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from './ui/badge';
-import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart } from 'lucide-react';
+import { useComparison } from '@/contexts/ComparisonContext';
+import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2 } from 'lucide-react';
 import { optimizeImageUrl, generateBlurPlaceholder, preloadImage } from '@/lib/imageOptimization';
 import { injectImageStyles } from '@/lib/imageStyles';
 
@@ -17,6 +18,7 @@ interface ListingCardProps {
   isWishlisted?: boolean;
   showActions?: boolean;
   variant?: 'user' | 'agency';
+  showCompare?: boolean;
 }
 
 export default function ListingCard({ 
@@ -29,8 +31,12 @@ export default function ListingCard({
   onWishlist,
   isWishlisted,
   showActions = true,
-  variant = 'user'
+  variant = 'user',
+  showCompare = true
 }: ListingCardProps) {
+  const { addToComparison, isInComparison, canAddMore } = useComparison();
+  const [showCompareToast, setShowCompareToast] = useState(false);
+  const [compareToastMessage, setCompareToastMessage] = useState('');
   // Get main image from placesCovered or photos
   const getMainImage = () => {
     if (listing.placesCovered && listing.placesCovered.length > 0 && 
@@ -143,23 +149,91 @@ export default function ListingCard({
           </Badge>
         </div>
 
-        {/* Wishlist Button */}
+        {/* Action Buttons */}
         {variant === 'user' && (
-          <div className="absolute top-3 right-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-2 hover:bg-white/80"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log('❤️ Wishlist button clicked for listing:', listing.id);
-                onWishlist?.(listing.id);
-              }}
-            >
-              <Heart 
-                className={`h-4 w-4 ${isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-500'}`} 
-              />
-            </Button>
+          <>
+            {/* Compare Button */}
+            {showCompare && (
+              <div className="absolute top-3 right-14">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`p-2 hover:bg-white/80 ${isInComparison(listing.id) ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isInComparison(listing.id)) {
+                      setCompareToastMessage('Already in comparison!');
+                      setShowCompareToast(true);
+                      setTimeout(() => setShowCompareToast(false), 2000);
+                    } else if (!canAddMore) {
+                      setCompareToastMessage('Max 3 packages allowed');
+                      setShowCompareToast(true);
+                      setTimeout(() => setShowCompareToast(false), 2000);
+                    } else {
+                      addToComparison({
+                        id: listing.id,
+                        title: listing.title,
+                        description: listing.description,
+                        cost: listing.cost,
+                        price: listing.price,
+                        packageType: listing.packageType,
+                        stateName: listing.stateName,
+                        countryName: listing.countryName,
+                        duration: listing.duration,
+                        itinerary: listing.itinerary,
+                        placesCovered: listing.placesCovered,
+                        hotelTypes: listing.hotelTypes,
+                        inclusions: listing.inclusions,
+                        exclusions: listing.exclusions,
+                        agencyName: listing.agencyName,
+                        agencyId: listing.agencyId,
+                        agencyData: listing.agencyData,
+                        photos: listing.photos,
+                        rating: listing.rating,
+                        reviewsCount: listing.reviewsCount,
+                        tourCategories: listing.tourCategories,
+                      });
+                      setCompareToastMessage('Added to compare!');
+                      setShowCompareToast(true);
+                      setTimeout(() => setShowCompareToast(false), 2000);
+                    }
+                  }}
+                >
+                  {isInComparison(listing.id) ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <Scale className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            )}
+            
+            {/* Wishlist Button */}
+            <div className="absolute top-3 right-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-2 hover:bg-white/80"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log('❤️ Wishlist button clicked for listing:', listing.id);
+                  onWishlist?.(listing.id);
+                }}
+              >
+                <Heart 
+                  className={`h-4 w-4 ${isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-500'}`} 
+                />
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* Compare Toast */}
+        {showCompareToast && (
+          <div className="absolute top-14 right-3 z-10">
+            <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded shadow-lg">
+              {compareToastMessage}
+            </div>
           </div>
         )}
 
