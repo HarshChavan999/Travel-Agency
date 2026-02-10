@@ -1,5 +1,4 @@
 import { databaseService, Message } from './database';
-import { MessageResponse } from './types';
 
 export class MessageService {
   async saveMessage(fromUserId: string, toUserId: string, content: string): Promise<Message> {
@@ -12,16 +11,17 @@ export class MessageService {
     });
   }
 
-  async getMessageHistory(userId1: string, userId2: string, limit: number = 50, beforeTimestamp?: number): Promise<MessageResponse[]> {
+  async getMessageHistory(userId1: string, userId2: string, limit: number = 50, beforeTimestamp?: number): Promise<Message[]> {
     const messages = await databaseService.getMessageHistory(userId1, userId2, limit, beforeTimestamp);
 
     return messages.map(msg => ({
       id: msg.id,
-      from: msg.from_user_id,
-      to: msg.to_user_id,
+      from_user_id: msg.from_user_id,
+      to_user_id: msg.to_user_id,
       content: msg.content,
       timestamp: msg.timestamp,
-      status: msg.status
+      status: msg.status,
+      created_at: msg.created_at
     }));
   }
 

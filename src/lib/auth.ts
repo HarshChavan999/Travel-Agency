@@ -20,9 +20,30 @@ export function initializeFirebase() {
       client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
     };
 
+    // Validate that all required environment variables are set
+    const requiredEnvVars = [
+      'FIREBASE_PROJECT_ID',
+      'FIREBASE_PRIVATE_KEY_ID', 
+      'FIREBASE_PRIVATE_KEY',
+      'FIREBASE_CLIENT_EMAIL'
+    ];
+
+    for (const envVar of requiredEnvVars) {
+      if (!process.env[envVar]) {
+        throw new Error(`Missing required environment variable: ${envVar}`);
+      }
+    }
+
+    console.log('Initializing Firebase with service account for project:', serviceAccount.project_id);
+
+    // Validate that project_id is a string
+    if (typeof serviceAccount.project_id !== 'string') {
+      throw new Error('Service account object must contain a string "project_id" property');
+    }
+
     firebaseApp = admin.initializeApp({
       credential: cert(serviceAccount as any),
-      projectId: process.env.FIREBASE_PROJECT_ID
+      projectId: serviceAccount.project_id
     });
   } else {
     firebaseApp = admin.app();
@@ -35,54 +56,6 @@ export async function verifyToken(token: string): Promise<admin.auth.DecodedIdTo
     return decodedToken;
   } catch (error) {
     throw new Error('Invalid authentication token');
-  }
-}
-
-export async function handleAuthMessage(message: any) {
-  // This function handles WebSocket authentication messages
-  // It expects a token in the payload
-  console.log('handleAuthMessage called with message:', JSON.stringify(message));
-
-  if (!message.payload || !message.payload.token) {
-    console.log('No payload or token found');
-    return null;
-  }
-
-  const token = message.payload.token;
-  console.log('Token received:', token);
-
-  // Check if it's a demo/guest token from Android app
-  if (token.includes('guest')) {
-    console.log('Demo token detected (contains guest)');
-    const userId = token.replace('guest-token-', '').replace('guest-', '');
-    console.log('Extracted userId:', userId);
-    return {
-      userId: userId,
-      user: {
-        id: userId,
-        email: '',
-        displayName: 'Demo User',
-        isAnonymous: true
-      }
-    };
-  }
-
-  console.log('Not a demo token, trying Firebase verification');
-  try {
-    const decodedToken = await verifyToken(token);
-
-    return {
-      userId: decodedToken.uid,
-      user: {
-        id: decodedToken.uid,
-        email: decodedToken.email,
-        displayName: decodedToken.name || decodedToken.email?.split('@')[0],
-        isAnonymous: false
-      }
-    };
-  } catch (error) {
-    console.error('Authentication failed:', error);
-    return null;
   }
 }
 
