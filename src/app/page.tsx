@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import AgencyListingForm from '@/components/AgencyListingForm';
 import SearchFilters from '@/components/SearchFilters';
 import ListingCard from '@/components/ListingCard';
+import PackageDetailView from '@/components/PackageDetailView';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
@@ -42,7 +43,7 @@ export default function Home() {
   const [refundPolicy, setRefundPolicy] = useState('');
   const [declarationChecked, setDeclarationChecked] = useState(false);
   const [pendingAgencies, setPendingAgencies] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeSection, setActiveSection] = useState('overview');
   const [allAgencies, setAllAgencies] = useState<any[]>([]);
   const [pendingListings, setPendingListings] = useState<any[]>([]);
   const [agencyActiveSection, setAgencyActiveSection] = useState('listings');
@@ -99,17 +100,19 @@ export default function Home() {
   const [userConversations, setUserConversations] = useState<any[]>([]);
   const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [selectedJourneyBooking, setSelectedJourneyBooking] = useState<any>(null);
+  const [viewingAgency, setViewingAgency] = useState<any>(null);
   // User Experience Enhancements
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    priceRange: [0, 10000],
+    priceRange: [0, 10000] as [number, number],
     duration: '',
     type: '',
     rating: 0,
-    destination: ''
+    destination: '',
+    packageType: '',
+    amenities: [] as string[]
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [wishlist, setWishlist] = useState<string[]>([]);
   const [comparisonList, setComparisonList] = useState<any[]>([]);
   const [showComparison, setShowComparison] = useState(false);
   // Reviews & Ratings
@@ -122,6 +125,83 @@ export default function Home() {
   });
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewListing, setReviewListing] = useState<any>(null);
+  // Wishlist functionality
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [showWishlist, setShowWishlist] = useState(false);
+
+  // Fetch user's wishlist from Firestore with real-time listener
+  useEffect(() => {
+    if (user && userData?.role === 'user') {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+
+      // Set up real-time listener for wishlist changes
+      const unsubscribe = onSnapshot(doc(dbInstance, 'users', user.uid), (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const userData = docSnapshot.data();
+          console.log('🔍 User document data:', userData);
+          console.log('🔍 Wishlist field value:', userData.wishlist);
+          console.log('🔍 Wishlist field type:', typeof userData.wishlist);
+          console.log('🔍 Is wishlist array?', Array.isArray(userData.wishlist));
+          
+          // Safely handle wishlist field - initialize as empty array if it doesn't exist
+          const wishlistData = userData.wishlist && Array.isArray(userData.wishlist) 
+            ? userData.wishlist 
+            : [];
+          console.log('🎯 Final wishlist data to set:', wishlistData);
+          setWishlist(wishlistData);
+          
+          // If wishlist field doesn't exist in Firestore, initialize it
+          if (!userData.wishlist) {
+            console.log('📝 Initializing wishlist field in Firestore');
+            updateDoc(doc(dbInstance, 'users', user.uid), {
+              wishlist: []
+            }).then(() => {
+              console.log('✅ Wishlist field initialized successfully');
+              // Update the local state immediately after initializing
+              setWishlist([]);
+            }).catch((error) => {
+              console.error('❌ Error initializing wishlist field:', error);
+            });
+          }
+        } else {
+          console.log('❌ User document does not exist');
+        }
+      });
+
+      // Cleanup function to unsubscribe from the listener
+      return () => unsubscribe();
+    }
+  }, [user, userData]);
+
+  // Function to update wishlist in Firestore
+  const updateWishlistInFirestore = async (newWishlist: string[]) => {
+    if (!user) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+    try {
+      console.log('🔄 Updating wishlist in Firestore:', newWishlist);
+      await updateDoc(doc(dbInstance, 'users', user.uid), {
+        wishlist: newWishlist
+      });
+      console.log('✅ Wishlist successfully updated in Firestore');
+    } catch (error) {
+      console.error('❌ Error updating wishlist:', error);
+    }
+  };
+
+  // Handle wishlist toggle with persistence
+  const handleWishlistToggle = (listingId: string) => {
+    setWishlist(prev => {
+      const newWishlist = prev.includes(listingId)
+        ? prev.filter(id => id !== listingId)
+        : [...prev, listingId];
+      
+      // Persist to Firestore
+      updateWishlistInFirestore(newWishlist);
+      return newWishlist;
+    });
+  };
 
   useEffect(() => {
     // Fetch user's bookings
@@ -139,6 +219,14 @@ export default function Home() {
       fetchUserBookings();
     }
   }, [user, userData]);
+
+  // Reset scroll position when user switches tabs in the dashboard
+  useEffect(() => {
+    const scrollContainer = document.getElementById('user-dashboard-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [userActiveSection]);
 
   useEffect(() => {
     if (userData?.role === 'admin') {
@@ -175,9 +263,19 @@ export default function Home() {
         setPendingListings(listings);
       };
 
+      const fetchAllListings = async () => {
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
+        const q = query(collection(dbInstance, 'listings'));
+        const querySnapshot = await getDocs(q);
+        const allListingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAgencyListings(allListingsData);
+      };
+
       fetchPending();
       fetchAllAgencies();
       fetchPendingListings();
+      fetchAllListings();
     }
   }, [userData]);
 
@@ -843,14 +941,14 @@ export default function Home() {
       return (
         <div className="flex h-screen bg-gray-100">
           {/* Sidebar */}
-          <div className="w-64 bg-white shadow-lg">
+          <div className="w-64 bg-white shadow-xl rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100">
             <div className="p-6 border-b">
               <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
               <p className="text-sm text-gray-600">Admin Dashboard</p>
             </div>
             <nav className="p-4">
               <div className="space-y-2">
-                <button
+                {/* <button
                   onClick={() => setAgencyActiveSection('listings')}
                   className={`w-full text-left px-4 py-2 rounded-lg ${
                     agencyActiveSection === 'listings'
@@ -859,11 +957,11 @@ export default function Home() {
                   }`}
                 >
                    Listings
-                </button>
+                </button> */}
                 <button
-                  onClick={() => setAgencyActiveSection('overview')}
+                  onClick={() => setActiveSection('overview')}
                   className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'overview'
+                    activeSection === 'overview'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
@@ -915,8 +1013,8 @@ export default function Home() {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-auto">
-            <header className="bg-white shadow-sm border-b p-6">
+          <div className="flex-1 overflow-auto mr-4 mt-4">
+            <header className="sticky top-0 z-10 bg-white shadow-xl rounded-3xl p-6 mb-4 border border-gray-100">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {activeSection === 'dashboard' && 'Admin Dashboard'}
@@ -934,7 +1032,7 @@ export default function Home() {
             </header>
 
             <main className="p-6">
-              {activeSection === 'dashboard' && (
+              {activeSection === 'overview' && (
                 <>
                   {/* Analytics Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -1141,7 +1239,7 @@ export default function Home() {
                 </div>
               )}
 
-              {activeSection === 'agencies' && (
+              {activeSection === 'agencies' && !viewingAgency && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -1169,7 +1267,7 @@ export default function Home() {
                             </div>
                           </div>
                           <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => setViewingAgency(agency)}>
                               View Details
                             </Button>
                             {!agency.approved && (
@@ -1183,6 +1281,129 @@ export default function Home() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {viewingAgency && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center">
+                        <span className="mr-2">🏢</span>
+                        {viewingAgency.companyName} - Details
+                      </CardTitle>
+                      <Button variant="outline" size="sm" onClick={() => setViewingAgency(null)}>
+                        Back 
+                      </Button>
+                    </div>
+                    <CardDescription>
+                      Complete information about the travel agency
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Basic Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-semibold text-lg mb-4">Basic Information</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm text-gray-600">Agency Name</p>
+                            <p className="font-medium">{viewingAgency.companyName}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Owner Name</p>
+                            <p className="font-medium">{viewingAgency.name}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Email</p>
+                            <p className="font-medium">{viewingAgency.email || 'No email provided'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Contact Number</p>
+                            <p className="font-medium">{viewingAgency.contactNumber || 'No contact number'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Business Location</p>
+                            <p className="font-medium">{viewingAgency.businessLocation || 'No location specified'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Status</p>
+                            <p className={`font-medium ${viewingAgency.approved ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {viewingAgency.approved ? '✅ Approved' : '⏳ Pending'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold text-lg mb-4">Operating Details</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm text-gray-600">Operating From</p>
+                            <p className="font-medium">
+                              {viewingAgency.operatingFromHome && viewingAgency.operatingFromOffice ? 'Home & Office' : 
+                               viewingAgency.operatingFromHome ? 'Home' : 
+                               viewingAgency.operatingFromOffice ? 'Office' : 'Not specified'}
+                            </p>
+                          </div>
+                          {viewingAgency.operatingFromOffice && (
+                            <div>
+                              <p className="text-sm text-gray-600">Office Address</p>
+                              <p className="font-medium">{viewingAgency.officeAddress || 'No office address'}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm text-gray-600">Website</p>
+                            <p className="font-medium">{viewingAgency.companyName ? viewingAgency.companyName : 'No website'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Upload Office Photos</p>
+                            <p className="font-medium">{viewingAgency.uploadOfficePhotos ? 'Yes' : 'No'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Upload Branding</p>
+                            <p className="font-medium">{viewingAgency.uploadBranding ? 'Yes' : 'No'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Full Address */}
+                    <div>
+                      <h3 className="font-semibold text-lg mb-4">Full Address</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="font-medium">{viewingAgency.fullAddress || 'No address provided'}</p>
+                      </div>
+                    </div>
+
+                    {/* Agency Description */}
+                    <div>
+                      <h3 className="font-semibold text-lg mb-4">Agency Description</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="font-medium">{viewingAgency.agencyDescription || 'No description provided'}</p>
+                      </div>
+                    </div>
+
+                    {/* Refund Policy */}
+                    <div>
+                      <h3 className="font-semibold text-lg mb-4">Refund & Cancellation Policy</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="font-medium">{viewingAgency.refundPolicy || 'No refund policy provided'}</p>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex space-x-2 pt-4">
+                      {!viewingAgency.approved && (
+                        <Button onClick={() => approveAgency(viewingAgency.id)}>
+                          Approve Agency
+                        </Button>
+                      )}
+                      <Button variant="outline" onClick={() => setViewingAgency(null)}>
+                        Back 
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1311,7 +1532,7 @@ export default function Home() {
       // User Dashboard
       return (
         <div className="flex h-screen bg-gray-100">
-          <div className="w-64 bg-white shadow-lg">
+          <div className="w-64 bg-white shadow-xl rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100">
             <div className="p-6 border-b">
               <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
               <p className="text-sm text-gray-600">User Dashboard</p>
@@ -1339,6 +1560,16 @@ export default function Home() {
                     My Bookings
                 </button>
                 <button
+                  onClick={() => setUserActiveSection('wishlist')}
+                  className={`w-full text-left px-4 py-2 rounded-lg ${
+                    userActiveSection === 'wishlist'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                   Wishlist
+                </button>
+                <button
                   onClick={() => setUserActiveSection('chat')}
                   className={`w-full text-left px-4 py-2 rounded-lg ${
                     userActiveSection === 'chat'
@@ -1352,8 +1583,11 @@ export default function Home() {
             </nav>
           </div>
 
-          <div className="flex-1 overflow-auto">
-            <header className="bg-white shadow-sm border-b p-6">
+          <div 
+            className="flex-1 overflow-auto mr-4 mt-4 scroll-smooth"
+            id="user-dashboard-scroll-container"
+          >
+            <header className="sticky top-0 z-10 bg-white shadow-xl rounded-3xl p-6 mb-4 border border-gray-100">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {userActiveSection === 'listings' && 'Travel Listings'}
@@ -1375,94 +1609,14 @@ export default function Home() {
                     <p className="text-gray-600">Browse and book amazing travel experiences</p>
                   </div>
 
-                  {/* Advanced Search & Filters */}
-                  <Card className="mb-6">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col md:flex-row gap-4 mb-4">
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Search destinations, packages..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full"
-                          />
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowFilters(!showFilters)}
-                        >
-                           Filters {showFilters ? '▼' : '▶'}
-                        </Button>
-                      </div>
-
-                      {showFilters && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t">
-                          <div>
-                            <Label className="text-sm font-medium">Price Range</Label>
-                            <div className="flex gap-2 mt-1">
-                              <Input
-                                type="number"
-                                placeholder="Min"
-                                value={filters.priceRange[0]}
-                                onChange={(e) => setFilters({...filters, priceRange: [parseInt(e.target.value) || 0, filters.priceRange[1]]})}
-                                className="w-full"
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Max"
-                                value={filters.priceRange[1]}
-                                onChange={(e) => setFilters({...filters, priceRange: [filters.priceRange[0], parseInt(e.target.value) || 10000]})}
-                                className="w-full"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium">Duration</Label>
-                            <select
-                              className="w-full p-2 border rounded-lg mt-1"
-                              value={filters.duration}
-                              onChange={(e) => setFilters({...filters, duration: e.target.value})}
-                            >
-                              <option value="">All Durations</option>
-                              <option value="1-3">1-3 days</option>
-                              <option value="4-7">4-7 days</option>
-                              <option value="8-14">1-2 weeks</option>
-                              <option value="15+">2+ weeks</option>
-                            </select>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium">Package Type</Label>
-                            <select
-                              className="w-full p-2 border rounded-lg mt-1"
-                              value={filters.type}
-                              onChange={(e) => setFilters({...filters, type: e.target.value})}
-                            >
-                              <option value="">All Types</option>
-                              <option value="adventure">Adventure</option>
-                              <option value="luxury">Luxury</option>
-                              <option value="budget">Budget</option>
-                              <option value="cultural">Cultural</option>
-                              <option value="family">Family</option>
-                              <option value="romantic">Romantic</option>
-                            </select>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium">Min Rating</Label>
-                            <select
-                              className="w-full p-2 border rounded-lg mt-1"
-                              value={filters.rating}
-                              onChange={(e) => setFilters({...filters, rating: parseInt(e.target.value)})}
-                            >
-                              <option value={0}>Any Rating</option>
-                              <option value={3}>3+ Stars</option>
-                              <option value={4}>4+ Stars</option>
-                              <option value={5}>5 Stars</option>
-                            </select>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  {/* Search Filters Component */}
+                  <SearchFilters
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    onSearch={() => {
+                      // Search is handled automatically by the filter logic below
+                    }}
+                  />
 
                   {/* Comparison Bar */}
                   {comparisonList.length > 0 && (
@@ -1505,43 +1659,36 @@ export default function Home() {
                     ) : (
                       listings
                         .filter(listing => {
-                          // Apply search filter
+                          // Apply search filter - search across all relevant fields
                           if (searchTerm) {
-                            const title = listing.title || '';
-                            const description = listing.description || '';
-                            const destination = listing.destination || '';
-                            const stateName = listing.stateName || '';
-                            const countryName = listing.countryName || '';
+                            const searchLower = searchTerm.toLowerCase();
+                            const title = (listing.title || '').toLowerCase();
+                            const description = (listing.description || '').toLowerCase();
+                            const destination = (listing.destination || '').toLowerCase();
+                            const stateName = (listing.stateName || '').toLowerCase();
+                            const countryName = (listing.countryName || '').toLowerCase();
+                            const packageType = (listing.packageType || '').toLowerCase();
+                            const type = (listing.type || '').toLowerCase();
+                            const price = (listing.price || listing.cost || '').toString().toLowerCase();
+                            const duration = (listing.duration || '').toString().toLowerCase();
+                            const itineraryDays = (listing.itinerary?.length || '').toString();
                             
-                            if (!title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                                !description.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                                !destination.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                                !stateName.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                                !countryName.toLowerCase().includes(searchTerm.toLowerCase())) {
+                            // Check if search term matches any field
+                            const matches = title.includes(searchLower) ||
+                                          description.includes(searchLower) ||
+                                          destination.includes(searchLower) ||
+                                          stateName.includes(searchLower) ||
+                                          countryName.includes(searchLower) ||
+                                          packageType.includes(searchLower) ||
+                                          type.includes(searchLower) ||
+                                          price.includes(searchLower) ||
+                                          duration.includes(searchLower) ||
+                                          itineraryDays.includes(searchLower);
+                                          
+                            if (!matches) {
                               return false;
                             }
                           }
-
-                          // Apply price filter
-                          const price = parseFloat(listing.price || listing.cost || '0');
-                          if (price < filters.priceRange[0] || price > filters.priceRange[1]) {
-                            return false;
-                          }
-
-                          // Apply duration filter
-                          if (filters.duration) {
-                            const duration = parseInt(listing.duration || '0');
-                            if (filters.duration === '1-3' && (duration < 1 || duration > 3)) return false;
-                            if (filters.duration === '4-7' && (duration < 4 || duration > 7)) return false;
-                            if (filters.duration === '8-14' && (duration < 8 || duration > 14)) return false;
-                            if (filters.duration === '15+' && duration < 15) return false;
-                          }
-
-                          // Apply type filter
-                          if (filters.type && listing.type !== filters.type) return false;
-
-                          // Apply rating filter
-                          if (filters.rating > 0 && (listing.rating || 0) < filters.rating) return false;
 
                           return true;
                         })
@@ -1556,6 +1703,8 @@ export default function Home() {
                               setCurrentChatAgencyName(listingData.agencyName);
                               setUserActiveSection('chat');
                             }}
+                            onWishlist={handleWishlistToggle}
+                            isWishlisted={wishlist.includes(listing.id)}
                             variant="user"
                           />
                         ))
@@ -1885,106 +2034,25 @@ export default function Home() {
               )}
 
               {viewingListing && userActiveSection === 'listings' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <span className="mr-2">🏖️</span>
-                      {viewingListing.title}
-                    </CardTitle>
-                    <CardDescription>
-                      {viewingListing.type} Package • By {viewingListing.agencyName}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Display package photos from placesCovered */}
-                    {viewingListing.placesCovered && viewingListing.placesCovered.length > 0 && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {viewingListing.placesCovered.map((place: any, index: number) => (
-                          place.imageUrls && place.imageUrls.length > 0 && (
-                            <img
-                              key={`${viewingListing.id}-${place.id}-${index}`}
-                              src={place.imageUrls[0]}
-                              alt={`${place.name || 'Place'} - ${viewingListing.title}`}
-                              className="w-full h-48 object-cover rounded-lg"
-                            />
-                          )
-                        ))}
-                      </div>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="font-semibold text-lg mb-2">Package Details</h3>
-                          <div className="space-y-2">
-                            <p><strong>Package Type:</strong> {viewingListing.packageType === 'international' ? ' International' : ' Domestic'}</p>
-                            {viewingListing.packageType === 'international' && viewingListing.countryName && (
-                              <p><strong>Country:</strong> {viewingListing.countryName}</p>
-                            )}
-                            {viewingListing.packageType === 'domestic' && viewingListing.stateName && (
-                              <p><strong>State:</strong> {viewingListing.stateName}</p>
-                            )}
-                            <p><strong>Places Covered:</strong> {viewingListing.placesCovered?.map((place: any) => place.name).join(', ') || 'Not specified'}</p>
-                            <p><strong>Duration:</strong> {viewingListing.itinerary?.length || 0} days / {viewingListing.itinerary && viewingListing.itinerary.length > 0 ? viewingListing.itinerary.length - 1 : 0} nights</p>
-                            <p><strong>Price:</strong> ${viewingListing.cost || viewingListing.price || 'N/A'}</p>
-                            <p><strong>Hotel Type:</strong> {viewingListing.hotelType || 'Not specified'}</p>
-                            <p><strong>Meal Plan:</strong> {viewingListing.mealPlan || 'Not specified'}</p>
-                            {viewingListing.rating > 0 && (
-                              <p><strong>Rating:</strong> ⭐ {viewingListing.rating} ({viewingListing.reviewsCount} reviews)</p>
-                            )}
-                          </div>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg mb-2">Description</h3>
-                        <p className="text-gray-600">{viewingListing.description}</p>
-                      </div>
-                    </div>
-                    {/* Reviews Section */}
-                    <div className="border-t pt-6">
-                      <h3 className="font-semibold text-lg mb-4">Customer Reviews</h3>
-                      {viewingListing.reviewsCount > 0 ? (
-                        <div className="space-y-4 mb-4">
-                          {/* Sample reviews - in real app, fetch from database */}
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">John Doe</span>
-                                <span className="text-yellow-500">★★★★★</span>
-                              </div>
-                              <span className="text-sm text-gray-500">2 weeks ago</span>
-                            </div>
-                            <p className="text-gray-700">"Amazing experience! The itinerary was perfectly planned and our guide was excellent."</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-gray-500 mb-4">No reviews yet. Be the first to review this package!</p>
-                      )}
-
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setReviewListing(viewingListing);
-                          setShowReviewModal(true);
-                        }}
-                        className="w-full"
-                      >
-                        ✍️ Write a Review
-                      </Button>
-                    </div>
-
-                    <div className="flex space-x-4">
-                      <Button onClick={() => {
-                        setCurrentChatAgency(viewingListing.agencyId);
-                        setCurrentChatAgencyName(viewingListing.agencyName);
-                        setUserActiveSection('chat');
-                        setViewingListing(null);
-                      }}>
-                        Chat with Agency
-                      </Button>
-                      <Button variant="outline" onClick={() => setViewingListing(null)}>
-                        Back to Listings
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <PackageDetailView 
+                  listing={viewingListing}
+                  onBack={() => setViewingListing(null)}
+                  onBook={startBooking}
+                  onChat={(listingData) => {
+                    setCurrentChatAgency(listingData.agencyId);
+                    setCurrentChatAgencyName(listingData.agencyName);
+                    setUserActiveSection('chat');
+                    setViewingListing(null);
+                  }}
+                  onWishlist={(listingId) => {
+                    setWishlist(prev => 
+                      prev.includes(listingId) 
+                        ? prev.filter(id => id !== listingId)
+                        : [...prev, listingId]
+                    );
+                  }}
+                  isWishlisted={wishlist.includes(viewingListing.id)}
+                />
               )}
 
               {userActiveSection === 'bookings' && (
@@ -2197,6 +2265,61 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              {userActiveSection === 'wishlist' && (
+                <div className="space-y-6">
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Wishlist</h2>
+                    <p className="text-gray-600">Save your favorite travel packages for later</p>
+                  </div>
+
+                  {wishlist.length === 0 ? (
+                    <Card className="text-center py-12">
+                      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">❤️</span>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Your wishlist is empty</h3>
+                      <p className="text-gray-600 mb-6">
+                        Add travel packages to your wishlist by clicking the heart icon on any listing.
+                      </p>
+                      <Button 
+                        onClick={() => setUserActiveSection('listings')}
+                        className="bg-gray-600 hover:bg-gray-700"
+                      >
+                        Browse Travel Packages
+                      </Button>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {listings
+                        .filter(listing => wishlist.includes(listing.id))
+                        .map((listing) => (
+                          <ListingCard
+                            key={listing.id}
+                            listing={listing}
+                            onView={setViewingListing}
+                            onBook={startBooking}
+                            onChat={(listingData) => {
+                              setCurrentChatAgency(listingData.agencyId);
+                              setCurrentChatAgencyName(listingData.agencyName);
+                              setUserActiveSection('chat');
+                            }}
+                            onWishlist={(listingId) => {
+                              setWishlist(prev => 
+                                prev.includes(listingId) 
+                                  ? prev.filter(id => id !== listingId)
+                                  : [...prev, listingId]
+                              );
+                            }}
+                            isWishlisted={wishlist.includes(listing.id)}
+                            variant="user"
+                          />
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              )}
             </main>
           </div>
         </div>
@@ -2205,7 +2328,7 @@ export default function Home() {
       // Agency Dashboard
       return (
         <div className="flex h-screen bg-gray-100">
-          <div className="w-64 bg-white shadow-lg">
+          <div className="w-64 bg-white shadow-xl rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100">
             <div className="p-6 border-b">
               <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
               <p className="text-sm text-gray-600">{userData.companyName}</p>
@@ -2286,8 +2409,8 @@ export default function Home() {
             </nav>
           </div>
 
-          <div className="flex-1 overflow-auto">
-            <header className="bg-white shadow-sm border-b p-6">
+          <div className="flex-1 overflow-auto mr-4 mt-4">
+           <header className="sticky top-0 z-10 bg-white shadow-xl rounded-3xl p-6 mb-4 border border-gray-100">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {agencyActiveSection === 'overview' && 'Agency Overview'}
@@ -2314,11 +2437,11 @@ export default function Home() {
                         <CardContent className="p-6">
                           <div className="flex items-center">
                             <div className="p-2 bg-blue-100 rounded-lg">
-                              <span className="text-2xl">🏖️</span>
+                              <span className="text-2xl">👥</span>
                             </div>
                             <div className="ml-4">
-                              <p className="text-sm font-medium text-gray-600">Active Listings</p>
-                              <p className="text-2xl font-bold text-gray-900">{agencyListings.filter(l => l.approved).length}</p>
+                              <p className="text-sm font-medium text-gray-600">Total Agencies</p>
+                              <p className="text-2xl font-bold text-gray-900">{allAgencies.length}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -2328,11 +2451,11 @@ export default function Home() {
                         <CardContent className="p-6">
                           <div className="flex items-center">
                             <div className="p-2 bg-green-100 rounded-lg">
-                              <span className="text-2xl">💬</span>
+                              <span className="text-2xl">✅</span>
                             </div>
                             <div className="ml-4">
-                              <p className="text-sm font-medium text-gray-600">Active Chats</p>
-                              <p className="text-2xl font-bold text-gray-900">{agencyConversations.length}</p>
+                              <p className="text-sm font-medium text-gray-600">Approved Agencies</p>
+                              <p className="text-2xl font-bold text-gray-900">{allAgencies.filter(a => a.approved).length}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -2345,8 +2468,8 @@ export default function Home() {
                               <span className="text-2xl">⏳</span>
                             </div>
                             <div className="ml-4">
-                              <p className="text-sm font-medium text-gray-600">Pending Listings</p>
-                              <p className="text-2xl font-bold text-gray-900">{agencyListings.filter(l => !l.approved).length}</p>
+                              <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+                              <p className="text-2xl font-bold text-gray-900">{pendingAgencies.length}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -2524,7 +2647,7 @@ export default function Home() {
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                  ${agencyBookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0).toFixed(2)}
+                                  ₹{agencyBookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                               </div>
                             </div>
@@ -2838,7 +2961,16 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-green-600">$0</p>
+                              <p className="text-2xl font-bold text-green-600">
+                                ₹{agencyBookings
+                                  .filter(b => {
+                                    const bookingDate = new Date(b.createdAt?.toDate?.() || b.createdAt);
+                                    const now = new Date();
+                                    return bookingDate.getMonth() === now.getMonth() && bookingDate.getFullYear() === now.getFullYear();
+                                  })
+                                  .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
+                                  .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
                               <p className="text-sm text-gray-600">This Month</p>
                             </div>
                           </CardContent>
@@ -2847,7 +2979,16 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-blue-600">$0</p>
+                              <p className="text-2xl font-bold text-blue-600">
+                                ₹{agencyBookings
+                                  .filter(b => {
+                                    const bookingDate = new Date(b.createdAt?.toDate?.() || b.createdAt);
+                                    const now = new Date();
+                                    return bookingDate.getFullYear() === now.getFullYear();
+                                  })
+                                  .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
+                                  .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
                               <p className="text-sm text-gray-600">This Year</p>
                             </div>
                           </CardContent>
@@ -2856,7 +2997,7 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-purple-600">0</p>
+                              <p className="text-2xl font-bold text-purple-600">{agencyBookings.length}</p>
                               <p className="text-sm text-gray-600">Total Bookings</p>
                             </div>
                           </CardContent>
@@ -2865,8 +3006,90 @@ export default function Home() {
                         <Card>
                           <CardContent className="p-6">
                             <div className="text-center">
-                              <p className="text-2xl font-bold text-yellow-600">N/A</p>
+                              <p className="text-2xl font-bold text-yellow-600">
+                                {agencyListings.length > 0 ?
+                                  (agencyListings.reduce((sum, l) => sum + (l.rating || 0), 0) / agencyListings.length).toFixed(1) :
+                                  'N/A'}
+                              </p>
                               <p className="text-sm text-gray-600">Avg Rating</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>💰 Revenue Breakdown</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium">Total Revenue</p>
+                                  <p className="text-sm text-gray-600">Lifetime earnings</p>
+                                </div>
+                                <span className="text-lg font-bold text-green-600">
+                                  ₹{agencyBookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium">Confirmed Bookings Revenue</p>
+                                  <p className="text-sm text-gray-600">From confirmed bookings</p>
+                                </div>
+                                <span className="text-lg font-bold text-blue-600">
+                                  ₹{agencyBookings
+                                    .filter(b => b.status === 'confirmed')
+                                    .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
+                                    .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium">Pending Revenue</p>
+                                  <p className="text-sm text-gray-600">From pending bookings</p>
+                                </div>
+                                <span className="text-lg font-bold text-yellow-600">
+                                  ₹{agencyBookings
+                                    .filter(b => b.status === 'pending')
+                                    .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
+                                    .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>📊 Monthly Performance</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {agencyBookings.length > 0 ? (
+                                // Group bookings by month and calculate revenue
+                                Object.entries(
+                                  agencyBookings.reduce((acc: Record<string, number>, booking) => {
+                                    const date = new Date(booking.createdAt?.toDate?.() || booking.createdAt);
+                                    const monthKey = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+                                    acc[monthKey] = (acc[monthKey] || 0) + parseFloat(booking.totalAmount || 0);
+                                    return acc;
+                                  }, {} as Record<string, number>)
+                                )
+                                .sort(([,a], [,b]) => b - a)
+                                .slice(0, 6)
+                                .map(([month, revenue]) => (
+                                  <div key={month} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                    <span className="font-medium">{month}</span>
+                                    <span className="text-sm font-semibold text-green-600">₹{revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-center py-8">
+                                  <p className="text-gray-500">No revenue data yet</p>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -2874,11 +3097,35 @@ export default function Home() {
 
                       <Card>
                         <CardHeader>
-                          <CardTitle>Revenue Overview</CardTitle>
+                          <CardTitle>Recent Transactions</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="text-center py-8">
-                            <p className="text-gray-500">Revenue tracking will be available once booking system is implemented</p>
+                          <div className="space-y-3">
+                            {agencyBookings.length > 0 ? (
+                              agencyBookings.slice(0, 5).map((booking) => (
+                                <div key={booking.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                  <div>
+                                    <p className="font-medium">{booking.listingTitle}</p>
+                                    <p className="text-sm text-gray-600">
+                                      {booking.userName} • {new Date(booking.createdAt?.toDate?.() || booking.createdAt).toLocaleDateString('en-IN')}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-semibold text-green-600">₹{parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className={`text-xs ${booking.status === 'confirmed' ? 'text-green-600' : 'text-yellow-600'}`}>
+                                      {booking.status === 'confirmed' ? '✅ Confirmed' : '⏳ Pending'}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center py-8">
+                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                  <span className="text-3xl">💰</span>
+                                </div>
+                                <p className="text-gray-500">No transactions yet</p>
+                              </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

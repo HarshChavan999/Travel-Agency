@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from './ui/badge';
-import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2 } from 'lucide-react';
+import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart } from 'lucide-react';
+import { optimizeImageUrl, generateBlurPlaceholder, preloadImage } from '@/lib/imageOptimization';
+import { injectImageStyles } from '@/lib/imageStyles';
 
 interface ListingCardProps {
   listing: any;
@@ -11,6 +13,8 @@ interface ListingCardProps {
   onDelete?: (listingId: string) => void;
   onBook?: (listing: any) => void;
   onChat?: (listing: any) => void;
+  onWishlist?: (listingId: string) => void;
+  isWishlisted?: boolean;
   showActions?: boolean;
   variant?: 'user' | 'agency';
 }
@@ -22,6 +26,8 @@ export default function ListingCard({
   onDelete, 
   onBook, 
   onChat, 
+  onWishlist,
+  isWishlisted,
   showActions = true,
   variant = 'user'
 }: ListingCardProps) {
@@ -46,18 +52,85 @@ export default function ListingCard({
     ? (listing.countryName || 'Country not specified')
     : (listing.stateName || 'State not specified');
 
+  // Generate optimized image URL with caching parameters
+  const optimizedImageUrl = mainImage ? optimizeImageUrl(mainImage, {
+    quality: 85,
+    format: 'auto',
+    cacheBust: true
+  }) : null;
+
+  // Image loading states
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
+    setImageLoaded(true); // Stop showing loading state
+  };
+
+  // Preload image on mount for better performance
+  useEffect(() => {
+    if (optimizedImageUrl) {
+      preloadImage(optimizedImageUrl).catch(() => {
+        // Ignore preload errors, the actual image will handle errors
+      });
+    }
+  }, [optimizedImageUrl]);
+
+  // Generate a blur placeholder SVG
+  const blurPlaceholder = generateBlurPlaceholder(400, 300, '#f3f4f6');
+
   return (
     <Card className="hover:shadow-lg transition-shadow overflow-hidden group">
       {/* Image Section */}
-      <div className="relative aspect-video bg-gray-100 overflow-hidden">
-        {mainImage ? (
-          <img
-            src={mainImage}
-            alt={listing.title || 'Package Image'}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+      <div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+        {/* Loading Skeleton */}
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-gray-200 animate-pulse">
+            <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300"></div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {imageError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="text-center p-4">
+              <div className="text-gray-400 mb-2">📸</div>
+              <p className="text-xs text-gray-500">Image not available</p>
+            </div>
+          </div>
+        )}
+
+        {/* Main Image */}
+        {optimizedImageUrl && !imageError ? (
+          <>
+            {/* Blur placeholder that fades out */}
+            {!imageLoaded && (
+              <img
+                src={blurPlaceholder}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-sm"
+                style={{ filter: 'blur(5px)' }}
+              />
+            )}
+            <img
+              src={optimizedImageUrl}
+              alt={listing.title || 'Package Image'}
+              className={`w-full h-full object-cover transition-all duration-500 ${
+                imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+              } group-hover:scale-110`}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              loading="lazy"
+              decoding="async"
+            />
+          </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center bg-gray-100">
             <span className="text-gray-500 text-sm">No image available</span>
           </div>
         )}
@@ -70,9 +143,29 @@ export default function ListingCard({
           </Badge>
         </div>
 
+        {/* Wishlist Button */}
+        {variant === 'user' && (
+          <div className="absolute top-3 right-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-2 hover:bg-white/80"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('❤️ Wishlist button clicked for listing:', listing.id);
+                onWishlist?.(listing.id);
+              }}
+            >
+              <Heart 
+                className={`h-4 w-4 ${isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-500'}`} 
+              />
+            </Button>
+          </div>
+        )}
+
         {/* Status Badge */}
         {!listing.approved && (
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-3 right-12">
             <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
               Pending
             </Badge>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { User, signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuthInstance, getDbInstance, getStorageInstance } from '@/lib/firebase';
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const authInstance = getAuthInstance();
     if (!authInstance) return;
 
-    const unsubscribe = onAuthStateChanged(authInstance, async (firebaseUser: User | null) => {
+    const handleAuthStateChange = async (firebaseUser: User | null) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         // Fetch user data from Firestore
@@ -58,7 +58,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserData(null);
       }
       setLoading(false);
-    });
+    };
+
+    const unsubscribe = onAuthStateChanged(authInstance, handleAuthStateChange);
+
+    // Handle redirect result for Google sign-in
+    const handleRedirectResult = async () => {
+      try {
+        const redirectResult = await getRedirectResult(authInstance);
+        if (redirectResult) {
+          console.log('Google User UID from redirect:', redirectResult.user.uid);
+          
+          const dbInstance = getDbInstance();
+          if (!dbInstance) throw new Error('Database not initialized');
+
+          const userDocRef = doc(dbInstance, 'users', redirectResult.user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            const data = userDoc.data() as UserData;
+            if (!data.approved) {
+              throw new Error('Account not approved yet. Please wait for admin approval.');
+            }
+            setUserData(data);
+          } else {
+            // For Google sign-in, if no document exists, create one as agency (or check if it's admin email)
+            const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',').map(email => email.trim()) || [];
+            const isAdmin = adminEmails.includes(redirectResult.user.email || '');
+            const userDataToSave = {
+              role: isAdmin ? 'admin' : 'agency',
+              approved: isAdmin, // Auto-approve admin
+              name: redirectResult.user.displayName || 'User',
+              ...(isAdmin ? {} : { companyName: 'Pending Setup' }), // Only add companyName for agencies
+            };
+            await setDoc(userDocRef, userDataToSave);
+            setUserData(userDataToSave as UserData);
+          }
+          
+          // Clear the redirect flag
+          sessionStorage.removeItem('google_signin_redirect');
+        }
+      } catch (error: any) {
+        console.error('Error handling redirect result:', error);
+        // Clear the redirect flag on error
+        sessionStorage.removeItem('google_signin_redirect');
+      }
+    };
+
+    // Check if we're returning from a Google redirect
+    const isRedirect = sessionStorage.getItem('google_signin_redirect');
+    if (isRedirect) {
+      handleRedirectResult();
+    }
 
     return () => unsubscribe();
   }, []);
@@ -132,7 +183,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!authInstance) throw new Error('Auth not initialized');
 
       const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(authInstance, provider);
+      
+      // Configure Google Auth provider for better popup handling
+      provider.setCustomParameters({
+        prompt: 'select_account' // Force account selection
+      });
+
+      let userCredential;
+      
+      try {
+        // Try popup first
+        userCredential = await signInWithPopup(authInstance, provider);
+      } catch (popupError: any) {
+        // If popup fails, try redirect method as fallback
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/popup-closed-by-user' || 
+            popupError.code === 'auth/cancelled-popup-request') {
+          
+          console.warn('Popup method failed, attempting redirect method...');
+          
+          // Store a flag in sessionStorage to indicate we're using redirect
+          sessionStorage.setItem('google_signin_redirect', 'true');
+          
+          // Use redirect method
+          await signInWithRedirect(authInstance, provider);
+          
+          // This will redirect the page, so we won't reach here
+          return;
+        }
+        
+        // If it's not a popup-related error, re-throw
+        throw popupError;
+      }
+
       console.log('Google User UID:', userCredential.user.uid);
 
       const dbInstance = getDbInstance();
@@ -206,6 +289,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...userDataInput,
         role,
         approved: role === 'user', // Users are auto-approved
+        wishlist: [], // Initialize empty wishlist for new users
         ...(proofUrl && { proofUrl }),
       });
     } catch (error: any) {
