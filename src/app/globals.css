@@ -172,7 +172,8 @@ html {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  will-change: scroll-position;
+  scroll-behavior: smooth;
+  will-change: transform;
   transform: translateZ(0);
   backface-visibility: hidden;
   contain: layout style;
@@ -274,7 +275,7 @@ html {
 
 /* Fast scroll for large lists */
 .fast-scroll {
-  scroll-behavior: auto;
+  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }

@@ -130,31 +130,162 @@ export default function Home() {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [showWishlist, setShowWishlist] = useState(false);
   const [pincode, setPincode] = useState<string>('Pincode 400605');
+  
+  // Pincode Modal States
+  const [showPincodeModal, setShowPincodeModal] = useState(false);
+  const [pincodeInput, setPincodeInput] = useState('');
 
-  // Fetch user's pincode automatically
+  // Profile States
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+  const [coTravellers, setCoTravellers] = useState<any[]>([]);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showAddCoTraveller, setShowAddCoTraveller] = useState(false);
+  const [newCoTraveller, setNewCoTraveller] = useState({
+    name: '',
+    contact: '',
+    relationship: 'Spouse'
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Load Profile States from userData & user
+  useEffect(() => {
+    if (user && userData && userData.role === 'user') {
+      setProfileName(userData.name || '');
+      setProfilePhone(userData.phone || userData.contactNumber || '');
+      setProfileEmail(user.email || '');
+      setProfilePhotoUrl(userData.avatarUrl || user.photoURL || '');
+      setCoTravellers(userData.coTravellers || []);
+    }
+  }, [user, userData]);
+
+  // Fetch user's pincode automatically with robust API waterfall & IP fallback
   useEffect(() => {
     if (userData?.role === 'user') {
+      const fetchIpPincode = async () => {
+        try {
+          const res = await fetch('https://ipapi.co/json/');
+          const data = await res.json();
+          if (data && data.postal) {
+            setPincode(`Pincode ${data.postal}`);
+          }
+        } catch (e) {
+          console.error('IP geolocation fallback error:', e);
+        }
+      };
+
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             try {
               const { latitude, longitude } = position.coords;
-              const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-              const data = await response.json();
-              if (data && data.address && data.address.postcode) {
-                setPincode(`Pincode ${data.address.postcode}`);
+              let gotPincode = false;
+              
+              // 1. Try BigDataCloud (fast, reliable CORS client-side geocoding)
+              try {
+                const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+                const bdcData = await bdcResponse.json();
+                if (bdcData && bdcData.postcode) {
+                  setPincode(`Pincode ${bdcData.postcode}`);
+                  gotPincode = true;
+                }
+              } catch (err) {
+                console.error('BigDataCloud geocoding error:', err);
+              }
+
+              // 2. Try Nominatim (secondary fallback)
+              if (!gotPincode) {
+                try {
+                  const nomResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                  const nomData = await nomResponse.json();
+                  if (nomData && nomData.address && nomData.address.postcode) {
+                    setPincode(`Pincode ${nomData.address.postcode}`);
+                    gotPincode = true;
+                  }
+                } catch (err) {
+                  console.error('Nominatim geocoding error:', err);
+                }
+              }
+
+              // 3. Try IP geolocation if geocoding requests failed
+              if (!gotPincode) {
+                await fetchIpPincode();
               }
             } catch (error) {
-              console.error('Error fetching pincode:', error);
+              console.error('Error in coordinates geocoding waterfall:', error);
+              await fetchIpPincode();
             }
           },
-          (error) => {
-            console.error('Geolocation error:', error);
-          }
+          async (error) => {
+            console.warn('Geolocation permission denied or error. Falling back to IP-based location:', error);
+            await fetchIpPincode();
+          },
+          { timeout: 8000 }
         );
+      } else {
+        fetchIpPincode();
       }
     }
   }, [userData?.role]);
+
+  // Save profile modifications to Firestore
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+
+    setSavingProfile(true);
+    try {
+      await updateDoc(doc(dbInstance, 'users', user.uid), {
+        name: profileName,
+        phone: profilePhone,
+        coTravellers: coTravellers
+      });
+      alert('Profile details saved successfully!');
+      setIsEditingProfile(false);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Failed to save profile details. Please try again.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // Upload avatar to Firebase Storage and update user document
+  const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user) return;
+    const selectedFile = e.target.files[0];
+    
+    if (!isValidImageFile(selectedFile)) {
+      alert('Please select a valid image file (PNG, JPG, WEBP, JPEG).');
+      return;
+    }
+
+    const storageInstance = getStorageInstance();
+    const dbInstance = getDbInstance();
+    if (!storageInstance || !dbInstance) return;
+
+    try {
+      const compressedFiles = await compressMultipleImages([selectedFile]);
+      const fileToUpload = compressedFiles[0];
+
+      const storageRef = ref(storageInstance, `avatars/${user.uid}/${Date.now()}_${fileToUpload.name}`);
+      await uploadBytes(storageRef, fileToUpload);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      await updateDoc(doc(dbInstance, 'users', user.uid), {
+        avatarUrl: downloadUrl
+      });
+
+      setProfilePhotoUrl(downloadUrl);
+      alert('Profile picture updated successfully!');
+    } catch (error) {
+      console.error('Error uploading profile photo:', error);
+      alert('Failed to upload profile picture.');
+    }
+  };
 
   // Comparison functionality
   const { comparisonList, clearComparison } = useComparison();
@@ -1624,22 +1755,47 @@ export default function Home() {
 
               {/* Right Icons */}
               <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                <div className="flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm">
+                <div 
+                  className="flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm"
+                  onClick={() => {
+                    setPincodeInput(pincode.replace('Pincode ', ''));
+                    setShowPincodeModal(true);
+                  }}
+                >
                   <span className="text-xl">📍</span>
                   <div className="flex flex-col leading-tight hidden xl:flex">
                     <span className="font-semibold">{pincode}</span>
-                    <span className="text-xs text-gray-400">Updated Location</span>
+                    <span className="text-xs text-gray-400">Location</span>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm group relative">
+                <div 
+                  className={`flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm group relative ${userActiveSection === 'profile' ? 'text-orange-500 font-bold' : ''}`}
+                  onClick={() => setUserActiveSection('profile')}
+                >
                   <span className="text-xl">👤</span>
                   <div className="flex flex-col leading-tight hidden xl:flex">
                     <span className="font-semibold">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
-                    <span className="text-xs text-gray-400 hover:text-white" onClick={signOut}>Sign Out</span>
+                    <span 
+                      className="text-xs text-gray-400 hover:text-white" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        signOut();
+                      }}
+                    >
+                      Sign Out
+                    </span>
                   </div>
                   {/* Mobile Sign Out */}
-                  <span className="xl:hidden absolute top-8 right-0 bg-black text-white p-2 rounded shadow opacity-0 group-hover:opacity-100" onClick={signOut}>Sign Out</span>
+                  <span 
+                    className="xl:hidden absolute top-8 right-0 bg-black text-white p-2 rounded shadow opacity-0 group-hover:opacity-100" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      signOut();
+                    }}
+                  >
+                    Sign Out
+                  </span>
                 </div>
 
                 <div 
@@ -1718,8 +1874,8 @@ export default function Home() {
             )}
 
             <main className="px-6 max-w-7xl mx-auto w-full">
-              {/* Header logic adjusted for non-listings sections (excludes bookings which has its own hero) */}
-              {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && (
+              {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
+              {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && (
                 <div className="mb-6 flex justify-between items-center border-b pb-4 border-gray-200 mt-6">
                   <h1 className="text-3xl font-bold text-gray-900">
                     {userActiveSection === 'chat' && 'Messages'}
@@ -2610,6 +2766,350 @@ export default function Home() {
                       }
                     </div>
                   )}
+                </div>
+              )}
+
+              {userActiveSection === 'profile' && (
+                <div className="py-6 animate-in fade-in duration-200">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* LEFT COLUMN: PROFILE CARD */}
+                    <div className="lg:col-span-1">
+                      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl overflow-hidden">
+                        <div className="relative pt-8 pb-6 px-6 text-center border-b border-gray-100 bg-gradient-to-b from-[#1C1F26]/5 to-transparent">
+                          {/* Avatar Display */}
+                          <div className="relative w-32 h-32 mx-auto mb-4 group">
+                            {profilePhotoUrl ? (
+                              <img 
+                                src={profilePhotoUrl} 
+                                alt={profileName} 
+                                className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
+                              />
+                            ) : (
+                              <div className="w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center text-white text-4xl font-extrabold shadow-lg border-4 border-white">
+                                {profileName ? profileName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+                              </div>
+                            )}
+                            {/* Camera Icon Overlay */}
+                            <label className="absolute bottom-1 right-1 bg-orange-500 hover:bg-orange-600 text-white rounded-full p-2.5 shadow-md cursor-pointer transition-all duration-200 group-hover:scale-105 border-2 border-white flex items-center justify-center">
+                              <span className="text-sm font-bold">📷+</span>
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleProfilePhotoChange} 
+                                className="hidden" 
+                              />
+                            </label>
+                          </div>
+
+                          {/* Profile Quick Info */}
+                          <h3 className="text-xl font-bold text-gray-900 leading-snug">{profileName || 'User'}</h3>
+                          <div className="mt-1 flex flex-col gap-1 text-sm text-gray-500">
+                            <div className="flex items-center justify-center gap-1">
+                              <span>{profileEmail}</span>
+                              {user?.emailVerified ? (
+                                <span className="text-emerald-500 text-xs" title="Verified email">✓</span>
+                              ) : (
+                                <span className="text-blue-500 hover:underline text-xs font-semibold cursor-pointer" onClick={() => alert('Verification email sent!')} title="Click to verify">Verify</span>
+                              )}
+                            </div>
+                            {profilePhone && (
+                              <div className="flex items-center justify-center gap-1.5 text-xs text-gray-600 font-medium">
+                                <span>{profilePhone}</span>
+                                <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 rounded-full w-4 h-4 text-[10px] font-bold">✓</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Navigation Links mimicking the Mockup */}
+                        <div className="p-4 space-y-1">
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#2B58C4] bg-[#2B58C4]/10 rounded-xl transition-all duration-205"
+                            onClick={() => setUserActiveSection('profile')}
+                          >
+                            <span className="text-lg">👤</span>
+                            <span>My Account</span>
+                          </button>
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
+                            onClick={() => setUserActiveSection('bookings')}
+                          >
+                            <span className="text-lg">📅</span>
+                            <span>My Booking</span>
+                          </button>
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
+                            onClick={() => setUserActiveSection('wishlist')}
+                          >
+                            <span className="text-lg">🛒</span>
+                            <span>My Holiday Cart</span>
+                          </button>
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
+                            onClick={() => setUserActiveSection('wishlist')}
+                          >
+                            <span className="text-lg">❤️</span>
+                            <span>Wishlist</span>
+                          </button>
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* RIGHT COLUMN: ACCOUNT DETAILS */}
+                    <div className="lg:col-span-2 space-y-6">
+                      {/* Personal Details Card */}
+                      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
+                        <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
+                          <h2 className="text-lg font-bold text-gray-955">Your Personal Details</h2>
+                          {!isEditingProfile ? (
+                            <Button 
+                              onClick={() => setIsEditingProfile(true)}
+                              variant="outline"
+                              className="border-[#2B58C4] text-[#2B58C4] hover:bg-[#2B58C4]/5 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                            >
+                              ✏️ Edit Profile
+                            </Button>
+                          ) : (
+                            <div className="flex gap-2">
+                              <Button 
+                                onClick={handleSaveProfile}
+                                disabled={savingProfile}
+                                className="bg-[#2B58C4] hover:bg-[#1E439B] text-white text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                              >
+                                {savingProfile ? 'Saving...' : '💾 Save'}
+                              </Button>
+                              <Button 
+                                onClick={() => {
+                                  // Restore old states
+                                  setProfileName(userData?.name || '');
+                                  setProfilePhone(userData?.phone || userData?.contactNumber || '');
+                                  setIsEditingProfile(false);
+                                }}
+                                variant="outline"
+                                className="border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Details Panel */}
+                        <div className="space-y-4">
+                          {!isEditingProfile ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Name</p>
+                                <p className="text-sm font-semibold text-gray-800 mt-1">{profileName || '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Contact</p>
+                                <p className="text-sm font-semibold text-gray-800 mt-1">{profilePhone || '—'}</p>
+                              </div>
+                              <div className="md:col-span-2">
+                                <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Email ID</p>
+                                <p className="text-sm font-semibold text-gray-800 mt-1 flex items-center gap-2">
+                                  {profileEmail}
+                                  {user?.emailVerified && (
+                                    <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 rounded-full w-4 h-4 text-[10px] font-bold">✓</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor="editName" className="text-xs font-semibold text-gray-500">Name</Label>
+                                  <Input 
+                                    id="editName"
+                                    type="text"
+                                    value={profileName}
+                                    onChange={(e) => setProfileName(e.target.value)}
+                                    className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="editPhone" className="text-xs font-semibold text-gray-500">Contact</Label>
+                                  <Input 
+                                    id="editPhone"
+                                    type="text"
+                                    value={profilePhone}
+                                    onChange={(e) => setProfilePhone(e.target.value)}
+                                    placeholder="e.g. +91 932 329 4525"
+                                    className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-semibold text-gray-500">Email ID (Cannot be changed)</Label>
+                                <Input 
+                                  type="text"
+                                  value={profileEmail}
+                                  disabled
+                                  className="mt-1 bg-gray-50 border-gray-200 text-gray-500 rounded-xl cursor-not-allowed"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Co-traveller details Section */}
+                        <div className="mt-8 pt-8 border-t border-gray-150">
+                          <div className="flex justify-between items-center mb-4">
+                            <div>
+                              <h3 className="text-base font-bold text-gray-900">Co-traveller details</h3>
+                              <p className="text-xs text-gray-400 mt-0.5">Manage details of passengers traveling with you</p>
+                            </div>
+                            <button 
+                              onClick={() => setShowAddCoTraveller(true)}
+                              className="w-10 h-10 bg-gray-100 hover:bg-gray-205 text-gray-700 flex items-center justify-center rounded-full shadow-sm hover:shadow-md transition-all duration-200 font-bold text-xl"
+                              title="Add Co-traveller"
+                            >
+                              ＋
+                            </button>
+                          </div>
+
+                          {/* Inline Add Co-traveller Form */}
+                          {showAddCoTraveller && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
+                              <h4 className="text-sm font-bold text-gray-805">Add New Co-traveller</h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                  <Label htmlFor="coName" className="text-xs text-gray-500">Name</Label>
+                                  <Input 
+                                    id="coName"
+                                    placeholder="Full Name"
+                                    value={newCoTraveller.name}
+                                    onChange={(e) => setNewCoTraveller({...newCoTraveller, name: e.target.value})}
+                                    className="mt-1 bg-white rounded-xl text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="coContact" className="text-xs text-gray-500">Contact Number</Label>
+                                  <Input 
+                                    id="coContact"
+                                    placeholder="Phone"
+                                    value={newCoTraveller.contact}
+                                    onChange={(e) => setNewCoTraveller({...newCoTraveller, contact: e.target.value})}
+                                    className="mt-1 bg-white rounded-xl text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="coRelation" className="text-xs text-gray-500">Relationship</Label>
+                                  <select
+                                    id="coRelation"
+                                    value={newCoTraveller.relationship}
+                                    onChange={(e) => setNewCoTraveller({...newCoTraveller, relationship: e.target.value})}
+                                    className="mt-1 block w-full rounded-xl border-gray-200 bg-white p-2.5 text-xs text-gray-800 shadow-sm focus:border-[#2B58C4] focus:ring-[#2B58C4]"
+                                  >
+                                    <option>Spouse</option>
+                                    <option>Child</option>
+                                    <option>Parent</option>
+                                    <option>Sibling</option>
+                                    <option>Friend</option>
+                                    <option>Other</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <Button 
+                                  onClick={async () => {
+                                    if (!newCoTraveller.name.trim() || !newCoTraveller.contact.trim()) {
+                                      alert('Please fill in Name and Contact number');
+                                      return;
+                                    }
+                                    const updatedList = [...coTravellers, { 
+                                      id: `${Date.now()}`, 
+                                      ...newCoTraveller 
+                                    }];
+                                    
+                                    // Save instantly to database if user is saved
+                                    const dbInstance = getDbInstance();
+                                    if (dbInstance && user) {
+                                      try {
+                                        await updateDoc(doc(dbInstance, 'users', user.uid), {
+                                          coTravellers: updatedList
+                                        });
+                                      } catch (err) {
+                                        console.error('Error saving co-travellers list:', err);
+                                      }
+                                    }
+
+                                    setCoTravellers(updatedList);
+                                    setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
+                                    setShowAddCoTraveller(false);
+                                  }}
+                                  className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 h-auto rounded-xl border-none"
+                                >
+                                  Add Traveler
+                                </Button>
+                                <Button 
+                                  variant="outline"
+                                  onClick={() => setShowAddCoTraveller(false)}
+                                  className="border-gray-200 text-gray-750 text-xs px-3 py-1.5 h-auto rounded-xl"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* List of Co-travellers */}
+                          {coTravellers.length === 0 ? (
+                            <p className="text-sm text-gray-500 italic text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                              No co-travellers added yet. Click the ＋ icon to add your travel companions.
+                            </p>
+                          ) : (
+                            <div className="space-y-3">
+                              {coTravellers.map((traveller) => (
+                                <div 
+                                  key={traveller.id} 
+                                  className="flex justify-between items-center p-4 bg-gray-50 border border-gray-150 rounded-2xl hover:bg-gray-100/70 transition-all duration-150 shadow-sm animate-in fade-in"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-[#2B58C4]/10 rounded-full flex items-center justify-center text-[#2B58C4] font-bold">
+                                      👤
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-800">{traveller.name}</p>
+                                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                        <span>📞 {traveller.contact}</span>
+                                        <span>•</span>
+                                        <span className="bg-[#2B58C4]/5 text-[#2B58C4] px-2 py-0.5 rounded-full font-medium text-[10px]">{traveller.relationship}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <button 
+                                    onClick={async () => {
+                                      const updatedList = coTravellers.filter(t => t.id !== traveller.id);
+                                      
+                                      const dbInstance = getDbInstance();
+                                      if (dbInstance && user) {
+                                        try {
+                                          await updateDoc(doc(dbInstance, 'users', user.uid), {
+                                            coTravellers: updatedList
+                                          });
+                                        } catch (err) {
+                                          console.error('Error deleting co-traveller:', err);
+                                        }
+                                      }
+
+                                      setCoTravellers(updatedList);
+                                    }}
+                                    className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-all duration-150"
+                                    title="Remove Traveler"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    </div>
+                  </div>
                 </div>
               )}
             </main>
@@ -4301,6 +4801,61 @@ export default function Home() {
                     setReviewListing(null);
                   }}
                   className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Pincode Change Modal */}
+      {showPincodeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <Card className="w-full max-w-sm mx-4 bg-[#1C1F26] border-gray-800 text-white shadow-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <span className="text-xl">📍</span> Update Location
+              </CardTitle>
+              <CardDescription className="text-xs text-gray-400">
+                Enter your 6-digit postal code to customize your experience
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="pincodeInput" className="text-xs font-semibold text-gray-300">Pincode</Label>
+                <Input
+                  id="pincodeInput"
+                  type="text"
+                  maxLength={6}
+                  placeholder="e.g., 400605"
+                  className="bg-gray-900 border-gray-800 text-white mt-1 w-full tracking-wider font-mono text-center text-lg focus:ring-orange-500 focus:border-orange-500"
+                  value={pincodeInput}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setPincodeInput(val);
+                  }}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={() => {
+                    if (pincodeInput.length === 6) {
+                      setPincode(`Pincode ${pincodeInput}`);
+                      setShowPincodeModal(false);
+                    } else {
+                      alert('Please enter a valid 6-digit pincode');
+                    }
+                  }}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 border-none font-semibold transition-all duration-200"
+                >
+                  Save Location
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPincodeModal(false)}
+                  className="flex-1 border-gray-750 text-gray-300 hover:bg-gray-800 hover:text-white"
                 >
                   Cancel
                 </Button>

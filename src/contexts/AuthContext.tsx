@@ -11,6 +11,10 @@ interface UserData {
   approved: boolean;
   name?: string;
   companyName?: string;
+  phone?: string;
+  contactNumber?: string;
+  avatarUrl?: string;
+  coTravellers?: any[];
 }
 
 interface AuthContextType {
