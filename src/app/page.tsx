@@ -208,19 +208,58 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Fetch user's bookings
+    // Fetch user's bookings with real-time updates
     if (user && userData?.role === 'user') {
-      const fetchUserBookings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const userBookingsQuery = query(collection(dbInstance, 'bookings'), where('userId', '==', user.uid));
-        const querySnapshot = await getDocs(userBookingsQuery);
-        const bookingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // Sort bookings by createdAt in descending order (most recent first)
-        bookingsData.sort((a, b) => new Date((b as any).createdAt).getTime() - new Date((a as any).createdAt).getTime());
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+
+      // Use simple query without orderBy to avoid index requirement
+      // Sorting will be done client-side
+      const userBookingsQuery = query(
+        collection(dbInstance, 'bookings'), 
+        where('userId', '==', user.uid)
+      );
+
+      // Set up real-time listener
+      const unsubscribe = onSnapshot(userBookingsQuery, (snapshot) => {
+        const bookingsData = snapshot.docs.map(doc => {
+          const data = doc.data() as any;
+          return { 
+            id: doc.id, 
+            ...data,
+            // Ensure createdAt is properly formatted
+            createdAtFormatted: data.createdAt?.toDate?.() 
+              ? data.createdAt.toDate().toLocaleDateString('en-IN', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+              : new Date(data.createdAt).toLocaleDateString('en-IN', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+          };
+        });
+        
+        // Sort client-side by createdAt in descending order (most recent first)
+        bookingsData.sort((a, b) => {
+          const dateA = (a as any).createdAt?.toDate?.() || new Date((a as any).createdAt);
+          const dateB = (b as any).createdAt?.toDate?.() || new Date((b as any).createdAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
         setUserBookings(bookingsData);
-      };
-      fetchUserBookings();
+      }, (error) => {
+        console.error('Error fetching bookings:', error);
+      });
+
+      // Cleanup subscription
+      return () => unsubscribe();
     }
   }, [user, userData]);
 
@@ -882,9 +921,10 @@ export default function Home() {
         userEmail: bookingData.contactEmail,
         userPhone: bookingData.contactPhone,
         listingId: bookingListing.id,
-        listingTitle: bookingListing.title || bookingListing.title || 'Unknown Package',
-        agencyId: bookingListing.agencyId || bookingListing.agencyId,
-        agencyName: bookingListing.agencyName || bookingListing.agencyName || 'Unknown Agency',
+        listingTitle: bookingListing.title || 'Unknown Package',
+        agencyId: bookingListing.agencyId,
+        agencyName: bookingListing.agencyName || 'Unknown Agency',
+        packageType: bookingListing.packageType || 'domestic', // Save package type for currency display
         travelers: bookingData.travelers,
         travelDate: bookingData.travelDate,
         specialRequests: bookingData.specialRequests,
@@ -922,13 +962,8 @@ export default function Home() {
         bookingNotes: ''
       });
       
-      // Refresh user bookings
-      const userBookingsQuery = query(collection(dbInstance, 'bookings'), where('userId', '==', user.uid));
-      const querySnapshot = await getDocs(userBookingsQuery);
-      const bookingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Sort bookings by createdAt in descending order (most recent first)
-      bookingsData.sort((a, b) => new Date((b as any).createdAt).getTime() - new Date((a as any).createdAt).getTime());
-      setUserBookings(bookingsData);
+      // Note: Real-time listener will automatically update the bookings list
+      // No need to manually refresh as onSnapshot is now being used
       
     } catch (error) {
       console.error('Error submitting booking:', error);
@@ -945,7 +980,7 @@ export default function Home() {
       return (
         <div className="flex h-screen bg-gray-100">
           {/* Sidebar */}
-          <div className="w-64 bg-white shadow-xl rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100">
+          <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll">
             <div className="p-6 border-b">
               <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
               <p className="text-sm text-gray-600">Admin Dashboard</p>
@@ -1017,8 +1052,8 @@ export default function Home() {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-auto mr-4 mt-4">
-            <header className="sticky top-0 z-10 bg-white shadow-xl rounded-3xl p-6 mb-4 border border-gray-100">
+          <div className="flex-1 dashboard-scroll mr-4 mt-4">
+            <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {activeSection === 'dashboard' && 'Admin Dashboard'}
@@ -1536,7 +1571,7 @@ export default function Home() {
       // User Dashboard
       return (
         <div className="flex h-screen bg-gray-100">
-          <div className="w-64 bg-white shadow-xl rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100">
+          <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll">
             <div className="p-6 border-b">
               <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
               <p className="text-sm text-gray-600">User Dashboard</p>
@@ -1588,10 +1623,10 @@ export default function Home() {
           </div>
 
           <div 
-            className="flex-1 overflow-auto mr-4 mt-4 scroll-smooth"
+            className="flex-1 dashboard-scroll mr-4 mt-4 fast-scroll"
             id="user-dashboard-scroll-container"
           >
-            <header className="sticky top-0 z-10 bg-white shadow-xl rounded-3xl p-6 mb-4 border border-gray-100">
+            <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {userActiveSection === 'listings' && 'Travel Listings'}
@@ -2113,80 +2148,198 @@ export default function Home() {
                                 <CardTitle className="text-xl">{booking.listingTitle}</CardTitle>
                                 <CardDescription>By {booking.agencyName}</CardDescription>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                              </span>
+                              <div className="text-right">
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                  booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                  booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                </span>
+                                <p className="text-xs text-gray-500 mt-1">Ref: {booking.bookingReference}</p>
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent className="space-y-4">
+                            {/* Package Type Badge */}
+                            <div className="flex items-center gap-2">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                booking.packageType === 'international' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {booking.packageType === 'international' ? '🌍 International' : '🏠 Domestic'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Booked on {booking.createdAtFormatted}
+                              </span>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                              <div>
-                                <span className="font-medium text-gray-600">Booking Reference:</span>
-                                <p className="font-mono">{booking.bookingReference}</p>
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <span className="font-medium text-gray-600 block text-xs uppercase tracking-wide">Booking Reference</span>
+                                <p className="font-mono text-lg font-semibold text-gray-800">{booking.bookingReference}</p>
                               </div>
-                              <div>
-                                <span className="font-medium text-gray-600">Travel Date:</span>
-                                <p>{booking.travelDate || 'Not specified'}</p>
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <span className="font-medium text-gray-600 block text-xs uppercase tracking-wide">Travel Date</span>
+                                <p className="text-lg font-semibold text-gray-800">{booking.travelDate || 'Not specified'}</p>
                               </div>
-                              <div>
-                                <span className="font-medium text-gray-600">Travelers:</span>
-                                <p>{booking.travelers} {booking.travelers === 1 ? 'person' : 'people'}</p>
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <span className="font-medium text-gray-600 block text-xs uppercase tracking-wide">Travelers</span>
+                                <p className="text-lg font-semibold text-gray-800">{booking.travelers} {booking.travelers === 1 ? 'person' : 'people'}</p>
                               </div>
                             </div>
 
-                            <div className="border-t pt-4">
-                              <div className="flex justify-between items-center">
+                            {/* Contact Information */}
+                            <div className="bg-blue-50 p-4 rounded-lg">
+                              <h4 className="font-semibold text-blue-900 mb-2 text-sm uppercase tracking-wide">Contact Information</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                                 <div>
-                                  <span className="font-medium text-gray-600">Total Amount:</span>
-                                  <p className="text-2xl font-bold text-green-600">${booking.totalAmount}</p>
+                                  <span className="text-blue-700 font-medium">Name:</span>
+                                  <p className="text-blue-900">{booking.userName || 'Not provided'}</p>
                                 </div>
-                                {(booking.status === 'confirmed' || booking.status === 'pending') && (
-                                  <Button
-                                    className="bg-green-600 hover:bg-green-700"
-                                    onClick={() => {
-                                      console.log('Button clicked for booking:', booking);
-                                      // For now, show journey details in alert since modal has CSS issues
-                                      const journeyInfo = booking.journeyDetails
-                                        ? `Flight: ${booking.journeyDetails.flight || 'Not provided'}\nHotel: ${booking.journeyDetails.hotel || 'Not provided'}\nItinerary: ${booking.journeyDetails.itinerary || 'Not provided'}`
-                                        : 'Journey details will be shared soon by your agency.';
-                                      alert(`Journey Details for ${booking.listingTitle}:\n\n${journeyInfo}\n\nReference: ${booking.bookingReference}\nTravelers: ${booking.travelers}\nTotal: $${booking.totalAmount}`);
-                                    }}
-                                  >
-                                    📋 View Journey Details
-                                  </Button>
+                                <div>
+                                  <span className="text-blue-700 font-medium">Email:</span>
+                                  <p className="text-blue-900">{booking.userEmail || 'Not provided'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-blue-700 font-medium">Phone:</span>
+                                  <p className="text-blue-900">{booking.userPhone || 'Not provided'}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Special Requests & Preferences */}
+                            {(booking.specialRequests || (booking.preferences && booking.preferences.length > 0)) && (
+                              <div className="bg-purple-50 p-4 rounded-lg">
+                                <h4 className="font-semibold text-purple-900 mb-2 text-sm uppercase tracking-wide">Preferences & Requests</h4>
+                                {booking.preferences && booking.preferences.length > 0 && (
+                                  <div className="mb-2">
+                                    <span className="text-purple-700 font-medium text-sm">Interests:</span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {booking.preferences.map((pref: string, idx: number) => (
+                                        <span key={idx} className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded text-xs">
+                                          {pref}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {booking.specialRequests && (
+                                  <div>
+                                    <span className="text-purple-700 font-medium text-sm">Special Requests:</span>
+                                    <p className="text-purple-900 text-sm mt-1">{booking.specialRequests}</p>
+                                  </div>
                                 )}
                               </div>
+                            )}
+
+                            <div className="border-t pt-4">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <div>
+                                  <span className="font-medium text-gray-600 text-sm">Total Amount</span>
+                                  <p className="text-3xl font-bold text-green-600">
+                                    {booking.packageType === 'international' ? '$' : '₹'}
+                                    {typeof booking.totalAmount === 'number' 
+                                      ? booking.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                      : parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                    }
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {booking.travelers} traveler{booking.travelers > 1 ? 's' : ''} × 
+                                    {booking.packageType === 'international' ? '$' : '₹'}
+                                    {booking.totalAmount && booking.travelers 
+                                      ? (parseFloat(booking.totalAmount) / booking.travelers).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                      : '0.00'
+                                    } per person
+                                  </p>
+                                </div>
+                                <div className="flex gap-2">
+                                  {(booking.status === 'confirmed' || booking.status === 'pending') && (
+                                    <Button
+                                      className="bg-green-600 hover:bg-green-700"
+                                      onClick={() => {
+                                        console.log('Opening journey modal for booking:', booking);
+                                        setSelectedJourneyBooking(booking);
+                                        setShowJourneyModal(true);
+                                      }}
+                                    >
+                                      📋 View Journey Details
+                                    </Button>
+                                  )}
+                                  {booking.status === 'confirmed' && (
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => {
+                                        // Generate and download itinerary PDF or open print view
+                                        window.print();
+                                      }}
+                                    >
+                                      🖨️ Print
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
 
+                            {/* Quick Journey Preview (for confirmed bookings) */}
                             {booking.status === 'confirmed' && booking.journeyDetails && (
                               <div className="border-t pt-4">
-                                <h4 className="font-semibold mb-3">Journey Details</h4>
-                                <div className="bg-green-50 p-4 rounded-lg space-y-3">
-                                  <div>
-                                    <span className="font-medium">Flight Details:</span>
-                                    <p className="text-sm">{booking.journeyDetails.flight || 'Flight details will be shared soon'}</p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Hotel Booking:</span>
-                                    <p className="text-sm">{booking.journeyDetails.hotel || 'Hotel details will be shared soon'}</p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Itinerary:</span>
-                                    <p className="text-sm">{booking.journeyDetails.itinerary || 'Complete itinerary will be shared soon'}</p>
-                                  </div>
+                                <h4 className="font-semibold mb-3 text-gray-800">Quick Journey Preview</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  {booking.journeyDetails.flight && (
+                                    <div className="bg-blue-50 p-3 rounded-lg">
+                                      <span className="text-blue-700 font-medium text-sm flex items-center gap-1">
+                                        ✈️ Flight
+                                      </span>
+                                      <p className="text-blue-900 text-sm mt-1 line-clamp-2">{booking.journeyDetails.flight}</p>
+                                    </div>
+                                  )}
+                                  {booking.journeyDetails.hotel && (
+                                    <div className="bg-green-50 p-3 rounded-lg">
+                                      <span className="text-green-700 font-medium text-sm flex items-center gap-1">
+                                        🏨 Hotel
+                                      </span>
+                                      <p className="text-green-900 text-sm mt-1 line-clamp-2">{booking.journeyDetails.hotel}</p>
+                                    </div>
+                                  )}
+                                  {booking.journeyDetails.itinerary && (
+                                    <div className="bg-purple-50 p-3 rounded-lg">
+                                      <span className="text-purple-700 font-medium text-sm flex items-center gap-1">
+                                        📋 Itinerary
+                                      </span>
+                                      <p className="text-purple-900 text-sm mt-1 line-clamp-2">{booking.journeyDetails.itinerary.substring(0, 50)}...</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
 
                             {booking.status === 'pending' && (
-                              <div className="bg-yellow-50 p-4 rounded-lg">
-                                <p className="text-sm text-yellow-800">
-                                  Your booking is being reviewed by the agency. You'll receive confirmation and journey details within 24 hours.
-                                </p>
+                              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                                <div className="flex items-start gap-3">
+                                  <span className="text-2xl">⏳</span>
+                                  <div>
+                                    <p className="font-semibold text-yellow-900">Booking Under Review</p>
+                                    <p className="text-sm text-yellow-800 mt-1">
+                                      Your booking is being reviewed by {booking.agencyName}. You'll receive confirmation and complete journey details within 24 hours.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {booking.status === 'cancelled' && (
+                              <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+                                <div className="flex items-start gap-3">
+                                  <span className="text-2xl">❌</span>
+                                  <div>
+                                    <p className="font-semibold text-red-900">Booking Cancelled</p>
+                                    <p className="text-sm text-red-800 mt-1">
+                                      This booking has been cancelled. Please contact {booking.agencyName} for more information.
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </CardContent>
@@ -2357,7 +2510,7 @@ export default function Home() {
       // Agency Dashboard
       return (
         <div className="flex h-screen bg-gray-100">
-          <div className="w-64 bg-white shadow-xl rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100">
+          <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll">
             <div className="p-6 border-b">
               <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
               <p className="text-sm text-gray-600">{userData.companyName}</p>
@@ -2438,8 +2591,8 @@ export default function Home() {
             </nav>
           </div>
 
-          <div className="flex-1 overflow-auto mr-4 mt-4">
-           <header className="sticky top-0 z-10 bg-white shadow-xl rounded-3xl p-6 mb-4 border border-gray-100">
+          <div className="flex-1 dashboard-scroll mr-4 mt-4">
+           <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {agencyActiveSection === 'overview' && 'Agency Overview'}
@@ -3339,111 +3492,231 @@ export default function Home() {
   // Journey Details Modal Component
   const JourneyDetailsModal = ({ booking, onClose }: { booking: any; onClose: () => void }) => {
     console.log('Modal component rendering with booking:', booking);
+    
+    if (!booking) return null;
+
+    const currencySymbol = booking.packageType === 'international' ? '$' : '₹';
+    
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Journey Details</h2>
-              <Button variant="outline" size="sm" onClick={onClose}>✕</Button>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-bold">Journey Details</h2>
+                <p className="text-blue-100 mt-1">{booking.listingTitle}</p>
+              </div>
+              <button 
+                onClick={onClose}
+                className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+              >
+                <span className="text-xl">✕</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Status Badge */}
+            <div className="flex items-center justify-between">
+              <span className={`px-4 py-2 rounded-full text-sm font-medium ${
+                booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-red-100 text-red-800'
+              }`}>
+                {booking.status === 'confirmed' ? '✅ Confirmed' : 
+                 booking.status === 'pending' ? '⏳ Pending' : '❌ Cancelled'}
+              </span>
+              <span className="text-gray-500 text-sm">
+                Booked on {booking.createdAtFormatted}
+              </span>
             </div>
 
-            <div className="space-y-6">
-              {/* Booking Info */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-lg mb-3">📅 Booking Information</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Package:</span>
-                    <p className="text-blue-600 font-semibold">{booking.listingTitle}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Reference:</span>
-                    <p className="font-mono">{booking.bookingReference}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Travel Date:</span>
-                    <p>{booking.travelDate || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Travelers:</span>
-                    <p>{booking.travelers} {booking.travelers === 1 ? 'person' : 'people'}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Agency:</span>
-                    <p>{booking.agencyName}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Total Amount:</span>
-                    <p className="text-green-600 font-semibold">${booking.totalAmount}</p>
-                  </div>
+            {/* Booking Info */}
+            <div className="bg-gray-50 p-5 rounded-xl">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                📅 Booking Information
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="bg-white p-3 rounded-lg">
+                  <span className="text-gray-500 text-xs uppercase tracking-wide block">Reference</span>
+                  <p className="font-mono font-semibold text-gray-800">{booking.bookingReference}</p>
+                </div>
+                <div className="bg-white p-3 rounded-lg">
+                  <span className="text-gray-500 text-xs uppercase tracking-wide block">Travel Date</span>
+                  <p className="font-semibold text-gray-800">{booking.travelDate || 'Not specified'}</p>
+                </div>
+                <div className="bg-white p-3 rounded-lg">
+                  <span className="text-gray-500 text-xs uppercase tracking-wide block">Travelers</span>
+                  <p className="font-semibold text-gray-800">{booking.travelers} {booking.travelers === 1 ? 'person' : 'people'}</p>
+                </div>
+                <div className="bg-white p-3 rounded-lg">
+                  <span className="text-gray-500 text-xs uppercase tracking-wide block">Package Type</span>
+                  <p className="font-semibold text-gray-800">
+                    {booking.packageType === 'international' ? '🌍 International' : '🏠 Domestic'}
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-lg col-span-2">
+                  <span className="text-gray-500 text-xs uppercase tracking-wide block">Agency</span>
+                  <p className="font-semibold text-gray-800">{booking.agencyName}</p>
                 </div>
               </div>
+            </div>
 
-              {/* Journey Details */}
-              {booking.journeyDetails ? (
-                <div className="space-y-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-lg mb-3 flex items-center">
+            {/* Journey Details */}
+            {booking.journeyDetails ? (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  ✈️ Travel Itinerary
+                </h3>
+                
+                {booking.journeyDetails.flight && (
+                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
                       ✈️ Flight Information
-                    </h3>
-                    <p className="text-blue-800">{booking.journeyDetails.flight || 'Flight details will be shared soon'}</p>
+                    </h4>
+                    <p className="text-blue-800 whitespace-pre-line">{booking.journeyDetails.flight}</p>
                   </div>
+                )}
 
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-lg mb-3 flex items-center">
+                {booking.journeyDetails.hotel && (
+                  <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
+                    <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
                       🏨 Hotel Accommodation
-                    </h3>
-                    <p className="text-green-800">{booking.journeyDetails.hotel || 'Hotel details will be shared soon'}</p>
+                    </h4>
+                    <p className="text-green-800 whitespace-pre-line">{booking.journeyDetails.hotel}</p>
                   </div>
+                )}
 
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-lg mb-3 flex items-center">
-                      📋 Complete Itinerary
-                    </h3>
-                    <div className="text-purple-800 whitespace-pre-line">
-                      {booking.journeyDetails.itinerary || 'Complete itinerary will be shared soon'}
+                {booking.journeyDetails.itinerary && (
+                  <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
+                    <h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                      📋 Day-by-Day Itinerary
+                    </h4>
+                    <div className="text-purple-800 whitespace-pre-line leading-relaxed">
+                      {booking.journeyDetails.itinerary}
                     </div>
                   </div>
+                )}
 
-                  {booking.journeyDetails.additionalNotes && (
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <h3 className="font-semibold text-lg mb-3 flex items-center">
-                        📝 Additional Notes
-                      </h3>
-                      <p className="text-yellow-800">{booking.journeyDetails.additionalNotes}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-yellow-50 p-4 rounded-lg text-center">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <span className="text-2xl">⏳</span>
+                {booking.journeyDetails.additionalNotes && (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r-lg">
+                    <h4 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
+                      📝 Additional Notes
+                    </h4>
+                    <p className="text-yellow-800">{booking.journeyDetails.additionalNotes}</p>
                   </div>
-                  <h3 className="font-semibold mb-2">Journey Details Coming Soon</h3>
-                  <p className="text-yellow-800">
-                    Your agency is preparing your complete travel itinerary. You'll receive flight, hotel, and activity details within 24 hours.
-                  </p>
-                </div>
-              )}
+                )}
 
-              {/* Contact Information */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-lg mb-3">📞 Emergency Contact</h3>
-                <div className="space-y-2 text-sm">
-                  <p><span className="font-medium">Agency:</span> {booking.agencyName}</p>
-                  {booking.journeyDetails?.emergencyContact && (
-                    <p><span className="font-medium">Phone:</span> {booking.journeyDetails.emergencyContact}</p>
-                  )}
-                  <p className="text-xs text-gray-600 mt-2">
-                    Keep this information handy during your travels. Contact your agency for any assistance.
-                  </p>
+                {!booking.journeyDetails.flight && !booking.journeyDetails.hotel && !booking.journeyDetails.itinerary && (
+                  <div className="bg-yellow-50 p-4 rounded-lg text-center">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <span className="text-2xl">⏳</span>
+                    </div>
+                    <h3 className="font-semibold mb-2">Journey Details Being Prepared</h3>
+                    <p className="text-yellow-800">
+                      Your agency is finalizing your complete travel itinerary. Check back soon!
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-xl text-center">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">⏳</span>
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Journey Details Coming Soon</h3>
+                <p className="text-yellow-800">
+                  Your agency is preparing your complete travel itinerary. You'll receive flight, hotel, and activity details within 24 hours of booking confirmation.
+                </p>
+              </div>
+            )}
+
+            {/* Special Requests */}
+            {booking.specialRequests && (
+              <div className="bg-pink-50 border-l-4 border-pink-500 p-4 rounded-r-lg">
+                <h4 className="font-semibold text-pink-900 mb-2">📝 Your Special Requests</h4>
+                <p className="text-pink-800">{booking.specialRequests}</p>
+              </div>
+            )}
+
+            {/* Payment Summary */}
+            <div className="bg-gray-50 p-5 rounded-xl">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                💰 Payment Summary
+              </h3>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Package Cost ({booking.travelers} traveler{booking.travelers > 1 ? 's' : ''})</span>
+                  <span className="font-medium">
+                    {currencySymbol}{parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="border-t pt-2 flex justify-between">
+                  <span className="font-semibold">Total Paid</span>
+                  <span className="font-bold text-green-600 text-xl">
+                    {currencySymbol}{parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end mt-6 pt-4 border-t">
-              <Button onClick={onClose}>Close</Button>
+            {/* Contact Information */}
+            <div className="bg-blue-50 p-5 rounded-xl">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                📞 Contact & Emergency Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-700 font-medium block">Agency</span>
+                  <p className="text-blue-900">{booking.agencyName}</p>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium block">Your Contact</span>
+                  <p className="text-blue-900">{booking.userName} • {booking.userPhone || 'No phone'}</p>
+                </div>
+                {booking.journeyDetails?.emergencyContact && (
+                  <div className="md:col-span-2">
+                    <span className="text-blue-700 font-medium block">Emergency Contact</span>
+                    <p className="text-blue-900">{booking.journeyDetails.emergencyContact}</p>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-blue-600 mt-4 bg-blue-100 p-2 rounded">
+                💡 Keep this information handy during your travels. Contact your agency for any assistance.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 pt-4 border-t">
+              <Button onClick={onClose} variant="outline" className="flex-1">
+                Close
+              </Button>
+              <Button 
+                onClick={() => window.print()} 
+                variant="outline"
+                className="flex-1"
+              >
+                🖨️ Print Details
+              </Button>
+              {booking.status === 'confirmed' && (
+                <Button 
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    // Share functionality
+                    if (navigator.share) {
+                      navigator.share({
+                        title: `My Travel Booking - ${booking.listingTitle}`,
+                        text: `Booking Reference: ${booking.bookingReference}\nTravel Date: ${booking.travelDate || 'TBD'}`,
+                      });
+                    } else {
+                      alert('Booking details copied to clipboard!');
+                    }
+                  }}
+                >
+                  📤 Share
+                </Button>
+              )}
             </div>
           </div>
         </div>
