@@ -305,8 +305,28 @@ const packageType = watch('packageType');
         updatedAt: new Date()
       };
 
+      // Sanitize undefined fields from listingData to prevent FirebaseError
+      const sanitizeData = (obj: any): any => {
+        if (obj === null || obj === undefined) return null;
+        if (Array.isArray(obj)) {
+          return obj.map(item => sanitizeData(item));
+        }
+        if (typeof obj === 'object' && !(obj instanceof Date)) {
+          const newObj: any = {};
+          Object.keys(obj).forEach(key => {
+            if (obj[key] !== undefined) {
+              newObj[key] = sanitizeData(obj[key]);
+            }
+          });
+          return newObj;
+        }
+        return obj;
+      };
+
+      const sanitizedListingData = sanitizeData(listingData);
+
       // Debug: Log the final listing data
-      console.log('Final listing data:', listingData);
+      console.log('Final listing data:', sanitizedListingData);
 
       const dbInstance = getDbInstance();
       
@@ -316,11 +336,11 @@ const packageType = watch('packageType');
 
       if (initialData?.id) {
         // Update existing listing
-        await updateDoc(doc(dbInstance, 'listings', initialData.id), listingData);
+        await updateDoc(doc(dbInstance, 'listings', initialData.id), sanitizedListingData);
         alert('Listing updated successfully!');
       } else {
         // Create new listing
-        await addDoc(collection(dbInstance, 'listings'), listingData);
+        await addDoc(collection(dbInstance, 'listings'), sanitizedListingData);
         alert('Listing submitted for approval!');
       }
 

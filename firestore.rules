@@ -79,6 +79,13 @@ service cloud.firestore {
                       (isAgency() && resource.data.agencyId == request.auth.uid);
     }
 
+    // Support tickets - users can create and read their own tickets, admins can read/write all
+    match /support_tickets/{ticketId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow write: if isAdmin();
+    }
+
     // Allow read access to public data for authenticated users
     match /{document=**} {
       allow read: if isAuthenticated();

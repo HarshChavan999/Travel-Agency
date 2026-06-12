@@ -302,3 +302,19 @@ html {
   -ms-user-select: none;
   user-select: none;
 }
+
+/* Custom smooth marquee utility for long text */
+@utility animate-marquee-text {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marqueeText 18s linear infinite;
+}
+
+@keyframes marqueeText {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}

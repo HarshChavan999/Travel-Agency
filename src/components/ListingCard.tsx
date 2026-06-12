@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from './ui/badge';
 import { useComparison } from '@/contexts/ComparisonContext';
-import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2 } from 'lucide-react';
+import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2, Camera, Bus, Bed, Utensils } from 'lucide-react';
 import { optimizeImageUrl, generateBlurPlaceholder, preloadImage } from '@/lib/imageOptimization';
 import { injectImageStyles } from '@/lib/imageStyles';
 
@@ -37,6 +37,7 @@ export default function ListingCard({
   const { addToComparison, isInComparison, canAddMore } = useComparison();
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
+
   // Get main image from placesCovered or photos
   const getMainImage = () => {
     if (listing.placesCovered && listing.placesCovered.length > 0 && 
@@ -54,9 +55,18 @@ export default function ListingCard({
   const nights = duration > 0 ? duration - 1 : 0;
   const price = listing.cost || listing.price || 'N/A';
   const packageType = listing.packageType === 'international' ? 'International' : 'Domestic';
+  const currencySymbol = listing.packageType === 'international' ? '$' : '₹';
   const location = listing.packageType === 'international' 
     ? (listing.countryName || 'Country not specified')
     : (listing.stateName || 'State not specified');
+
+  const packageCode = listing.id ? listing.id.slice(-4).toUpperCase() : '1045';
+  const pickupLocation = listing.placesCovered?.[0]?.name?.trim() || listing.stateName || 'Delhi';
+  const dropLocation = listing.placesCovered?.[listing.placesCovered.length - 1]?.name?.trim() || listing.stateName || 'Delhi';
+  const cardTitle = (listing.packageType === 'international' ? listing.countryName : listing.stateName) || listing.title || `${packageType} Package`;
+  const placesText = listing.placesCovered && listing.placesCovered.length > 0 
+    ? listing.placesCovered.map((p: any) => p.name?.trim()).filter(Boolean).join(' | ') 
+    : location;
 
   // Generate optimized image URL with caching parameters
   const optimizedImageUrl = mainImage ? optimizeImageUrl(mainImage, {
@@ -90,277 +100,308 @@ export default function ListingCard({
   // Generate a blur placeholder SVG
   const blurPlaceholder = generateBlurPlaceholder(400, 300, '#f3f4f6');
 
+  const handleCompareToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isInComparison(listing.id)) {
+      setCompareToastMessage('Already in comparison!');
+      setShowCompareToast(true);
+      setTimeout(() => setShowCompareToast(false), 2000);
+    } else if (!canAddMore) {
+      setCompareToastMessage('Max 3 packages allowed');
+      setShowCompareToast(true);
+      setTimeout(() => setShowCompareToast(false), 2000);
+    } else {
+      addToComparison({
+        id: listing.id,
+        title: cardTitle,
+        description: listing.description,
+        cost: listing.cost,
+        price: listing.price,
+        packageType: listing.packageType,
+        stateName: listing.stateName,
+        countryName: listing.countryName,
+        duration: listing.duration,
+        itinerary: listing.itinerary,
+        placesCovered: listing.placesCovered,
+        hotelTypes: listing.hotelTypes,
+        inclusions: listing.inclusions,
+        exclusions: listing.exclusions,
+        agencyName: listing.agencyName,
+        agencyId: listing.agencyId,
+        agencyData: listing.agencyData,
+        photos: listing.photos,
+        rating: listing.rating,
+        reviewsCount: listing.reviewsCount,
+        tourCategories: listing.tourCategories,
+      });
+      setCompareToastMessage('Added to compare!');
+      setShowCompareToast(true);
+      setTimeout(() => setShowCompareToast(false), 2000);
+    }
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-shadow overflow-hidden group">
-      {/* Image Section */}
-      <div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-        {/* Loading Skeleton */}
-        {!imageLoaded && (
-          <div className="absolute inset-0 bg-gray-200 animate-pulse">
-            <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300"></div>
+    <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group flex flex-col gap-4">
+      {/* Compare Toast */}
+      {showCompareToast && (
+        <div className="absolute top-4 right-4 z-10 animate-in fade-in duration-200">
+          <div className="bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg">
+            {compareToastMessage}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Error State */}
-        {imageError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <div className="text-center p-4">
-              <div className="text-gray-400 mb-2">📸</div>
-              <p className="text-xs text-gray-500">Image not available</p>
-            </div>
-          </div>
-        )}
-
-        {/* Main Image */}
-        {optimizedImageUrl && !imageError ? (
-          <>
-            {/* Blur placeholder that fades out */}
-            {!imageLoaded && (
-              <img
-                src={blurPlaceholder}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover blur-sm"
-                style={{ filter: 'blur(5px)' }}
-              />
-            )}
-            <img
-              src={optimizedImageUrl}
-              alt={listing.title || 'Package Image'}
-              className={`w-full h-full object-cover transition-all duration-500 ${
-                imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
-              } group-hover:scale-110`}
-              onLoad={handleImageLoad}
-              onError={handleImageError}
-              loading="lazy"
-              decoding="async"
-            />
-          </>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100">
-            <span className="text-gray-500 text-sm">No image available</span>
-          </div>
-        )}
-        
-        {/* Agency Name Badge */}
-        <div className="absolute top-3 left-3">
-          <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm">
-            <span className="mr-1"></span>
-            {listing.agencyName || 'Unknown Agency'}
+      {/* Status Badge */}
+      {!listing.approved && (
+        <div className="absolute top-2 right-2 z-10">
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            Pending
           </Badge>
         </div>
+      )}
 
-        {/* Action Buttons */}
-        {variant === 'user' && (
-          <>
-            {/* Compare Button */}
-            {showCompare && (
-              <div className="absolute top-3 right-14">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`p-2 hover:bg-white/80 ${isInComparison(listing.id) ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isInComparison(listing.id)) {
-                      setCompareToastMessage('Already in comparison!');
-                      setShowCompareToast(true);
-                      setTimeout(() => setShowCompareToast(false), 2000);
-                    } else if (!canAddMore) {
-                      setCompareToastMessage('Max 3 packages allowed');
-                      setShowCompareToast(true);
-                      setTimeout(() => setShowCompareToast(false), 2000);
-                    } else {
-                      addToComparison({
-                        id: listing.id,
-                        title: listing.title,
-                        description: listing.description,
-                        cost: listing.cost,
-                        price: listing.price,
-                        packageType: listing.packageType,
-                        stateName: listing.stateName,
-                        countryName: listing.countryName,
-                        duration: listing.duration,
-                        itinerary: listing.itinerary,
-                        placesCovered: listing.placesCovered,
-                        hotelTypes: listing.hotelTypes,
-                        inclusions: listing.inclusions,
-                        exclusions: listing.exclusions,
-                        agencyName: listing.agencyName,
-                        agencyId: listing.agencyId,
-                        agencyData: listing.agencyData,
-                        photos: listing.photos,
-                        rating: listing.rating,
-                        reviewsCount: listing.reviewsCount,
-                        tourCategories: listing.tourCategories,
-                      });
-                      setCompareToastMessage('Added to compare!');
-                      setShowCompareToast(true);
-                      setTimeout(() => setShowCompareToast(false), 2000);
-                    }
-                  }}
-                >
-                  {isInComparison(listing.id) ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : (
-                    <Scale className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            )}
-            
-            {/* Wishlist Button */}
-            <div className="absolute top-3 right-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-2 hover:bg-white/80"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  console.log('❤️ Wishlist button clicked for listing:', listing.id);
-                  onWishlist?.(listing.id);
-                }}
-              >
-                <Heart 
-                  className={`h-4 w-4 ${isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-500'}`} 
+      {/* Top Portion: Flex Row of Image + Right Info */}
+      <div className="flex gap-4 items-start">
+        {/* Left Column: Image Container */}
+        <div className="relative w-28 h-20 sm:w-32 sm:h-24 md:w-36 md:h-28 flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl overflow-hidden">
+          {/* Loading Skeleton */}
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-gray-200 animate-pulse">
+              <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300"></div>
+            </div>
+          )}
+
+          {/* Error State */}
+          {imageError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+              <span className="text-xl text-gray-400">📸</span>
+            </div>
+          )}
+
+          {/* Main Image */}
+          {optimizedImageUrl && !imageError ? (
+            <>
+              {!imageLoaded && (
+                <img
+                  src={blurPlaceholder}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover blur-sm"
+                  style={{ filter: 'blur(5px)' }}
                 />
-              </Button>
+              )}
+              <img
+                src={optimizedImageUrl}
+                alt={cardTitle}
+                className={`w-full h-full object-fill transition-all duration-500 ${
+                  imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+                } group-hover:scale-105`}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                loading="lazy"
+                decoding="async"
+              />
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-2">
+              No image
             </div>
-          </>
-        )}
-
-        {/* Compare Toast */}
-        {showCompareToast && (
-          <div className="absolute top-14 right-3 z-10">
-            <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded shadow-lg">
-              {compareToastMessage}
+          )}
+          
+          {/* Agency Badge over image if needed, or verified check */}
+          {listing.agencyData?.verified && (
+            <div className="absolute bottom-1.5 left-1.5 z-10">
+              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[9px] px-1 py-0 shadow-sm">
+                ✅ Verified
+              </Badge>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Status Badge */}
-        {!listing.approved && (
-          <div className="absolute top-3 right-12">
-            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-              Pending
+        {/* Right Column: Text & Badges Info */}
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          {/* Pills row */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <Badge className="bg-[#BEE5F5] hover:bg-[#BEE5F5] text-[#084298] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full capitalize">
+              {packageType}
+            </Badge>
+
+            {listing.tourCategories && listing.tourCategories.length > 0 ? (
+              listing.tourCategories.slice(0, 1).map((cat: string, idx: number) => (
+                <Badge 
+                  key={idx} 
+                  className={`${
+                    cat.toLowerCase().includes('luxury') 
+                      ? 'bg-[#E2E3E5] text-[#4F4F4F]' 
+                      : 'bg-[#FFE0B2] text-[#E65100]'
+                  } hover:opacity-90 border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full`}
+                >
+                  {cat} Tour
+                </Badge>
+              ))
+            ) : (
+              <>
+                <Badge className="bg-[#FFE0B2] hover:bg-[#FFE0B2] text-[#E65100] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
+                  Family Tour
+                </Badge>
+                <Badge className="bg-[#E2E3E5] hover:bg-[#E2E3E5] text-[#4F4F4F] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
+                  Luxury
+                </Badge>
+              </>
+            )}
+
+            <Badge className="bg-[#CFD8DC] hover:bg-[#CFD8DC] text-[#37474F] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
+              code : {packageCode}
             </Badge>
           </div>
-        )}
 
-        {/* Verified Badge */}
-        {listing.agencyData?.verified && (
-          <div className="absolute top-12 left-3">
-            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-              ✅ Verified
-            </Badge>
+          {/* Title */}
+          <h3 className="font-bold text-sm sm:text-base md:text-lg text-gray-900 leading-snug line-clamp-2" title={cardTitle}>
+            {cardTitle}
+          </h3>
+
+          {/* Location details */}
+          {placesText.length > 25 ? (
+            <div className="relative w-full overflow-hidden whitespace-nowrap text-red-500 font-semibold text-[11px] sm:text-xs py-0.5">
+              <div className="animate-marquee-text inline-block">
+                {placesText} &nbsp;&nbsp;&bull;&nbsp;&nbsp; {placesText} &nbsp;&nbsp;&bull;&nbsp;&nbsp;
+              </div>
+            </div>
+          ) : (
+            <p className="text-red-500 font-semibold text-[11px] sm:text-xs line-clamp-1 py-0.5">
+              {placesText}
+            </p>
+          )}
+
+          {/* Star Ratings & Google Rating label */}
+          <div className="flex items-center gap-1 mt-0.5">
+            <div className="flex items-center">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star 
+                  key={s} 
+                  className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#0D6EFD] ${
+                    s <= (listing.rating || 5) ? 'fill-[#0D6EFD]' : 'text-gray-200'
+                  }`} 
+                />
+              ))}
+            </div>
+            <span className="text-red-500 font-bold text-[10px] sm:text-xs ml-1.5">Google Rating</span>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Content Section */}
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg leading-tight line-clamp-2">
-              {listing.title || `${packageType} Package`}
-            </CardTitle>
-            <CardDescription className="flex items-center gap-2 mt-1">
-              <MapPin className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium">{location}</span>
-            </CardDescription>
+      {/* Middle Section: Icons Row */}
+      <div className="flex justify-around items-center py-2 px-1 bg-gray-50/50 rounded-2xl border border-gray-100">
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
+            <Camera className="h-4.5 w-4.5" />
           </div>
-          
-          {/* Price */}
+          <span className="text-[10px] font-semibold text-gray-700">SightSeeing</span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
+            <Bus className="h-4.5 w-4.5" />
+          </div>
+          <span className="text-[10px] font-semibold text-gray-700">Transport</span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
+            <Bed className="h-4.5 w-4.5" />
+          </div>
+          <span className="text-[10px] font-semibold text-gray-700">Hotel Stay</span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
+            <Utensils className="h-4.5 w-4.5" />
+          </div>
+          <span className="text-[10px] font-semibold text-gray-700">Meal</span>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <hr className="border-gray-200 w-full" />
+
+      {/* 3 Columns details (Stay, Pick-up, Drop) */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="flex flex-col items-center text-center">
+          <span className="font-extrabold text-[11px] sm:text-xs text-gray-900">Stay</span>
+          <div className="w-full border border-sky-400 text-sky-600 bg-white font-bold py-1 px-1.5 rounded-full text-[10px] truncate mt-1">
+            {duration}D | {nights}N
+          </div>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          <span className="font-extrabold text-[11px] sm:text-xs text-gray-900">Pick-up</span>
+          <div className="w-full border border-sky-400 text-sky-600 bg-white font-bold py-1 px-1.5 rounded-full text-[10px] truncate mt-1" title={pickupLocation}>
+            {pickupLocation}
+          </div>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          <span className="font-extrabold text-[11px] sm:text-xs text-gray-900">Drop</span>
+          <div className="w-full border border-sky-400 text-sky-600 bg-white font-bold py-1 px-1.5 rounded-full text-[10px] truncate mt-1" title={dropLocation}>
+            {dropLocation}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Highlight Box */}
+      <div className="bg-[#E3F2FD] border border-[#90CAF9] rounded-2xl p-3 flex flex-col gap-3">
+        {/* EMI & pricing info */}
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-600 font-medium">Interest free EMI</span>
+            <span className="text-sm font-extrabold text-gray-900">Available</span>
+          </div>
           <div className="text-right">
-            <div className="text-lg font-bold text-blue-600">
-              {listing.packageType === 'international' ? '$' : '₹'}{price}
-            </div>
-            <div className="text-xs text-gray-500">per person</div>
+            <span className="text-xs text-[#0D6EFD] font-extrabold">Contact Agent for Pricing</span>
           </div>
         </div>
 
-        {/* Rating */}
-        {listing.rating > 0 && (
-          <div className="flex items-center gap-2 mt-2">
-            <div className="flex items-center gap-1">
-              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-              <span className="text-sm font-medium">{listing.rating}</span>
-            </div>
-            <span className="text-xs text-gray-500">({listing.reviewsCount || 0} reviews)</span>
-          </div>
-        )}
-      </CardHeader>
-
-      <CardContent>
-        {/* Details */}
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>{duration}D / {nights}N</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {listing.rating > 0 ? (
-              <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                <span className="text-sm">{listing.rating}</span>
-                <span className="text-xs text-gray-500">({listing.reviewsCount || 0})</span>
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500">
-                No reviews
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Places Covered */}
-        {listing.placesCovered && listing.placesCovered.length > 0 && (
-          <div className="mb-4">
-            <div className="text-xs font-medium text-gray-500 mb-1">Places Covered:</div>
-            <div className="flex flex-wrap gap-1">
-              {listing.placesCovered.slice(0, 3).map((place: any, index: number) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  {place.name?.trim() || 'Unknown Place'}
-                </Badge>
-              ))}
-              {listing.placesCovered.length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{listing.placesCovered.length - 3} more
-                </Badge>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
+        {/* Actions Row */}
         {showActions && (
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-2 items-center">
             {variant === 'user' ? (
               <>
+                {showCompare && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 py-1.5 px-2 border border-[#0D6EFD] bg-white text-[#0D6EFD] hover:bg-[#E3F2FD] font-bold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
+                    onClick={handleCompareToggle}
+                  >
+                    {isInComparison(listing.id) ? (
+                      <>
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span>Added</span>
+                      </>
+                    ) : (
+                      <>
+                        <Scale className="h-3 w-3" />
+                        <span>Compare</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+                
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 py-1.5 px-2 border border-[#0D6EFD] bg-white text-[#0D6EFD] hover:bg-[#E3F2FD] font-bold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onWishlist?.(listing.id);
+                  }}
+                >
+                  <Heart 
+                    className={`h-3 w-3 ${isWishlisted ? 'text-red-500 fill-red-500' : 'text-[#0D6EFD]'}`} 
+                  />
+                  <span>Wishlist</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  className="flex-[1.5] py-1.5 px-2 bg-[#FFA000] hover:bg-[#FF8F00] text-black font-extrabold text-[11px] sm:text-xs rounded-xl flex items-center justify-center shadow-sm"
                   onClick={() => onView?.(listing)}
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onBook?.(listing)}
-                >
-                  Book
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onChat?.(listing)}
-                >
-                  💬 Chat
+                  View Itinerary
                 </Button>
               </>
             ) : (
@@ -368,35 +409,35 @@ export default function ListingCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 py-1.5 px-2 border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 font-semibold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
                   onClick={() => onView?.(listing)}
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
+                  <Eye className="h-3 w-3" />
+                  <span>View</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 py-1.5 px-2 border border-[#0D6EFD] bg-white text-[#0D6EFD] hover:bg-[#E3F2FD] font-semibold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
                   onClick={() => onEdit?.(listing)}
                 >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
+                  <Edit className="h-3 w-3" />
+                  <span>Edit</span>
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
                   onClick={() => onDelete?.(listing.id)}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  <Trash2 className="h-3 w-3" />
+                  <span>Delete</span>
                 </Button>
               </>
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

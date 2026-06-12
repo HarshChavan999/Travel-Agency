@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import AgencyListingForm from '@/components/AgencyListingForm';
 import SearchFilters from '@/components/SearchFilters';
 import ListingCard from '@/components/ListingCard';
@@ -100,6 +101,13 @@ export default function Home() {
   const [agencyBookings, setAgencyBookings] = useState<any[]>([]);
   const [userBookings, setUserBookings] = useState<any[]>([]);
   const [userConversations, setUserConversations] = useState<any[]>([]);
+  // Customer Support & Dispute Resolution States
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [submittingSupportTicket, setSubmittingSupportTicket] = useState(false);
+  const [supportBookingId, setSupportBookingId] = useState('');
+  const [supportReason, setSupportReason] = useState('Agency is not responding after payment');
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportDescription, setSupportDescription] = useState('');
   const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [selectedJourneyBooking, setSelectedJourneyBooking] = useState<any>(null);
   const [viewingAgency, setViewingAgency] = useState<any>(null);
@@ -416,6 +424,57 @@ export default function Home() {
       });
 
       // Cleanup subscription
+      return () => unsubscribe();
+    }
+  }, [user, userData]);
+
+  // Fetch user's support tickets with real-time updates
+  useEffect(() => {
+    if (user && userData?.role === 'user') {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+
+      const supportTicketsQuery = query(
+        collection(dbInstance, 'support_tickets'), 
+        where('userId', '==', user.uid)
+      );
+
+      const unsubscribe = onSnapshot(supportTicketsQuery, (snapshot) => {
+        const ticketsData = snapshot.docs.map(doc => {
+          const data = doc.data() as any;
+          return { 
+            id: doc.id, 
+            ...data,
+            createdAtFormatted: data.createdAt?.toDate?.() 
+              ? data.createdAt.toDate().toLocaleDateString('en-IN', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+              : new Date(data.createdAt).toLocaleDateString('en-IN', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+          };
+        });
+        
+        // Sort client-side by createdAt descending
+        ticketsData.sort((a, b) => {
+          const dateA = (a as any).createdAt?.toDate?.() || new Date((a as any).createdAt);
+          const dateB = (b as any).createdAt?.toDate?.() || new Date((b as any).createdAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
+        setSupportTickets(ticketsData);
+      }, (error) => {
+        console.error('Error fetching support tickets:', error);
+      });
+
       return () => unsubscribe();
     }
   }, [user, userData]);
@@ -1128,6 +1187,55 @@ export default function Home() {
     }
   };
 
+  const submitSupportTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    if (!supportSubject.trim() || !supportDescription.trim()) {
+      alert('Please fill out the subject and description.');
+      return;
+    }
+
+    setSubmittingSupportTicket(true);
+    try {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) throw new Error('Database not initialized');
+
+      // Find selected booking reference or agency details if a booking was chosen
+      const chosenBooking = userBookings.find(b => b.id === supportBookingId);
+
+      const ticketDoc = {
+        userId: user.uid,
+        userName: userData?.name || user.displayName || user.email?.split('@')[0] || 'User',
+        userEmail: user.email || '',
+        bookingId: supportBookingId || null,
+        bookingRef: chosenBooking?.bookingReference || null,
+        agencyId: chosenBooking?.agencyId || null,
+        agencyName: chosenBooking?.agencyName || null,
+        reason: supportReason,
+        subject: supportSubject,
+        description: supportDescription,
+        status: 'pending', // pending, in-review, resolved
+        createdAt: new Date(),
+      };
+
+      await addDoc(collection(dbInstance, 'support_tickets'), ticketDoc);
+      
+      // Clear form
+      setSupportBookingId('');
+      setSupportReason('Agency is not responding after payment');
+      setSupportSubject('');
+      setSupportDescription('');
+
+      alert('Dispute ticket submitted successfully! Our platform administrators will review this and contact you within 24 hours.');
+    } catch (error) {
+      console.error('Error submitting support ticket:', error);
+      alert('Failed to submit support ticket. Please try again.');
+    } finally {
+      setSubmittingSupportTicket(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
   }
@@ -1828,6 +1936,17 @@ export default function Home() {
                   <div className="flex flex-col leading-tight hidden xl:flex">
                     <span className="font-semibold">Messages</span>
                     <span className="text-xs text-gray-400">Agencies</span>
+                  </div>
+                </div>
+
+                <div 
+                  className={`flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm ${userActiveSection === 'support' ? 'text-orange-500 font-bold' : ''}`}
+                  onClick={() => setUserActiveSection('support')}
+                >
+                  <span className="text-xl">🛡️</span>
+                  <div className="flex flex-col leading-tight hidden xl:flex">
+                    <span className="font-semibold">Support</span>
+                    <span className="text-xs text-gray-400">Dispute & Help</span>
                   </div>
                 </div>
               </div>
@@ -3107,6 +3226,199 @@ export default function Home() {
                             </div>
                           )}
                         </div>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {userActiveSection === 'support' && (
+                <div className="py-6 animate-in fade-in duration-200">
+                  {/* HERO HEADER */}
+                  <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white rounded-3xl p-8 mb-8 shadow-lg relative overflow-hidden">
+                    <div className="absolute right-10 bottom-0 opacity-10 text-[180px] pointer-events-none select-none">🛡️</div>
+                    <div className="relative z-10 max-w-2xl">
+                      <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-4">
+                        🛡️ Platform Dispute Resolution Center
+                      </div>
+                      <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight">
+                        Safe Travel Guarantee
+                      </h1>
+                      <p className="text-blue-100 text-sm md:text-base leading-relaxed opacity-90">
+                        Our platform mediation team is here to assist you. If you face issues with a travel agency—such as payment disputes, lack of communication, or failure to deliver services—submit a ticket below and we will investigate immediately.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* LEFT COLUMN: TICKET SUBMISSION FORM */}
+                    <div className="lg:col-span-2">
+                      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                          <span>📝</span> Submit a Dispute / Help Ticket
+                        </h2>
+                        
+                        <form onSubmit={submitSupportTicket} className="space-y-5">
+                          {/* Booking Selector */}
+                          <div>
+                            <Label htmlFor="supportBooking" className="text-sm font-semibold text-gray-800">
+                              Associated Booking / Transaction (Optional)
+                            </Label>
+                            <select
+                              id="supportBooking"
+                              value={supportBookingId}
+                              onChange={(e) => setSupportBookingId(e.target.value)}
+                              className="mt-1.5 block w-full p-3 border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-xl text-sm font-medium transition-colors"
+                            >
+                              <option value="">-- No booking linked / General dispute --</option>
+                              {userBookings.map((b: any) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.listingTitle} • Ref: {b.bookingReference || b.id.slice(-6).toUpperCase()} • Date: {b.travelDate || 'TBD'}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-gray-400 mt-1.5">
+                              Linking a booking helps our team trace payment records and agency details automatically.
+                            </p>
+                          </div>
+
+                          {/* Reason Selector */}
+                          <div>
+                            <Label htmlFor="supportReason" className="text-sm font-semibold text-gray-800">
+                              Primary Reason for Dispute
+                            </Label>
+                            <select
+                              id="supportReason"
+                              value={supportReason}
+                              onChange={(e) => setSupportReason(e.target.value)}
+                              className="mt-1.5 block w-full p-3 border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-xl text-sm font-medium transition-colors animate-none"
+                            >
+                              <option value="Agency is not responding after payment">Agency is not responding after payment</option>
+                              <option value="Promised service/itinerary was not provided">Promised service/itinerary was not provided</option>
+                              <option value="Travel dates changed without user consent">Travel dates changed without user consent</option>
+                              <option value="Refund or booking cancellation issue">Refund or booking cancellation issue</option>
+                              <option value="Other agency behavior dispute">Other agency behavior dispute</option>
+                            </select>
+                          </div>
+
+                          {/* Subject */}
+                          <div>
+                            <Label htmlFor="supportSubject" className="text-sm font-semibold text-gray-800">
+                              Subject
+                            </Label>
+                            <Input
+                              id="supportSubject"
+                              type="text"
+                              placeholder="Brief summary of the issue (e.g., Paid ₹30,000 and agency stopped replying)"
+                              value={supportSubject}
+                              onChange={(e) => setSupportSubject(e.target.value)}
+                              className="mt-1.5 w-full p-3 border border-gray-200 rounded-xl text-sm"
+                              required
+                            />
+                          </div>
+
+                          {/* Detailed Description */}
+                          <div>
+                            <Label htmlFor="supportDesc" className="text-sm font-semibold text-gray-800">
+                              Detailed Description
+                            </Label>
+                            <textarea
+                              id="supportDesc"
+                              rows={5}
+                              placeholder="Please provide full details of your interaction, including dates, agreed pricing, amount paid, and what exactly went wrong. Our team will read this description to start investigation."
+                              value={supportDescription}
+                              onChange={(e) => setSupportDescription(e.target.value)}
+                              className="mt-1.5 block w-full p-3 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-xl text-sm transition-colors"
+                              required
+                            />
+                          </div>
+
+                          {/* Submit Button */}
+                          <div className="pt-2">
+                            <Button
+                              type="submit"
+                              disabled={submittingSupportTicket}
+                              className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-colors border-none cursor-pointer"
+                            >
+                              {submittingSupportTicket ? 'Submitting Ticket...' : 'Submit Support Ticket'}
+                            </Button>
+                          </div>
+                        </form>
+                      </Card>
+                    </div>
+
+                    {/* RIGHT COLUMN: MEDIATION POLICY / DISPUTE HISTORY */}
+                    <div className="lg:col-span-1 space-y-6">
+                      {/* PLATFORM PROTECTION CARD */}
+                      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-5">
+                        <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-1.5">
+                          <span className="text-blue-500 text-lg">🛡️</span> Platform Protection Policy
+                        </h3>
+                        <ul className="space-y-4 text-xs text-gray-600">
+                          <li className="flex gap-2">
+                            <span className="text-blue-500 font-bold">1.</span>
+                            <div>
+                              <strong className="text-gray-800 block">Strict Agency Verification</strong>
+                              All registered agencies go through background documentation checks before listing packages.
+                            </div>
+                          </li>
+                          <li className="flex gap-2">
+                            <span className="text-blue-500 font-bold">2.</span>
+                            <div>
+                              <strong className="text-gray-800 block">24-Hour Investigation</strong>
+                              Once a ticket is submitted, platform admins review transaction logs and contact the agency within 24 hours.
+                            </div>
+                          </li>
+                          <li className="flex gap-2">
+                            <span className="text-blue-500 font-bold">3.</span>
+                            <div>
+                              <strong className="text-gray-800 block">Fair Dispute Resolution</strong>
+                              If an agency violates terms or defrauds users, their listings are suspended, and details are shared to assist in refund recoveries.
+                            </div>
+                          </li>
+                        </ul>
+                      </Card>
+
+                      {/* MY TICKETS LIST */}
+                      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-5">
+                        <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-1.5">
+                          <span>📋</span> Dispute Tickets History ({supportTickets.length})
+                        </h3>
+
+                        {supportTickets.length === 0 ? (
+                          <div className="text-center py-6 text-gray-405 text-xs italic bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            No support tickets submitted yet.
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                            {supportTickets.map((ticket) => (
+                              <div key={ticket.id} className="p-3 border border-gray-150 rounded-xl hover:bg-gray-50/50 transition-colors text-xs space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <span className="font-bold text-gray-800 truncate max-w-[120px]" title={ticket.subject}>
+                                    {ticket.subject}
+                                  </span>
+                                  <Badge 
+                                    className={`
+                                      ${ticket.status === 'pending' ? 'bg-yellow-50 text-yellow-750 border-yellow-200 hover:bg-yellow-50' : ''}
+                                      ${ticket.status === 'in-review' ? 'bg-blue-50 text-blue-750 border-blue-200 hover:bg-blue-50' : ''}
+                                      ${ticket.status === 'resolved' ? 'bg-emerald-50 text-emerald-755 border-emerald-200 hover:bg-emerald-50' : ''}
+                                      border px-1.5 py-0 rounded text-[9px] font-bold uppercase
+                                    `}
+                                  >
+                                    {ticket.status}
+                                  </Badge>
+                                </div>
+                                <p className="text-[10px] text-gray-500 line-clamp-2">
+                                  {ticket.description}
+                                </p>
+                                <div className="flex justify-between text-[9px] text-gray-400 border-t pt-1.5 mt-1 border-gray-100">
+                                  <span>ID: {ticket.id.slice(-6).toUpperCase()}</span>
+                                  <span>{ticket.createdAtFormatted || 'Just now'}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </Card>
                     </div>
                   </div>
