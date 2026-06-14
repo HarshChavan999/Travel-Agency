@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import AgencyListingForm from '@/components/AgencyListingForm';
+import BulkUploadForm from '@/components/BulkUploadForm';
 import SearchFilters from '@/components/SearchFilters';
 import ListingCard from '@/components/ListingCard';
 import PackageDetailView from '@/components/PackageDetailView';
@@ -73,6 +74,7 @@ export default function Home() {
   const [agencyConversations, setAgencyConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [showListingForm, setShowListingForm] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingListing, setEditingListing] = useState<any>(null);
   const [viewingListing, setViewingListing] = useState<any>(null);
   const [tempPhotoFiles, setTempPhotoFiles] = useState<File[]>([]);
@@ -3586,9 +3588,10 @@ export default function Home() {
                       {/* Navigation Buttons */}
                       <div className="flex gap-4 mb-6">
                         <Button
-                          variant={!showListingForm ? 'default' : 'outline'}
+                          variant={(!showListingForm && !showBulkUpload) ? 'default' : 'outline'}
                           onClick={() => {
                             setShowListingForm(false);
+                            setShowBulkUpload(false);
                             setEditingListing(null);
                             setViewingListing(null);
                           }}
@@ -3600,12 +3603,25 @@ export default function Home() {
                           variant={showListingForm ? 'default' : 'outline'}
                           onClick={() => {
                             setShowListingForm(true);
+                            setShowBulkUpload(false);
                             setEditingListing(null);
                             setViewingListing(null);
                           }}
                           className="flex items-center gap-2"
                         >
                           ➕ New Listing
+                        </Button>
+                        <Button
+                          variant={showBulkUpload ? 'default' : 'outline'}
+                          onClick={() => {
+                            setShowBulkUpload(true);
+                            setShowListingForm(false);
+                            setEditingListing(null);
+                            setViewingListing(null);
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          📥 Bulk Import CSV
                         </Button>
                         <Button
                           variant="outline"
@@ -3622,6 +3638,7 @@ export default function Home() {
                           agencyId={user?.uid || ''}
                           onSuccess={() => {
                             setShowListingForm(false);
+                            setShowBulkUpload(false);
                             setEditingListing(null);
                             setViewingListing(null);
                             // Refresh listings
@@ -3639,8 +3656,31 @@ export default function Home() {
                         />
                       )}
 
+                      {/* Bulk Upload Form */}
+                      {showBulkUpload && (
+                        <BulkUploadForm
+                          agencyId={user?.uid || ''}
+                          onSuccess={() => {
+                            setShowListingForm(false);
+                            setShowBulkUpload(false);
+                            setEditingListing(null);
+                            setViewingListing(null);
+                            // Refresh listings
+                            const fetchAgencyListings = async () => {
+                              const dbInstance = getDbInstance();
+                              if (!dbInstance) return;
+                              const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user?.uid));
+                              const querySnapshot = await getDocs(agencyListingsQuery);
+                              const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                              setAgencyListings(listingsData);
+                            };
+                            fetchAgencyListings();
+                          }}
+                        />
+                      )}
+
                       {/* My Listings */}
-                      {!showListingForm && !viewingListing && (
+                      {!showListingForm && !showBulkUpload && !viewingListing && (
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center">
@@ -3665,6 +3705,7 @@ export default function Home() {
                                   <Button
                                     onClick={() => {
                                       setShowListingForm(true);
+                                      setShowBulkUpload(false);
                                       setEditingListing(null);
                                     }}
                                     className="flex items-center gap-2"
@@ -3716,6 +3757,7 @@ export default function Home() {
                                         size="sm"
                                         onClick={() => {
                                           setShowListingForm(true);
+                                          setShowBulkUpload(false);
                                           setEditingListing(listing);
                                         }}
                                       >
