@@ -679,78 +679,56 @@ const packageType = watch('packageType');
 
 
 
-            {/* <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">6. Package Cost</h3>
+            {/* 6. Package Duration */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold border-b pb-2">6. Package Duration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Duration Summary</Label>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-2">Calculated from itinerary:</div>
+                    <div className="flex justify-between font-medium">
+                      <span>Total Days:</span>
+                      <span>{itinerary.length}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Total Nights:</span>
+                      <span>{itinerary.length > 0 ? itinerary.length - 1 : 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 7. Starting Price */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold border-b pb-2">7. Starting Price</h3>
               <Controller
                 name="cost"
                 control={control}
                 render={({ field }) => (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="cost">Package Cost (per person)</Label>
+                      <Label htmlFor="cost">Starting Price (per person)</Label>
                       <Input
                         id="cost"
                         type="number"
-                        placeholder="Enter package cost"
+                        placeholder="Enter starting price"
                         value={field.value}
                         onChange={(e) => field.onChange(e.target.value)}
                         min="0"
                         step="0.01"
                       />
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label>Duration Summary</Label>
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <div className="text-sm text-gray-600 mb-2">Calculated from itinerary:</div>
-                        <div className="flex justify-between font-medium">
-                          <span>Total Days:</span>
-                          <span>{itinerary.length}</span>
-                        </div>
-                        <div className="flex justify-between font-medium">
-                          <span>Total Nights:</span>
-                          <span>{itinerary.length > 0 ? itinerary.length - 1 : 0}</span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
               />
-            </div> */}
+            </div>
 
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold border-b pb-2">
-     6. Package Duration
-  </h3>
-
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div className="space-y-2">
-      <Label>Duration Summary</Label>
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <div className="text-sm text-gray-600 mb-2">
-          Calculated from itinerary:
-        </div>
-
-        <div className="flex justify-between font-medium">
-          <span>Total Days:</span>
-          <span>{itinerary.length}</span>
-        </div>
-
-        <div className="flex justify-between font-medium">
-          <span>Total Nights:</span>
-          <span>
-            {itinerary.length > 0 ? itinerary.length - 1 : 0}
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-            {/* 7. Inclusions & Exclusions */}
+            {/* 8. Inclusions & Exclusions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">7. Inclusions</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">8. Inclusions</h3>
                 <Controller
                   name="inclusions"
                   control={control}
@@ -766,7 +744,7 @@ const packageType = watch('packageType');
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">8. Exclusions</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">9. Exclusions</h3>
                 <Controller
                   name="exclusions"
                   control={control}

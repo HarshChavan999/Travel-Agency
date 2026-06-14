@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from './ui/badge';
 import { useComparison } from '@/contexts/ComparisonContext';
-import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2, Camera, Bus, Bed, Utensils } from 'lucide-react';
+import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2, Camera, Bus, Bed, Utensils, ChevronLeft, ChevronRight } from 'lucide-react';
 import { optimizeImageUrl, generateBlurPlaceholder, preloadImage } from '@/lib/imageOptimization';
 import { injectImageStyles } from '@/lib/imageStyles';
 
@@ -50,7 +50,28 @@ export default function ListingCard({
     return null;
   };
 
+  // Get all images from placesCovered and photos
+  const getAllImages = () => {
+    const images: string[] = [];
+    if (listing.placesCovered && listing.placesCovered.length > 0) {
+      listing.placesCovered.forEach((place: any) => {
+        if (place.imageUrls && place.imageUrls.length > 0) {
+          images.push(...place.imageUrls);
+        }
+      });
+    }
+    if (listing.photos && listing.photos.length > 0) {
+      listing.photos.forEach((photo: string) => {
+        if (photo && !images.includes(photo)) {
+          images.push(photo);
+        }
+      });
+    }
+    return images;
+  };
+
   const mainImage = getMainImage();
+  const allImages = getAllImages();
   const duration = listing.itinerary?.length || 0;
   const nights = duration > 0 ? duration - 1 : 0;
   const price = listing.cost || listing.price || 'N/A';
@@ -72,12 +93,13 @@ export default function ListingCard({
   const optimizedImageUrl = mainImage ? optimizeImageUrl(mainImage, {
     quality: 85,
     format: 'auto',
-    cacheBust: true
+    cacheBust: false
   }) : null;
 
   // Image loading states
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const handleImageLoad = () => {
     setImageLoaded(true);
@@ -88,14 +110,21 @@ export default function ListingCard({
     setImageLoaded(true); // Stop showing loading state
   };
 
-  // Preload image on mount for better performance
+  // Preload all listing images on mount for instant navigation
   useEffect(() => {
-    if (optimizedImageUrl) {
-      preloadImage(optimizedImageUrl).catch(() => {
-        // Ignore preload errors, the actual image will handle errors
+    if (allImages.length > 0) {
+      allImages.forEach((imgUrl) => {
+        const optimized = optimizeImageUrl(imgUrl, {
+          quality: 85,
+          format: 'auto',
+          cacheBust: false
+        });
+        preloadImage(optimized).catch(() => {
+          // Ignore preload errors
+        });
       });
     }
-  }, [optimizedImageUrl]);
+  }, [allImages]);
 
   // Generate a blur placeholder SVG
   const blurPlaceholder = generateBlurPlaceholder(400, 300, '#f3f4f6');
@@ -178,8 +207,57 @@ export default function ListingCard({
             </div>
           )}
 
-          {/* Main Image */}
-          {optimizedImageUrl && !imageError ? (
+          {/* Main Image or Multi-Image Interactive Carousel */}
+          {allImages.length > 1 ? (
+            <div className="relative w-full h-full group/image overflow-hidden">
+              <img
+                src={optimizeImageUrl(allImages[currentImageIndex], {
+                  quality: 85,
+                  format: 'auto',
+                  cacheBust: false
+                })}
+                alt={`${cardTitle} photo ${currentImageIndex + 1}`}
+                className="w-full h-full object-fill transition-all duration-500 scale-100 group-hover/image:scale-105"
+                loading="lazy"
+                decoding="async"
+              />
+              
+              {/* Navigation Arrows */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+                }}
+                className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-10 cursor-pointer"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+                }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-10 cursor-pointer"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+
+              {/* Dot Indicators */}
+              <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 bg-black/30 backdrop-blur-[2px] px-1.5 py-0.5 rounded-full opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 transition-all duration-200 z-10">
+                {allImages.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`h-1 rounded-full transition-all duration-200 ${
+                      idx === currentImageIndex ? 'w-2.5 bg-white' : 'w-1 bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : optimizedImageUrl && !imageError ? (
             <>
               {!imageLoaded && (
                 <img
@@ -351,7 +429,16 @@ export default function ListingCard({
             <span className="text-sm font-extrabold text-gray-900">Available</span>
           </div>
           <div className="text-right">
-            <span className="text-xs text-[#0D6EFD] font-extrabold">Contact Agent for Pricing</span>
+            {price && price !== 'N/A' && price !== '' ? (
+              <div className="flex flex-col">
+                <span className="text-[10px] text-gray-600 font-medium">Starting Price</span>
+                <span className="text-sm font-extrabold text-[#0D6EFD]">
+                  {currencySymbol}{price}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-[#0D6EFD] font-extrabold">Contact Agent for Pricing</span>
+            )}
           </div>
         </div>
 

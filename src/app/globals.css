@@ -310,6 +310,7 @@ html {
   animation: marqueeText 18s linear infinite;
 }
 
+
 @keyframes marqueeText {
   0% {
     transform: translate3d(0, 0, 0);

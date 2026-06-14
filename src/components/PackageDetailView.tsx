@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useComparison } from '@/contexts/ComparisonContext';
+import { optimizeImageUrl } from '@/lib/imageOptimization';
 import { 
   Star, 
   Share2, 
@@ -317,7 +318,7 @@ export default function PackageDetailView({
             <div className="relative aspect-[16/9] bg-gray-200 rounded-xl overflow-hidden">
               {mainImage ? (
                 <img 
-                  src={mainImage} 
+                  src={optimizeImageUrl(mainImage, { width: 1200, quality: 90, format: 'auto', cacheBust: true })} 
                   alt={listing.title}
                   className="w-full h-full object-cover"
                 />
@@ -735,7 +736,7 @@ export default function PackageDetailView({
               {allImages.map((image, index) => (
                 <div key={index} className="aspect-square rounded-lg overflow-hidden">
                   <img 
-                    src={image} 
+                    src={optimizeImageUrl(image, { width: 800, quality: 90, format: 'auto', cacheBust: true })} 
                     alt={`Photo ${index + 1}`}
                     className="w-full h-full object-cover hover:scale-105 transition-transform"
                   />
