@@ -319,3 +319,70 @@ html {
     transform: translate3d(-50%, 0, 0);
   }
 }
+
+/* ============================================
+   CREDIT SYSTEM & SUBSCRIPTION PREMIUM STYLES
+   ============================================ */
+
+.premium-gradient-free {
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+}
+
+.premium-gradient-starter {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.premium-gradient-premium {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-panel-dark {
+  background: rgba(20, 22, 28, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+}
+
+.plan-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.plan-card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.glow-starter:hover {
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.2);
+}
+
+.glow-premium:hover {
+  box-shadow: 0 12px 30px rgba(139, 92, 246, 0.25);
+}
+
+.glow-free:hover {
+  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.15);
+}
+
+.transaction-row {
+  transition: background-color 0.2s ease;
+}
+
+.transaction-row:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+

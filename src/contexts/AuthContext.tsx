@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuthInstance, getDbInstance, getStorageInstance } from '@/lib/firebase';
 
@@ -15,6 +15,17 @@ interface UserData {
   contactNumber?: string;
   avatarUrl?: string;
   coTravellers?: any[];
+  plan?: 'free' | 'starter' | 'premium';
+  credits?: number;
+  freeChats?: number;
+  unlockedAgencies?: string[];
+  creditHistory?: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    description: string;
+    timestamp: number;
+  }>;
 }
 
 interface AuthContextType {
@@ -46,16 +57,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const authInstance = getAuthInstance();
     if (!authInstance) return;
 
+    let docUnsubscribe: (() => void) | null = null;
+
     const handleAuthStateChange = async (firebaseUser: User | null) => {
+      // Clean up previous user listener
+      if (docUnsubscribe) {
+        docUnsubscribe();
+        docUnsubscribe = null;
+      }
+
       if (firebaseUser) {
         setUser(firebaseUser);
-        // Fetch user data from Firestore
+        // Fetch user data from Firestore with real-time updates
         const dbInstance = getDbInstance();
         if (dbInstance) {
-          const userDoc = await getDoc(doc(dbInstance, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            setUserData(userDoc.data() as UserData);
-          }
+          const docRef = doc(dbInstance, 'users', firebaseUser.uid);
+          docUnsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setUserData(docSnap.data() as UserData);
+            }
+          }, (error) => {
+            console.error('Error listening to user document:', error);
+          });
         }
       } else {
         setUser(null);
@@ -115,7 +138,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleRedirectResult();
     }
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (docUnsubscribe) {
+        docUnsubscribe();
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -295,6 +323,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         approved: role === 'user', // Users are auto-approved
         wishlist: [], // Initialize empty wishlist for new users
         ...(proofUrl && { proofUrl }),
+        ...(role === 'user' && {
+          plan: 'free',
+          credits: 0,
+          freeChats: 2,
+          unlockedAgencies: [],
+          creditHistory: [
+            {
+              id: 'TX-INIT',
+              type: 'reset',
+              amount: 2,
+              description: 'Welcome Bonus: 2 Free Chats',
+              timestamp: Date.now()
+            }
+          ]
+        })
       });
     } catch (error: any) {
       // Handle specific Firebase errors with user-friendly messages

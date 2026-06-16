@@ -661,7 +661,10 @@ export default function PackageDetailView({
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => onChat(listing)}
+                    onClick={() => {
+                      console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
+                      onChat(listing);
+                    }}
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Chat with Agency

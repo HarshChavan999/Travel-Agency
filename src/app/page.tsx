@@ -160,6 +160,58 @@ export default function Home() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Credit & Subscription System States
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [chatUnlockTarget, setChatUnlockTarget] = useState<{ agencyId: string, agencyName: string, packageTitle: string } | null>(null);
+  const [isPurchasingCredits, setIsPurchasingCredits] = useState(false);
+  const [purchaseStatusText, setPurchaseStatusText] = useState('');
+
+  // Profile Sub-tab Navigation state
+  const [profileTab, setProfileTab] = useState<'account' | 'credits'>('account');
+
+  // Custom premium Toast states and wrapper
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+  };
+
+  // Shadow global alert to show premium toast notification banner
+  const alert = (message: string) => {
+    let type: 'success' | 'error' | 'info' = 'info';
+    const lower = message.toLowerCase();
+    if (
+      lower.includes('success') || 
+      lower.includes('complete') || 
+      lower.includes('added') || 
+      lower.includes('unlocked') || 
+      lower.includes('approved') || 
+      lower.includes('bonus') ||
+      lower.includes('copied')
+    ) {
+      type = 'success';
+    } else if (
+      lower.includes('failed') || 
+      lower.includes('error') || 
+      lower.includes('insufficient') || 
+      lower.includes('not supported') || 
+      lower.includes('invalid') ||
+      lower.includes('please fill')
+    ) {
+      type = 'error';
+    }
+    showToast(message, type);
+  };
+
   // Load Profile States from userData & user
   useEffect(() => {
     if (user && userData && userData.role === 'user') {
@@ -294,6 +346,275 @@ export default function Home() {
     } catch (error) {
       console.error('Error uploading profile photo:', error);
       alert('Failed to upload profile picture.');
+    }
+  };
+
+  // Credit system auto-migration hook for existing users
+  useEffect(() => {
+    const migrateExistingUser = async () => {
+      if (user && userData && userData.role === 'user' && userData.plan === undefined) {
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
+        try {
+          await updateDoc(doc(dbInstance, 'users', user.uid), {
+            plan: 'free',
+            credits: 0,
+            freeChats: 2,
+            unlockedAgencies: [],
+            creditHistory: [
+              {
+                id: 'TX-MIG',
+                type: 'reset',
+                amount: 2,
+                description: 'Migration Bonus: Initialized Free Plan (2 Free Chats)',
+                timestamp: Date.now()
+              }
+            ]
+          });
+          console.log('User credit system successfully migrated');
+        } catch (e) {
+          console.error('Migration failed:', e);
+        }
+      }
+    };
+    migrateExistingUser();
+  }, [user, userData]);
+
+  // Intercept chat request and check unlock status
+  const handleInitiateChat = (listingData: any) => {
+    console.log('handleInitiateChat called with listing:', listingData);
+    if (!user || !userData) {
+      alert('Please log in to chat with travel agencies.');
+      return;
+    }
+    
+    // Check if the user is an agency (agencies don't need to unlock anything)
+    if (userData.role !== 'user') {
+      alert('Only travelers can initiate chats with agencies.');
+      return;
+    }
+
+    const agencyId = listingData.agencyId;
+    const agencyName = listingData.agencyName || 'Travel Agency';
+    const packageTitle = listingData.title || 'Selected Tour Package';
+
+    // Check if this agency is already unlocked
+    const unlockedList = userData.unlockedAgencies || [];
+    if (unlockedList.includes(agencyId)) {
+      // Direct redirect
+      setCurrentChatAgency(agencyId);
+      setCurrentChatAgencyName(agencyName);
+      setUserActiveSection('chat');
+      setViewingListing(null);
+    } else {
+      // Trigger modal
+      setChatUnlockTarget({ agencyId, agencyName, packageTitle });
+      setShowUnlockModal(true);
+    }
+  };
+
+  // Deduct credits/chats and unlock the agency connection
+  const unlockChat = async (agencyId: string, agencyName: string) => {
+    if (!user || !userData) return;
+    
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+
+    const currentPlan = userData.plan || 'free';
+    const currentFreeChats = userData.freeChats ?? 0;
+    const currentCredits = userData.credits ?? 0;
+    const unlockedList = userData.unlockedAgencies || [];
+
+    let updatedFreeChats = currentFreeChats;
+    let updatedCredits = currentCredits;
+    let costAmount = 0;
+    let costType = 'free-chat';
+
+    // Determine cost
+    if (currentPlan === 'free') {
+      if (currentFreeChats <= 0) {
+        alert('Insufficient free chats. Please upgrade your plan.');
+        return;
+      }
+      updatedFreeChats = currentFreeChats - 1;
+      costAmount = 1;
+      costType = 'deduction';
+    } else if (currentPlan === 'starter') {
+      if (currentCredits < 200) {
+        alert('Insufficient credits. Please purchase a top-up pack or change your plan.');
+        return;
+      }
+      updatedCredits = currentCredits - 200;
+      costAmount = 200;
+      costType = 'deduction';
+    } else if (currentPlan === 'premium') {
+      if (currentFreeChats > 0) {
+        updatedFreeChats = currentFreeChats - 1;
+        costAmount = 1;
+        costType = 'deduction';
+      } else {
+        if (currentCredits < 150) {
+          alert('Insufficient credits. Please purchase a top-up pack.');
+          return;
+        }
+        updatedCredits = currentCredits - 150;
+        costAmount = 150;
+        costType = 'deduction';
+      }
+    }
+
+    const txId = 'TX-CH-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    const newTransaction = {
+      id: txId,
+      type: 'deduction',
+      amount: costAmount,
+      description: `Unlocked chat connection with agent: ${agencyName}`,
+      timestamp: Date.now()
+    };
+
+    try {
+      await updateDoc(doc(dbInstance, 'users', user.uid), {
+        freeChats: updatedFreeChats,
+        credits: updatedCredits,
+        unlockedAgencies: [...unlockedList, agencyId],
+        creditHistory: [newTransaction, ...(userData.creditHistory || [])]
+      });
+
+      // Clear modal and open chat
+      setShowUnlockModal(false);
+      setChatUnlockTarget(null);
+      setCurrentChatAgency(agencyId);
+      setCurrentChatAgencyName(agencyName);
+      setUserActiveSection('chat');
+      setViewingListing(null);
+
+      alert(`Successfully unlocked connection with ${agencyName}!`);
+    } catch (err) {
+      console.error('Error unlocking chat:', err);
+      alert('Failed to unlock conversation. Please try again.');
+    }
+  };
+
+  // Simulate client-side plans upgrade/downgrade
+  const upgradePlan = async (targetPlan: 'free' | 'starter' | 'premium') => {
+    if (!user || !userData) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+
+    let initCredits = 0;
+    let initFreeChats = 0;
+    let cost = 0;
+    let desc = '';
+
+    if (targetPlan === 'free') {
+      initFreeChats = 2;
+      desc = 'Switched to Free Plan (2 Free Chats / month)';
+    } else if (targetPlan === 'starter') {
+      initCredits = 2000;
+      cost = 2000;
+      desc = 'Upgraded to Starter Plan (2,000 credits / month, ₹2,000/yr)';
+    } else if (targetPlan === 'premium') {
+      initFreeChats = 20;
+      cost = 5000;
+      desc = 'Upgraded to Premium Plan (20 Free Chats / month, ₹5,000/yr)';
+    }
+
+    const txId = 'TX-PL-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    const newTransaction = {
+      id: txId,
+      type: 'plan-change',
+      amount: cost,
+      description: desc,
+      timestamp: Date.now()
+    };
+
+    try {
+      await updateDoc(doc(dbInstance, 'users', user.uid), {
+        plan: targetPlan,
+        credits: initCredits,
+        freeChats: initFreeChats,
+        creditHistory: [newTransaction, ...(userData.creditHistory || [])]
+      });
+      alert(`Plan updated to ${targetPlan.toUpperCase()} successfully!`);
+    } catch (e) {
+      console.error('Failed to change plan:', e);
+      alert('Failed to update subscription. Please try again.');
+    }
+  };
+
+  // Simulate purchasing credits
+  const buyCredits = async (amount: number, price: number) => {
+    if (!user || !userData) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+
+    if (userData.plan === 'free') {
+      alert('Purchase not supported on Free Plan. Please upgrade to Starter or Premium plan.');
+      return;
+    }
+
+    setIsPurchasingCredits(true);
+    setPurchaseStatusText(`Connecting to secure gateway. Processing payment of ₹${price}...`);
+
+    setTimeout(async () => {
+      setPurchaseStatusText('Validating transaction with bank... Adding credits...');
+      
+      const txId = 'TX-TP-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+      const newTransaction = {
+        id: txId,
+        type: 'top-up',
+        amount: amount,
+        description: `Purchased Credit Pack (Add-on +${amount} credits)`,
+        timestamp: Date.now()
+      };
+
+      try {
+        await updateDoc(doc(dbInstance, 'users', user.uid), {
+          credits: (userData.credits || 0) + amount,
+          creditHistory: [newTransaction, ...(userData.creditHistory || [])]
+        });
+        setIsPurchasingCredits(false);
+        alert(`Success! Added ${amount} credits to your account.`);
+      } catch (err) {
+        console.error('Payment error:', err);
+        setIsPurchasingCredits(false);
+        alert('Transaction failed. Please try again.');
+      }
+    }, 2500);
+  };
+
+  // Reset helper for developers
+  const simulateResetCredits = async (targetPlan: 'free' | 'starter' | 'premium') => {
+    if (!user) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+
+    let initCredits = 0;
+    let initFreeChats = 0;
+    if (targetPlan === 'free') initFreeChats = 2;
+    else if (targetPlan === 'starter') initCredits = 2000;
+    else if (targetPlan === 'premium') initFreeChats = 20;
+
+    const txId = 'TX-RST-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    const newTransaction = {
+      id: txId,
+      type: 'reset',
+      amount: initCredits || initFreeChats,
+      description: `Developer Reset to ${targetPlan.toUpperCase()}`,
+      timestamp: Date.now()
+    };
+
+    try {
+      await updateDoc(doc(getDbInstance()!, 'users', user.uid), {
+        plan: targetPlan,
+        credits: initCredits,
+        freeChats: initFreeChats,
+        unlockedAgencies: [],
+        creditHistory: [newTransaction]
+      });
+      alert(`Developer simulation reset complete: Plan set to ${targetPlan.toUpperCase()}`);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -2102,11 +2423,7 @@ export default function Home() {
                             listing={listing}
                             onView={setViewingListing}
                             onBook={startBooking}
-                            onChat={(listingData) => {
-                              setCurrentChatAgency(listingData.agencyId);
-                              setCurrentChatAgencyName(listingData.agencyName);
-                              setUserActiveSection('chat');
-                            }}
+                            onChat={handleInitiateChat}
                             onWishlist={handleWishlistToggle}
                             isWishlisted={wishlist.includes(listing.id)}
                             variant="user"
@@ -2442,12 +2759,7 @@ export default function Home() {
                   listing={viewingListing}
                   onBack={() => setViewingListing(null)}
                   onBook={startBooking}
-                  onChat={(listingData) => {
-                    setCurrentChatAgency(listingData.agencyId);
-                    setCurrentChatAgencyName(listingData.agencyName);
-                    setUserActiveSection('chat');
-                    setViewingListing(null);
-                  }}
+                  onChat={handleInitiateChat}
                   onWishlist={(listingId) => {
                     setWishlist(prev => 
                       prev.includes(listingId) 
@@ -2945,11 +3257,34 @@ export default function Home() {
                         {/* Navigation Links mimicking the Mockup */}
                         <div className="p-4 space-y-1">
                           <button 
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#2B58C4] bg-[#2B58C4]/10 rounded-xl transition-all duration-205"
-                            onClick={() => setUserActiveSection('profile')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${
+                              profileTab === 'account' 
+                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10' 
+                                : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                            }`}
+                            onClick={() => {
+                              setProfileTab('account');
+                              setUserActiveSection('profile');
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
                           >
                             <span className="text-lg">👤</span>
                             <span>My Account</span>
+                          </button>
+                          <button 
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${
+                              profileTab === 'credits' 
+                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10' 
+                                : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                            }`}
+                            onClick={() => {
+                              setProfileTab('credits');
+                              setUserActiveSection('profile');
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                          >
+                            <span className="text-lg">💳</span>
+                            <span>Plan & Credits</span>
                           </button>
                           <button 
                             className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
@@ -2978,7 +3313,9 @@ export default function Home() {
 
                     {/* RIGHT COLUMN: ACCOUNT DETAILS */}
                     <div className="lg:col-span-2 space-y-6">
-                      {/* Personal Details Card */}
+                      {profileTab === 'account' && (
+                        <>
+                          {/* Personal Details Card */}
                       <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
                         <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
                           <h2 className="text-lg font-bold text-gray-955">Your Personal Details</h2>
@@ -3229,6 +3566,416 @@ export default function Home() {
                           )}
                         </div>
                       </Card>
+                      </>
+                      )}
+
+                      {profileTab === 'credits' && (
+                        <div id="plans-and-credits-card" className="space-y-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h2 className="text-xl font-bold text-gray-900">Plan & Message Credits</h2>
+                            <p className="text-xs text-gray-500 mt-0.5">Manage subscription plans, buy add-on credits, and track transaction history</p>
+                          </div>
+                        </div>
+
+                        {/* Hero Header */}
+                        <div className="bg-gradient-to-r from-[#1E293B] to-[#0F172A] text-white rounded-3xl p-6 shadow-lg relative overflow-hidden">
+                          <div className="absolute right-10 bottom-0 opacity-10 text-[120px] pointer-events-none select-none">💳</div>
+                          <div className="relative z-10 max-w-3xl">
+                            <div className="inline-flex items-center gap-1.5 bg-[#3B82F6]/20 backdrop-blur-sm text-[#93C5FD] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 border border-[#3B82F6]/30">
+                              💳 Billing & Subscription Control Panel
+                            </div>
+                            <h1 className="text-2xl font-extrabold mb-1 tracking-tight">
+                              Premium Messaging Credits
+                            </h1>
+                            <p className="text-slate-300 text-xs leading-relaxed opacity-90 max-w-2xl">
+                              Select subscription plans or purchase add-on credit packages to start secure chats with travel agencies.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Current Plan Summary Card & Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <Card className="md:col-span-1 bg-white border border-gray-200 shadow-md rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+                            <div>
+                              <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Plan</h3>
+                                <Badge className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${
+                                  userData?.plan === 'premium' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                  userData?.plan === 'starter' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                  'bg-blue-100 text-blue-700 border-blue-200'
+                                }`}>
+                                  {userData?.plan || 'Free'} Plan
+                                </Badge>
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <p className="text-2xl font-extrabold text-gray-900">
+                                    {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` : 
+                                     userData?.plan === 'premium' ? `${userData?.freeChats ?? 0} Free Chats` : 
+                                     `${userData?.freeChats ?? 0} Free Chats`}
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">Cycle balance remaining</p>
+                                </div>
+                                <div className="border-t pt-3 space-y-1.5 text-[11px]">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500">Cycle Ends</span>
+                                    <span className="font-semibold text-gray-800">July 16, 2026</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500">Unlocked</span>
+                                    <span className="font-semibold text-gray-800">{(userData?.unlockedAgencies || []).length} Agencies</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+
+                          {/* Quick Stats Grid */}
+                          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Per Chat Cost</p>
+                                <h4 className="text-sm font-bold text-gray-900">
+                                  {userData?.plan === 'free' && '1 Free Chat'}
+                                  {userData?.plan === 'starter' && '200 Credits'}
+                                  {userData?.plan === 'premium' && '1 Free Chat'}
+                                </h4>
+                                <p className="text-[10px] text-gray-500 leading-snug">
+                                  {userData?.plan === 'premium' && '150 cr after free chats deplete'}
+                                  {userData?.plan === 'free' && 'Unlock uses 1 free chat'}
+                                  {userData?.plan === 'starter' && 'Deducted per unlock'}
+                                </p>
+                              </div>
+                              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
+                                💬
+                              </div>
+                            </Card>
+
+                            <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Transactions</p>
+                                <h4 className="text-sm font-bold text-gray-900">
+                                  {(userData?.creditHistory || []).length} Operations
+                                </h4>
+                                <p className="text-[10px] text-gray-500 leading-snug">Logs of top-ups & usage</p>
+                              </div>
+                              <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-lg">
+                                📋
+                              </div>
+                            </Card>
+                          </div>
+                        </div>
+
+                        {/* Developer Testing Panel inside Dashboard */}
+                        <Card className="bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
+                          <h4 className="text-xs font-bold text-orange-850 flex items-center gap-1.5 mb-1.5">
+                            🛠️ Developer Billing & Credits Simulator
+                          </h4>
+                          <p className="text-[10px] text-orange-700 mb-3 leading-relaxed">
+                            Use these controls to simulate plan resets, add credits, and verify unlock behavior. Changes reflect in Firebase Firestore immediately.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              onClick={() => simulateResetCredits('free')}
+                              variant="outline" 
+                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-blue-700 py-1.5 h-auto border-gray-300"
+                            >
+                              Reset to Free
+                            </Button>
+                            <Button 
+                              onClick={() => simulateResetCredits('starter')}
+                              variant="outline"
+                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-amber-700 py-1.5 h-auto border-gray-300"
+                            >
+                              Reset to Starter
+                            </Button>
+                            <Button 
+                              onClick={() => simulateResetCredits('premium')}
+                              variant="outline"
+                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-purple-705 py-1.5 h-auto border-gray-300"
+                            >
+                              Reset to Premium
+                            </Button>
+                            <Button 
+                              onClick={async () => {
+                                if (!user || !userData) return;
+                                const currentCredits = userData.credits || 0;
+                                const txId = 'TX-SIM-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+                                const newTransaction = {
+                                  id: txId,
+                                  type: 'top-up',
+                                  amount: 500,
+                                  description: 'Simulated Developer top-up',
+                                  timestamp: Date.now()
+                                };
+                                await updateDoc(doc(getDbInstance()!, 'users', user.uid), {
+                                  credits: currentCredits + 500,
+                                  creditHistory: [newTransaction, ...(userData.creditHistory || [])]
+                                });
+                                alert('Simulated: Added 500 Credits');
+                              }}
+                              variant="outline"
+                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-green-750 py-1.5 h-auto border-gray-300"
+                            >
+                              +500 Credits
+                            </Button>
+                          </div>
+                        </Card>
+
+                        {/* Plan Grid */}
+                        <div id="plans-comparison-grid" className="pt-2">
+                          <div className="mb-4">
+                            <h2 className="text-base font-bold text-gray-900 mb-0.5">Subscription Plans</h2>
+                            <p className="text-[11px] text-gray-500">Select the perfect tier for your travel search needs. Upgrade or downgrade anytime.</p>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {/* Free Plan */}
+                            <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${
+                              userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-blue-500' : 'border-gray-200'
+                            }`}>
+                              <div>
+                                <div className="mb-2">
+                                  <span className="text-[8px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-full">Basic Tier</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Free Plan</h3>
+                                <div className="flex items-baseline gap-1 my-1.5">
+                                  <span className="text-lg font-extrabold text-gray-900">₹0</span>
+                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                </div>
+                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Perfect for simple search and quick agency queries.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-600 border-t pt-3 mb-4">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>2 Free Chats</strong> monthly</span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span>Standard speeds</span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5 text-gray-400">
+                                    <span className="text-gray-300 font-bold">✗</span>
+                                    <span>Add-on top-ups</span>
+                                  </li>
+                                </ul>
+                              </div>
+                              <Button 
+                                onClick={() => upgradePlan('free')}
+                                disabled={userData?.plan === 'free' || !userData?.plan}
+                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${
+                                  userData?.plan === 'free' || !userData?.plan
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none' 
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                }`}
+                              >
+                                {userData?.plan === 'free' || !userData?.plan ? 'Current Plan' : 'Select Free Plan'}
+                              </Button>
+                            </Card>
+
+                            {/* Starter Plan */}
+                            <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-starter ${
+                              userData?.plan === 'starter' ? 'ring-2 ring-amber-500' : 'border-gray-200'
+                            }`}>
+                              <div>
+                                <div className="mb-2 flex justify-between items-center">
+                                  <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-full">Most Popular</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Starter Plan</h3>
+                                <div className="flex items-baseline gap-1 my-1.5">
+                                  <span className="text-lg font-extrabold text-gray-900">₹2,000</span>
+                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                </div>
+                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Best for active travelers planning holiday details.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-650 border-t pt-3 mb-4">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>2,000 Credits</strong> monthly</span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span>Starter cost: <strong>200 cr / chat</strong></span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span>Buy credit top-up packs</span>
+                                  </li>
+                                </ul>
+                              </div>
+                              <Button 
+                                onClick={() => upgradePlan('starter')}
+                                disabled={userData?.plan === 'starter'}
+                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${
+                                  userData?.plan === 'starter'
+                                    ? 'bg-gray-100 text-gray-405 cursor-not-allowed hover:bg-gray-100 border-none' 
+                                    : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                }`}
+                              >
+                                {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Starter'}
+                              </Button>
+                            </Card>
+
+                            {/* Premium Plan */}
+                            <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${
+                              userData?.plan === 'premium' ? 'ring-2 ring-purple-500' : 'border-gray-200'
+                            }`}>
+                              <div>
+                                <div className="mb-2">
+                                  <span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest bg-purple-50 px-2.5 py-0.5 rounded-full">Power User</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Premium Plan</h3>
+                                <div className="flex items-baseline gap-1 my-1.5">
+                                  <span className="text-lg font-extrabold text-gray-900">₹5,000</span>
+                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                </div>
+                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">For frequent travelers looking for ultimate options.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-650 border-t pt-3 mb-4">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>20 Free Chats</strong> monthly</span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span>Thereafter: <strong>150 cr / chat</strong></span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span>Mediation agent dispute help</span>
+                                  </li>
+                                </ul>
+                              </div>
+                              <Button 
+                                onClick={() => upgradePlan('premium')}
+                                disabled={userData?.plan === 'premium'}
+                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${
+                                  userData?.plan === 'premium'
+                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none' 
+                                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                }`}
+                              >
+                                {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
+                              </Button>
+                            </Card>
+                          </div>
+                        </div>
+
+                        {/* Add-on Credit Packages */}
+                        <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                            <div>
+                              <h3 className="text-sm font-bold text-gray-900">Buy Add-on Credits</h3>
+                              <p className="text-[10px] text-gray-500">Need more credits? Buy extra packs instantly (Requires Starter or Premium plan).</p>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-555 mt-2 sm:mt-0 font-medium">
+                              Plan: {userData?.plan || 'free'}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {[
+                              { name: 'Starter Pack', credits: 500, price: 100, desc: 'Ideal for 2 extra agency unlocks' },
+                              { name: 'Growth Pack', credits: 1000, price: 180, desc: 'Best Value! 5 unlocks (Starter)', recommended: true },
+                              { name: 'Pro Pack', credits: 2500, price: 400, desc: 'For heavy research needs' }
+                            ].map((pack) => (
+                              <div 
+                                key={pack.name} 
+                                className={`border rounded-2xl p-4 flex flex-col justify-between relative bg-slate-50/50 hover:bg-slate-50 transition-all ${
+                                  pack.recommended ? 'border-amber-400 ring-1 ring-amber-400' : 'border-gray-200'
+                                }`}
+                              >
+                                {pack.recommended && (
+                                  <span className="absolute -top-2 right-3 bg-amber-400 text-amber-950 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                                    Best Value
+                                  </span>
+                                )}
+                                <div className="mb-3">
+                                  <h4 className="font-bold text-xs text-gray-900">{pack.name}</h4>
+                                  <p className="text-base font-extrabold text-blue-600 my-1">+{pack.credits} Credits</p>
+                                  <p className="text-[10px] text-gray-500 leading-snug">{pack.desc}</p>
+                                </div>
+                                <div className="pt-3 border-t flex items-center justify-between gap-2">
+                                  <span className="font-extrabold text-xs text-gray-800">₹{pack.price}</span>
+                                  <Button 
+                                    onClick={() => buyCredits(pack.credits, pack.price)}
+                                    disabled={!userData?.plan || userData.plan === 'free'}
+                                    className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
+                                  >
+                                    Buy Pack
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Transaction History Logs */}
+                        <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6">
+                          <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1.5">
+                            <span>📋</span> Credit Transaction History
+                          </h3>
+
+                          {(!userData?.creditHistory || userData.creditHistory.length === 0) ? (
+                            <div className="text-center py-10 text-gray-400 text-xs italic bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                              No transactions recorded.
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse text-[10px]">
+                                <thead>
+                                  <tr className="border-b text-gray-400 font-bold uppercase tracking-wider">
+                                    <th className="pb-3 pr-4">Transaction ID</th>
+                                    <th className="pb-3 pr-4">Type</th>
+                                    <th className="pb-3 pr-4">Description</th>
+                                    <th className="pb-3 pr-4 text-right">Amount</th>
+                                    <th className="pb-3 text-right">Date</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                  {userData.creditHistory.map((tx) => (
+                                    <tr key={tx.id} className="transaction-row">
+                                      <td className="py-3 font-mono text-gray-400">{tx.id}</td>
+                                      <td className="py-3 pr-4">
+                                        <Badge className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${
+                                          tx.type === 'top-up' ? 'bg-green-50 text-green-700 border-green-200' :
+                                          tx.type === 'plan-change' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                          tx.type === 'reset' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                          'bg-red-50 text-red-700 border-red-200'
+                                        }`}>
+                                          {tx.type}
+                                        </Badge>
+                                      </td>
+                                      <td className="py-3 pr-4">{tx.description}</td>
+                                      <td className={`py-3 pr-4 text-right font-extrabold text-xs ${
+                                        tx.type === 'top-up' ? 'text-green-600' : 
+                                        tx.type === 'plan-change' ? 'text-purple-600' : 
+                                        tx.type === 'reset' ? 'text-blue-600' :
+                                        'text-red-600'
+                                      }`}>
+                                        {tx.type === 'top-up' && '+'}
+                                        {tx.type === 'deduction' && '-'}
+                                        {tx.amount}
+                                        {userData.plan === 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' cr' : ''}
+                                        {userData.plan !== 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' chat' : ''}
+                                        {tx.type === 'plan-change' && ' ₹'}
+                                      </td>
+                                      <td className="py-3 text-right text-gray-400">
+                                        {new Date(tx.timestamp).toLocaleString('en-IN', {
+                                          day: 'numeric',
+                                          month: 'short',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </Card>
+                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3428,6 +4175,367 @@ export default function Home() {
               )}
             </main>
           </div>
+
+          {/* Journey Details Modal */}
+          {showJourneyModal && selectedJourneyBooking && (
+            <JourneyDetailsModal
+              booking={selectedJourneyBooking}
+              onClose={() => {
+                setShowJourneyModal(false);
+                setSelectedJourneyBooking(null);
+              }}
+            />
+          )}
+
+          {/* Review Modal */}
+          {showReviewModal && reviewListing && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <Card className="w-full max-w-2xl mx-4">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <span className="mr-2">⭐</span>
+                    Write a Review for {reviewListing.title}
+                  </CardTitle>
+                  <CardDescription>
+                    Share your experience to help other travelers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Rating */}
+                  <div>
+                    <Label className="text-base font-medium">Your Rating</Label>
+                    <div className="flex gap-1 mt-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setNewReview({...newReview, rating: star})}
+                          className={`text-2xl ${newReview.rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
+                        >
+                          ⭐
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {newReview.rating === 0 ? 'Select a rating' :
+                       newReview.rating === 1 ? 'Poor' :
+                       newReview.rating === 2 ? 'Fair' :
+                       newReview.rating === 3 ? 'Good' :
+                       newReview.rating === 4 ? 'Very Good' : 'Excellent'}
+                    </p>
+                  </div>
+
+                  {/* Review Text */}
+                  <div>
+                    <Label htmlFor="reviewComment">Your Review</Label>
+                    <textarea
+                      id="reviewComment"
+                      className="w-full p-3 border rounded-lg mt-1"
+                      rows={4}
+                      value={newReview.comment}
+                      onChange={(e) => setNewReview({...newReview, comment: e.target.value})}
+                      placeholder="Tell others about your experience..."
+                    />
+                  </div>
+
+                  {/* Photo Upload */}
+                  <div>
+                    <Label htmlFor="reviewPhotos">Add Photos (Optional)</Label>
+                    <Input
+                      id="reviewPhotos"
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => {
+                        console.log('Photos selected:', e.target.files);
+                      }}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Share photos from your trip to help others visualize the experience
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={() => {
+                        alert('Review submitted successfully!');
+                        setShowReviewModal(false);
+                        setNewReview({ listingId: '', rating: 5, comment: '', photos: [] });
+                        setReviewListing(null);
+                      }}
+                      disabled={newReview.rating === 0 || !newReview.comment.trim()}
+                      className="flex-1"
+                    >
+                      Submit Review
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowReviewModal(false);
+                        setNewReview({ listingId: '', rating: 5, comment: '', photos: [] });
+                        setReviewListing(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Pincode Change Modal */}
+          {showPincodeModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+              <Card className="w-full max-w-sm mx-4 bg-[#1C1F26] border-gray-800 text-white shadow-2xl">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <span className="text-xl">📍</span> Update Location
+                  </CardTitle>
+                  <CardDescription className="text-xs text-gray-405">
+                    Enter your 6-digit postal code to customize your experience
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Input
+                    type="text"
+                    maxLength={6}
+                    placeholder="e.g. 400001"
+                    value={pincodeInput}
+                    onChange={(e) => setPincodeInput(e.target.value.replace(/\D/g, ''))}
+                    className="bg-gray-900 border-gray-800 text-white text-center text-lg tracking-widest font-mono"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        if (pincodeInput.length !== 6) {
+                          alert('Please enter a valid 6-digit pincode');
+                          return;
+                        }
+                        setPincode(`Pincode ${pincodeInput}`);
+                        setShowPincodeModal(false);
+                      }}
+                      className="flex-1 bg-orange-500 hover:bg-orange-605"
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowPincodeModal(false)}
+                      className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ── REDESIGNED PREMIUM UNLOCK CHAT CONVERSATION MODAL ── */}
+          {showUnlockModal && chatUnlockTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <Card className="max-w-md w-full bg-white shadow-2xl rounded-3xl border border-gray-150 overflow-hidden animate-in zoom-in-95 duration-200">
+                {/* Visual Premium Header */}
+                <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 text-white relative">
+                  <div className="absolute top-6 right-6 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                    Verified Agent
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-white text-blue-700 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-md">
+                      🏢
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-extrabold tracking-tight">{chatUnlockTarget.agencyName}</h3>
+                      <p className="text-xs text-blue-200 mt-0.5">Connect and discuss "{chatUnlockTarget.packageTitle}"</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6 space-y-6">
+                  {/* Explanation and Features List */}
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-705 font-bold leading-relaxed">
+                      Unlock direct messaging and customized itineraries:
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                        <span className="text-blue-500 font-bold text-sm">💬</span>
+                        <div>
+                          <p className="font-bold text-gray-900 leading-tight">Direct Chat</p>
+                          <p className="text-[9px] text-gray-505 mt-0.5">Unlimited messaging</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                        <span className="text-blue-500 font-bold text-sm">📄</span>
+                        <div>
+                          <p className="font-bold text-gray-900 leading-tight">Custom Quotes</p>
+                          <p className="text-[9px] text-gray-505 mt-0.5">Personalized plans</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                        <span className="text-blue-500 font-bold text-sm">📞</span>
+                        <div>
+                          <p className="font-bold text-gray-900 leading-tight">Direct Call</p>
+                          <p className="text-[9px] text-gray-505 mt-0.5">Callbacks enabled</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                        <span className="text-blue-500 font-bold text-sm">⚡</span>
+                        <div>
+                          <p className="font-bold text-gray-900 leading-tight">Mediation Help</p>
+                          <p className="text-[9px] text-gray-505 mt-0.5">100% Secure & safe</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Transaction Box */}
+                  <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-4">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                      <span>Connection Details</span>
+                      <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[9px]">
+                        Plan: {userData?.plan || 'Free'}
+                      </span>
+                    </div>
+                    
+                    {/* Visual credit deduction flow */}
+                    <div className="flex items-center justify-between gap-4 py-1">
+                      <div className="text-center flex-1">
+                        <span className="text-[9px] text-gray-455 font-bold uppercase tracking-wider">Your Balance</span>
+                        <div className="text-lg font-black text-gray-800 mt-0.5">
+                          {userData?.plan === 'starter' && `${userData?.credits ?? 0}`}
+                          {userData?.plan === 'premium' && `${userData?.freeChats ?? 0}`}
+                          {(userData?.plan === 'free' || !userData?.plan) && `${userData?.freeChats ?? 0}`}
+                        </div>
+                        <span className="text-[9px] text-gray-505 font-medium">
+                          {userData?.plan === 'starter' ? 'Credits' : 'Free Chats'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-black">
+                          -{userData?.plan === 'starter' ? '200' : '1'}
+                        </span>
+                        <span className="text-sm text-blue-600 mt-0.5">➔</span>
+                      </div>
+
+                      <div className="text-center flex-1">
+                        <span className="text-[9px] text-gray-450 font-bold uppercase tracking-wider">After Unlock</span>
+                        <div className="text-lg font-black text-blue-600 mt-0.5">
+                          {userData?.plan === 'starter' && `${Math.max(0, (userData?.credits ?? 0) - 200)}`}
+                          {userData?.plan === 'premium' && `${Math.max(0, (userData?.freeChats ?? 0) - 1)}`}
+                          {(userData?.plan === 'free' || !userData?.plan) && `${Math.max(0, (userData?.freeChats ?? 0) - 1)}`}
+                        </div>
+                        <span className="text-[9px] text-gray-500 font-medium">
+                          {userData?.plan === 'starter' ? 'Credits left' : 'Free Chats left'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Check if user has sufficient credits */}
+                  {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
+                    (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
+                    ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
+                    
+                    <div className="bg-red-50 text-red-800 border border-red-150 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+                      <span className="text-xl leading-none">⚠️</span>
+                      <div className="text-xs">
+                        <p className="font-extrabold text-red-905">Insufficient Balance</p>
+                        <p className="text-red-750 mt-1 leading-relaxed">
+                          You need at least {userData?.plan === 'starter' ? '200 Credits' : '1 Free Chat'} to connect with this agency. Top up credits or change plans to continue.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="p-4 bg-gray-50 border-t flex flex-row gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowUnlockModal(false)}
+                    className="flex-1 rounded-xl text-xs font-bold border-gray-300 py-3.5 text-gray-700 bg-white hover:bg-gray-100 transition-all border"
+                  >
+                    Cancel
+                  </Button>
+
+                  {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
+                    (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
+                    ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
+                    
+                    <Button 
+                      onClick={() => {
+                        setShowUnlockModal(false);
+                        setProfileTab('credits');
+                        setUserActiveSection('profile');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-xl text-xs font-bold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
+                    >
+                      Top Up / Upgrade Plan
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={() => unlockChat(chatUnlockTarget.agencyId, chatUnlockTarget.agencyName)}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
+                    >
+                      Confirm & Connect ⚡
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* ── TRANSACTION LOADING MODAL ── */}
+          {isPurchasingCredits && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+              <Card className="max-w-xs w-full bg-white shadow-2xl rounded-3xl border border-gray-150 p-8 text-center animate-in zoom-in-95 duration-150">
+                <div className="relative w-16 h-16 mx-auto mb-6">
+                  <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center text-xl">
+                    💳
+                  </div>
+                </div>
+                <h4 className="font-extrabold text-gray-905 mb-2">Secure Checkout</h4>
+                <p className="text-xs text-gray-505 font-medium leading-relaxed">
+                  {purchaseStatusText}
+                </p>
+                <p className="text-[10px] text-gray-405 font-semibold tracking-wider uppercase mt-6 border-t pt-4">
+                  Do not close this window
+                </p>
+              </Card>
+            </div>
+          )}
+
+          {/* Premium Custom Toast Notification */}
+          {toast && (
+            <div className="fixed bottom-6 right-6 z-[200] animate-in slide-in-from-bottom-5 fade-in duration-300">
+              <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 ${
+                toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-emerald-100/50' :
+                toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
+                'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
+              }`}>
+                <span className="text-xl">
+                  {toast.type === 'success' && '✨'}
+                  {toast.type === 'error' && '⚠️'}
+                  {toast.type === 'info' && 'ℹ️'}
+                </span>
+                <div className="text-xs font-bold tracking-wide">
+                  {toast.message}
+                </div>
+                <button 
+                  onClick={() => setToast(null)}
+                  className="text-gray-400 hover:text-gray-650 transition-colors ml-2 font-bold focus:outline-none"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
       );
     } else {
@@ -4454,7 +5562,7 @@ export default function Home() {
   }
 
   // Journey Details Modal Component
-  const JourneyDetailsModal = ({ booking, onClose }: { booking: any; onClose: () => void }) => {
+  function JourneyDetailsModal({ booking, onClose }: { booking: any; onClose: () => void }) {
     console.log('Modal component rendering with booking:', booking);
     
     if (!booking) return null;
@@ -4686,7 +5794,7 @@ export default function Home() {
         </div>
       </div>
     );
-  };
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
@@ -5216,6 +6324,208 @@ export default function Home() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* ── REDESIGNED PREMIUM UNLOCK CHAT CONVERSATION MODAL ── */}
+      {showUnlockModal && chatUnlockTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <Card className="max-w-md w-full bg-white shadow-2xl rounded-3xl border border-gray-150 overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Visual Premium Header */}
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 text-white relative">
+              <div className="absolute top-6 right-6 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                Verified Agent
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white text-blue-700 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-md">
+                  🏢
+                </div>
+                <div>
+                  <h3 className="text-xl font-extrabold tracking-tight">{chatUnlockTarget.agencyName}</h3>
+                  <p className="text-xs text-blue-200 mt-0.5">Connect and discuss "{chatUnlockTarget.packageTitle}"</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Explanation and Features List */}
+              <div className="space-y-3">
+                <p className="text-sm text-gray-705 font-bold leading-relaxed">
+                  Unlock direct messaging and customized itineraries:
+                </p>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                    <span className="text-blue-500 font-bold text-sm">💬</span>
+                    <div>
+                      <p className="font-bold text-gray-900 leading-tight">Direct Chat</p>
+                      <p className="text-[9px] text-gray-500 mt-0.5">Unlimited messaging</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                    <span className="text-blue-500 font-bold text-sm">📄</span>
+                    <div>
+                      <p className="font-bold text-gray-900 leading-tight">Custom Quotes</p>
+                      <p className="text-[9px] text-gray-500 mt-0.5">Personalized plans</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                    <span className="text-blue-500 font-bold text-sm">📞</span>
+                    <div>
+                      <p className="font-bold text-gray-900 leading-tight">Direct Call</p>
+                      <p className="text-[9px] text-gray-500 mt-0.5">Callbacks enabled</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
+                    <span className="text-blue-500 font-bold text-sm">⚡</span>
+                    <div>
+                      <p className="font-bold text-gray-900 leading-tight">Mediation Help</p>
+                      <p className="text-[9px] text-gray-500 mt-0.5">100% Secure & safe</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transaction Box */}
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-4">
+                <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                  <span>Connection Details</span>
+                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[9px]">
+                    Plan: {userData?.plan || 'Free'}
+                  </span>
+                </div>
+                
+                {/* Visual credit deduction flow */}
+                <div className="flex items-center justify-between gap-4 py-1">
+                  <div className="text-center flex-1">
+                    <span className="text-[9px] text-gray-450 font-bold uppercase tracking-wider">Your Balance</span>
+                    <div className="text-lg font-black text-gray-800 mt-0.5">
+                      {userData?.plan === 'starter' && `${userData?.credits ?? 0}`}
+                      {userData?.plan === 'premium' && `${userData?.freeChats ?? 0}`}
+                      {(userData?.plan === 'free' || !userData?.plan) && `${userData?.freeChats ?? 0}`}
+                    </div>
+                    <span className="text-[9px] text-gray-500 font-medium">
+                      {userData?.plan === 'starter' ? 'Credits' : 'Free Chats'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-col items-center">
+                    <span className="text-[9px] text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-black">
+                      -{userData?.plan === 'starter' ? '200' : '1'}
+                    </span>
+                    <span className="text-sm text-blue-600 mt-0.5">➔</span>
+                  </div>
+
+                  <div className="text-center flex-1">
+                    <span className="text-[9px] text-gray-450 font-bold uppercase tracking-wider">After Unlock</span>
+                    <div className="text-lg font-black text-blue-600 mt-0.5">
+                      {userData?.plan === 'starter' && `${Math.max(0, (userData?.credits ?? 0) - 200)}`}
+                      {userData?.plan === 'premium' && `${Math.max(0, (userData?.freeChats ?? 0) - 1)}`}
+                      {(userData?.plan === 'free' || !userData?.plan) && `${Math.max(0, (userData?.freeChats ?? 0) - 1)}`}
+                    </div>
+                    <span className="text-[9px] text-gray-500 font-medium">
+                      {userData?.plan === 'starter' ? 'Credits left' : 'Free Chats left'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Check if user has sufficient credits */}
+              {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
+                (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
+                ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
+                
+                <div className="bg-red-50 text-red-800 border border-red-150 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+                  <span className="text-xl leading-none">⚠️</span>
+                  <div className="text-xs">
+                    <p className="font-extrabold text-red-905">Insufficient Balance</p>
+                    <p className="text-red-750 mt-1 leading-relaxed">
+                      You need at least {userData?.plan === 'starter' ? '200 Credits' : '1 Free Chat'} to connect with this agency. Top up credits or change plans to continue.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t flex flex-row gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowUnlockModal(false)}
+                className="flex-1 rounded-xl text-xs font-bold border-gray-300 py-3.5 text-gray-700 bg-white hover:bg-gray-100 transition-all border"
+              >
+                Cancel
+              </Button>
+
+              {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
+                (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
+                ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
+                
+                <Button 
+                  onClick={() => {
+                    setShowUnlockModal(false);
+                    setProfileTab('credits');
+                    setUserActiveSection('profile');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-xl text-xs font-bold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
+                >
+                  Top Up / Upgrade Plan
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => unlockChat(chatUnlockTarget.agencyId, chatUnlockTarget.agencyName)}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
+                >
+                  Confirm & Connect ⚡
+                </Button>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── TRANSACTION LOADING MODAL ── */}
+      {isPurchasingCredits && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <Card className="max-w-xs w-full bg-white shadow-2xl rounded-3xl border border-gray-150 p-8 text-center animate-in zoom-in-95 duration-150">
+            <div className="relative w-16 h-16 mx-auto mb-6">
+              <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center text-xl">
+                💳
+              </div>
+            </div>
+            <h4 className="font-extrabold text-gray-900 mb-2">Secure Checkout</h4>
+            <p className="text-xs text-gray-500 font-medium leading-relaxed">
+              {purchaseStatusText}
+            </p>
+            <p className="text-[10px] text-gray-405 font-semibold tracking-wider uppercase mt-6 border-t pt-4">
+              Do not close this window
+            </p>
+          </Card>
+        </div>
+      )}
+      {/* Premium Custom Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[200] animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 ${
+            toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-emerald-100/50' :
+            toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
+            'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
+          }`}>
+            <span className="text-xl">
+              {toast.type === 'success' && '✨'}
+              {toast.type === 'error' && '⚠️'}
+              {toast.type === 'info' && 'ℹ️'}
+            </span>
+            <div className="text-xs font-bold tracking-wide">
+              {toast.message}
+            </div>
+            <button 
+              onClick={() => setToast(null)}
+              className="text-gray-400 hover:text-gray-650 transition-colors ml-2 font-bold focus:outline-none"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
