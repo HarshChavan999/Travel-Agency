@@ -20,6 +20,86 @@ import { getDbInstance, getStorageInstance } from '@/lib/firebase';
 import { getFirestore } from 'firebase/firestore';
 import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
 
+const categoriesConfig = [
+  {
+    id: 'tourCategory',
+    title: 'Tour by Category',
+    subcategories: ['Family Tour', 'Group Tour', 'Fix Departure Tour', 'Honeymoon Tour'],
+    linkText: 'See more'
+  },
+  {
+    id: 'domestic',
+    title: 'Domestic Packages',
+    subcategories: ['Kashmir', 'Himachal', 'South', 'Rajasthan'],
+    linkText: 'See more'
+  },
+  {
+    id: 'international',
+    title: 'International Packages',
+    subcategories: ['Dubai', 'Europe', 'Bali', 'Turkey'],
+    linkText: 'Shop now'
+  },
+  {
+    id: 'trending',
+    title: 'Trending Destinations',
+    subcategories: ['Baku', 'Singapore', 'Leh Ladakh', 'Manali'],
+    linkText: 'See more'
+  },
+  {
+    id: 'seasons',
+    title: 'Seasonal Escapes',
+    subcategories: ['Summer Retreats', 'Monsoon Magic', 'Winter Wonderland', 'Spring Getaways'],
+    linkText: 'See more'
+  },
+  {
+    id: 'events',
+    title: 'Festive & Event Specials',
+    subcategories: ['New Year & Christmas', 'Diwali Specials', 'Summer Vacations', 'Long Weekend Escapes'],
+    linkText: 'See more'
+  },
+  {
+    id: 'experiences',
+    title: 'Experience Travel',
+    subcategories: ['Trekking', 'Snow Enjoyment', 'Adventure', 'Water Sports'],
+    linkText: 'Explore all'
+  }
+];
+
+const subcategoryDescriptions: { [key: string]: string } = {
+  'Family Tour': 'Create Memories with family',
+  'Group Tour': 'Bring your group together to travel!',
+  'Fix Departure Tour': 'Join groups, make friends!',
+  'Honeymoon Tour': 'Make honeymoon memories!',
+  'Kashmir': 'Paradise on Earth',
+  'Himachal': 'Queen of Hills',
+  'South': 'Backwaters & Temples',
+  'Rajasthan': 'Land of Kings',
+  'Dubai': 'Modern Oasis',
+  'Europe': 'Classic Romance',
+  'Bali': 'Tropical Heaven',
+  'Turkey': 'East meets West',
+  'Baku': 'Flame Towers & Caspian Sea',
+  'Singapore': 'Lion City Adventure',
+  'Leh Ladakh': 'High Mountain Passes',
+  'Manali': 'Snowy Peak Escapes',
+  '50% Off': 'Super Saver Deals',
+  '10% Off': 'Special Season Discount',
+  'Packages under 10K': 'Budget friendly tours',
+  'Flash Deals': 'Limited time offers',
+  'Trekking': 'Mountain Trails',
+  'Snow Enjoyment': 'Winter Wonderland',
+  'Adventure': 'Thrill seeker choice',
+  'Water Sports': 'Beaches & Oceans',
+  'Summer Retreats': 'Hill stations & cool escapes',
+  'Monsoon Magic': 'Lush green scenic tours',
+  'Winter Wonderland': 'Snow peaks & desert camps',
+  'Spring Getaways': 'Pleasant sightseeing trips',
+  'New Year & Christmas': 'Beach sides & year-end parties',
+  'Diwali Specials': 'Heritage tours & palace stays',
+  'Summer Vacations': 'Family beach & theme parks',
+  'Long Weekend Escapes': 'Quick 2-3 day getaways'
+};
+
 export default function Home() {
   const { user, userData, loading, signIn, signInWithGoogle, signOut, register } = useAuth();
   const [email, setEmail] = useState('');
@@ -56,6 +136,9 @@ export default function Home() {
   const [chatInput, setChatInput] = useState('');
   const [currentChatAgency, setCurrentChatAgency] = useState<string>('agency1');
   const [currentChatAgencyName, setCurrentChatAgencyName] = useState<string>('Adventure Travels');
+  const [currentChatAgencyIsOnline, setCurrentChatAgencyIsOnline] = useState<boolean>(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState<string>('');
   const [listings, setListings] = useState<any[]>([]);
   const [agencyListings, setAgencyListings] = useState<any[]>([]);
   const [newListing, setNewListing] = useState({
@@ -126,6 +209,24 @@ export default function Home() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  
+  // Dynamic Scroll Listener for sticky header scroll animations
+  const [isScrolled, setIsScrolled] = useState(false);
+  useEffect(() => {
+    const scrollContainer = document.getElementById('user-dashboard-scroll-container');
+    if (!scrollContainer) return;
+    const handleScroll = () => {
+      setIsScrolled(scrollContainer.scrollTop > 50);
+    };
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    setIsScrolled(scrollContainer.scrollTop > 50);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [userActiveSection]);
+
+  // Hero Search Widget states
+  const [heroSearchInput, setHeroSearchInput] = useState('');
+  const [heroTypeSelect, setHeroTypeSelect] = useState<'all' | 'domestic' | 'international'>('all');
+
   // Reviews & Ratings
   const [reviews, setReviews] = useState<any[]>([]);
   const [newReview, setNewReview] = useState({
@@ -140,10 +241,16 @@ export default function Home() {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [showWishlist, setShowWishlist] = useState(false);
   const [pincode, setPincode] = useState<string>('Pincode 400605');
-  
+
   // Pincode Modal States
   const [showPincodeModal, setShowPincodeModal] = useState(false);
   const [pincodeInput, setPincodeInput] = useState('');
+
+  // Wishlist and Compare sub-tab state
+  const [wishlistSubTab, setWishlistSubTab] = useState<'wishlist' | 'compare'>('wishlist');
+
+  // Floating effects queue state
+  const [floatingEffects, setFloatingEffects] = useState<Array<{ id: number; x: number; y: number; type: 'wishlist' | 'compare' }>>([]);
 
   // Profile States
   const [profileName, setProfileName] = useState('');
@@ -181,8 +288,144 @@ export default function Home() {
     }
   }, [toast]);
 
+  // Listen for custom floating-effect events
+  useEffect(() => {
+    const handleFloatingEffect = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && typeof customEvent.detail.x === 'number') {
+        const { x, y, type } = customEvent.detail;
+        const id = Date.now() + Math.random();
+        setFloatingEffects((prev) => [...prev, { id, x, y, type }]);
+        // Remove particle after animation ends (1.2s)
+        setTimeout(() => {
+          setFloatingEffects((prev) => prev.filter((effect) => effect.id !== id));
+        }, 1200);
+      }
+    };
+    window.addEventListener('floating-effect', handleFloatingEffect);
+    return () => window.removeEventListener('floating-effect', handleFloatingEffect);
+  }, []);
+
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
+  };
+
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<{ category: string; subcategory?: string; title: string } | null>(null);
+  const [dashboardViewMode, setDashboardViewMode] = useState<'categories' | 'all'>('categories');
+
+  const getFilteredListingsForSubcategory = (category: string, subcategory: string) => {
+    return listings.filter((listing) => {
+      if (!listing.approved) return false;
+
+      if (category === 'tourCategory') {
+        const cats = listing.tourCategories || [];
+        if (subcategory === 'Family Tour') return cats.includes('Family');
+        if (subcategory === 'Group Tour') return cats.includes('Friends') || cats.includes('Group');
+        if (subcategory === 'Fix Departure Tour') return cats.includes('Fix Departure');
+        if (subcategory === 'Honeymoon Tour') return cats.includes('Honeymoon');
+      }
+
+      if (category === 'domestic') {
+        if (listing.packageType !== 'domestic') return false;
+        const state = (listing.stateName || '').toLowerCase();
+        if (subcategory === 'Kashmir') return state.includes('kashmir') || state.includes('jammu');
+        if (subcategory === 'Himachal') return state.includes('himachal');
+        if (subcategory === 'South') return state.includes('kerala') || state.includes('karnataka') || state.includes('tamil') || state.includes('south') || state.includes('goa') || state.includes('andhra');
+        if (subcategory === 'Rajasthan') return state.includes('rajasthan');
+      }
+
+      if (category === 'international') {
+        if (listing.packageType !== 'international') return false;
+        const country = (listing.countryName || '').toLowerCase();
+        if (subcategory === 'Dubai') return country.includes('dubai') || country.includes('emirates') || country.includes('uae');
+        if (subcategory === 'Europe') return country.includes('europe') || country.includes('switzerland') || country.includes('france') || country.includes('italy') || country.includes('germany') || country.includes('united kingdom') || country.includes('london');
+        if (subcategory === 'Bali') return country.includes('bali') || country.includes('indonesia');
+        if (subcategory === 'Turkey') return country.includes('turkey');
+      }
+
+      if (category === 'trending') {
+        const dest = ((listing.countryName || '') + ' ' + (listing.stateName || '') + ' ' + (listing.title || '')).toLowerCase();
+        if (subcategory === 'Baku') return dest.includes('baku') || dest.includes('azerbaijan');
+        if (subcategory === 'Singapore') return dest.includes('singapore');
+        if (subcategory === 'Leh Ladakh') return dest.includes('ladakh') || dest.includes('leh');
+        if (subcategory === 'Manali') return dest.includes('manali');
+      }
+
+      if (category === 'seasons') {
+        const seasonVal = (listing.season || '').toLowerCase();
+        if (subcategory === 'Summer Retreats') return seasonVal === 'summer';
+        if (subcategory === 'Monsoon Magic') return seasonVal === 'monsoon';
+        if (subcategory === 'Winter Wonderland') return seasonVal === 'winter';
+        if (subcategory === 'Spring Getaways') return seasonVal === 'spring';
+      }
+
+      if (category === 'events') {
+        const ev = (listing.eventType || '').toLowerCase();
+        if (subcategory === 'New Year & Christmas') return ev === 'new-year';
+        if (subcategory === 'Diwali Specials') return ev === 'diwali';
+        if (subcategory === 'Summer Vacations') return ev === 'summer-vacation';
+        if (subcategory === 'Long Weekend Escapes') return ev === 'weekend';
+      }
+
+      if (category === 'offers') {
+        const priceVal = parseFloat(listing.cost || listing.price || '0');
+        if (subcategory === '50% Off') return listing.discountCategory === '50-off';
+        if (subcategory === '10% Off') return listing.discountCategory === '10-off';
+        if (subcategory === 'Packages under 10K') return priceVal > 0 && priceVal < 10000;
+        if (subcategory === 'Flash Deals') return listing.discountCategory === 'flash-deals';
+      }
+
+      if (category === 'experiences') {
+        const exp = (listing.experienceType || '').toLowerCase();
+        if (subcategory === 'Trekking') return exp === 'trekking';
+        if (subcategory === 'Snow Enjoyment') return exp === 'snow';
+        if (subcategory === 'Adventure') return exp === 'adventure';
+        if (subcategory === 'Water Sports') return exp === 'water-sports';
+      }
+
+      return false;
+    });
+  };
+
+  const getSubcategoryCoverImage = (category: string, subcategory: string, matchedListings: any[]) => {
+    if (matchedListings && matchedListings.length > 0) {
+      const firstListing = matchedListings[0];
+      const image = firstListing.placesCovered?.[0]?.imageUrls?.[0] || firstListing.photos?.[0];
+      if (image) return image;
+    }
+
+    const fallbacks: { [key: string]: string } = {
+      'Family Tour': 'https://images.unsplash.com/photo-1543039625-14cbd3802e7d?auto=format&fit=crop&q=80&w=400',
+      'Group Tour': 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?auto=format&fit=crop&q=80&w=400',
+      'Fix Departure Tour': 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=400',
+      'Honeymoon Tour': 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&q=80&w=400',
+      'Kashmir': 'https://images.unsplash.com/photo-1566228015668-4c45dbc4e2f5?auto=format&fit=crop&q=80&w=400',
+      'Himachal': 'https://images.unsplash.com/photo-1605649487212-47bdab064df7?auto=format&fit=crop&q=80&w=400',
+      'South': 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&q=80&w=400',
+      'Rajasthan': 'https://images.unsplash.com/photo-1599661046289-e31897846e41?auto=format&fit=crop&q=80&w=400',
+      'Dubai': 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&q=80&w=400',
+      'Europe': 'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&q=80&w=400',
+      'Bali': 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&q=80&w=400',
+      'Turkey': 'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?auto=format&fit=crop&q=80&w=400',
+      'Baku': 'https://images.unsplash.com/photo-1618083707368-b3823daa2726?auto=format&fit=crop&q=80&w=400',
+      'Singapore': 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&q=80&w=400',
+      'Leh Ladakh': 'https://images.unsplash.com/photo-1621415263409-2259bdd2ac0d?auto=format&fit=crop&q=80&w=400',
+      'Manali': 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&q=80&w=400',
+      'Trekking': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=400',
+      'Snow Enjoyment': 'https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?auto=format&fit=crop&q=80&w=400',
+      'Adventure': 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400',
+      'Water Sports': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=400',
+      'Summer Retreats': 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=400',
+      'Monsoon Magic': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=400',
+      'Winter Wonderland': 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=400',
+      'Spring Getaways': 'https://images.unsplash.com/photo-1492496913980-501348b61469?auto=format&fit=crop&q=80&w=400',
+      'New Year & Christmas': 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=400',
+      'Diwali Specials': 'https://images.unsplash.com/photo-1582650625119-3a31f8fa2699?auto=format&fit=crop&q=80&w=400',
+      'Summer Vacations': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&q=80&w=400',
+      'Long Weekend Escapes': 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&q=80&w=400'
+    };
+
+    return fallbacks[subcategory] || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=400';
   };
 
   // Shadow global alert to show premium toast notification banner
@@ -190,20 +433,20 @@ export default function Home() {
     let type: 'success' | 'error' | 'info' = 'info';
     const lower = message.toLowerCase();
     if (
-      lower.includes('success') || 
-      lower.includes('complete') || 
-      lower.includes('added') || 
-      lower.includes('unlocked') || 
-      lower.includes('approved') || 
+      lower.includes('success') ||
+      lower.includes('complete') ||
+      lower.includes('added') ||
+      lower.includes('unlocked') ||
+      lower.includes('approved') ||
       lower.includes('bonus') ||
       lower.includes('copied')
     ) {
       type = 'success';
     } else if (
-      lower.includes('failed') || 
-      lower.includes('error') || 
-      lower.includes('insufficient') || 
-      lower.includes('not supported') || 
+      lower.includes('failed') ||
+      lower.includes('error') ||
+      lower.includes('insufficient') ||
+      lower.includes('not supported') ||
       lower.includes('invalid') ||
       lower.includes('please fill')
     ) {
@@ -244,7 +487,7 @@ export default function Home() {
             try {
               const { latitude, longitude } = position.coords;
               let gotPincode = false;
-              
+
               // 1. Try BigDataCloud (fast, reliable CORS client-side geocoding)
               try {
                 const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
@@ -319,7 +562,7 @@ export default function Home() {
   const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !user) return;
     const selectedFile = e.target.files[0];
-    
+
     if (!isValidImageFile(selectedFile)) {
       alert('Please select a valid image file (PNG, JPG, WEBP, JPEG).');
       return;
@@ -387,7 +630,7 @@ export default function Home() {
       alert('Please log in to chat with travel agencies.');
       return;
     }
-    
+
     // Check if the user is an agency (agencies don't need to unlock anything)
     if (userData.role !== 'user') {
       alert('Only travelers can initiate chats with agencies.');
@@ -404,6 +647,8 @@ export default function Home() {
       // Direct redirect
       setCurrentChatAgency(agencyId);
       setCurrentChatAgencyName(agencyName);
+      const matchedConv = userConversations.find(c => c.agencyId === agencyId);
+      setCurrentChatAgencyIsOnline(matchedConv ? matchedConv.isOnline : false);
       setUserActiveSection('chat');
       setViewingListing(null);
     } else {
@@ -416,7 +661,7 @@ export default function Home() {
   // Deduct credits/chats and unlock the agency connection
   const unlockChat = async (agencyId: string, agencyName: string) => {
     if (!user || !userData) return;
-    
+
     const dbInstance = getDbInstance();
     if (!dbInstance) return;
 
@@ -485,6 +730,7 @@ export default function Home() {
       setChatUnlockTarget(null);
       setCurrentChatAgency(agencyId);
       setCurrentChatAgencyName(agencyName);
+      setCurrentChatAgencyIsOnline(true);
       setUserActiveSection('chat');
       setViewingListing(null);
 
@@ -558,7 +804,7 @@ export default function Home() {
 
     setTimeout(async () => {
       setPurchaseStatusText('Validating transaction with bank... Adding credits...');
-      
+
       const txId = 'TX-TP-' + Math.random().toString(36).substr(2, 9).toUpperCase();
       const newTransaction = {
         id: txId,
@@ -635,14 +881,14 @@ export default function Home() {
           console.log('🔍 Wishlist field value:', userData.wishlist);
           console.log('🔍 Wishlist field type:', typeof userData.wishlist);
           console.log('🔍 Is wishlist array?', Array.isArray(userData.wishlist));
-          
+
           // Safely handle wishlist field - initialize as empty array if it doesn't exist
-          const wishlistData = userData.wishlist && Array.isArray(userData.wishlist) 
-            ? userData.wishlist 
+          const wishlistData = userData.wishlist && Array.isArray(userData.wishlist)
+            ? userData.wishlist
             : [];
           console.log('🎯 Final wishlist data to set:', wishlistData);
           setWishlist(wishlistData);
-          
+
           // If wishlist field doesn't exist in Firestore, initialize it
           if (!userData.wishlist) {
             console.log('📝 Initializing wishlist field in Firestore');
@@ -688,7 +934,7 @@ export default function Home() {
       const newWishlist = prev.includes(listingId)
         ? prev.filter(id => id !== listingId)
         : [...prev, listingId];
-      
+
       // Persist to Firestore
       updateWishlistInFirestore(newWishlist);
       return newWishlist;
@@ -704,7 +950,7 @@ export default function Home() {
       // Use simple query without orderBy to avoid index requirement
       // Sorting will be done client-side
       const userBookingsQuery = query(
-        collection(dbInstance, 'bookings'), 
+        collection(dbInstance, 'bookings'),
         where('userId', '==', user.uid)
       );
 
@@ -712,35 +958,35 @@ export default function Home() {
       const unsubscribe = onSnapshot(userBookingsQuery, (snapshot) => {
         const bookingsData = snapshot.docs.map(doc => {
           const data = doc.data() as any;
-          return { 
-            id: doc.id, 
+          return {
+            id: doc.id,
             ...data,
             // Ensure createdAt is properly formatted
-            createdAtFormatted: data.createdAt?.toDate?.() 
-              ? data.createdAt.toDate().toLocaleDateString('en-IN', { 
-                  day: 'numeric', 
-                  month: 'short', 
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
-              : new Date(data.createdAt).toLocaleDateString('en-IN', { 
-                  day: 'numeric', 
-                  month: 'short', 
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
+            createdAtFormatted: data.createdAt?.toDate?.()
+              ? data.createdAt.toDate().toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+              : new Date(data.createdAt).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
           };
         });
-        
+
         // Sort client-side by createdAt in descending order (most recent first)
         bookingsData.sort((a, b) => {
           const dateA = (a as any).createdAt?.toDate?.() || new Date((a as any).createdAt);
           const dateB = (b as any).createdAt?.toDate?.() || new Date((b as any).createdAt);
           return dateB.getTime() - dateA.getTime();
         });
-        
+
         setUserBookings(bookingsData);
       }, (error) => {
         console.error('Error fetching bookings:', error);
@@ -758,41 +1004,41 @@ export default function Home() {
       if (!dbInstance) return;
 
       const supportTicketsQuery = query(
-        collection(dbInstance, 'support_tickets'), 
+        collection(dbInstance, 'support_tickets'),
         where('userId', '==', user.uid)
       );
 
       const unsubscribe = onSnapshot(supportTicketsQuery, (snapshot) => {
         const ticketsData = snapshot.docs.map(doc => {
           const data = doc.data() as any;
-          return { 
-            id: doc.id, 
+          return {
+            id: doc.id,
             ...data,
-            createdAtFormatted: data.createdAt?.toDate?.() 
-              ? data.createdAt.toDate().toLocaleDateString('en-IN', { 
-                  day: 'numeric', 
-                  month: 'short', 
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
-              : new Date(data.createdAt).toLocaleDateString('en-IN', { 
-                  day: 'numeric', 
-                  month: 'short', 
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
+            createdAtFormatted: data.createdAt?.toDate?.()
+              ? data.createdAt.toDate().toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+              : new Date(data.createdAt).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
           };
         });
-        
+
         // Sort client-side by createdAt descending
         ticketsData.sort((a, b) => {
           const dateA = (a as any).createdAt?.toDate?.() || new Date((a as any).createdAt);
           const dateB = (b as any).createdAt?.toDate?.() || new Date((b as any).createdAt);
           return dateB.getTime() - dateA.getTime();
         });
-        
+
         setSupportTickets(ticketsData);
       }, (error) => {
         console.error('Error fetching support tickets:', error);
@@ -892,6 +1138,7 @@ export default function Home() {
                   const agencyDoc = await getDoc(doc(getDbInstance()!, 'users', otherUserId));
                   const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
                   const agencyName = agencyData?.companyName || 'Unknown Agency';
+                  const isOnline = agencyData?.isOnline || agencyData?.is_online || false;
 
                   conversationsMap.set(otherUserId, {
                     agencyId: otherUserId,
@@ -900,6 +1147,7 @@ export default function Home() {
                     lastMessage: msg.text,
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0, // Could implement read status
+                    isOnline,
                   });
                 } catch (error) {
                   console.warn('Error fetching agency data for conversation:', error);
@@ -911,6 +1159,7 @@ export default function Home() {
                     lastMessage: msg.text,
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0,
+                    isOnline: false,
                   });
                 }
               }
@@ -1108,10 +1357,10 @@ export default function Home() {
     if (user) {
       const dbInstance = getDbInstance();
       if (!dbInstance) return;
-      
+
       // Use real-time listener for listings to automatically update when admin approves
       const listingsQuery = query(collection(dbInstance, 'listings'), where('approved', '==', true));
-      
+
       const unsubscribe = onSnapshot(listingsQuery, async (snapshot) => {
         const listingsData = await Promise.all(snapshot.docs.map(async (docSnapshot) => {
           const listingData = docSnapshot.data() as any;
@@ -1119,7 +1368,7 @@ export default function Home() {
           const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
           const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
           const agencyName = agencyData?.companyName || 'Unknown Agency';
-          
+
           // Debug: Log the listing data structure
           console.log('Listing data structure:', {
             id: docSnapshot.id,
@@ -1132,7 +1381,7 @@ export default function Home() {
             firstPlaceHasImages: listingData.placesCovered?.[0]?.imageUrls?.length > 0 || false,
             photosLength: listingData.photos?.length || 0
           });
-          
+
           return { id: docSnapshot.id, ...listingData, agencyName, agencyData };
         }));
         setListings(listingsData);
@@ -1272,6 +1521,13 @@ export default function Home() {
 
   const sendMessage = async () => {
     if (!chatInput.trim() || !user) return;
+
+    // Check for 10-digit numbers to prevent platform bypass
+    const digitsOnly = chatInput.replace(/\D/g, '');
+    if (digitsOnly.length >= 10 || /\d{10}/.test(digitsOnly)) {
+      alert('Security Warning: Sharing phone numbers or contact details is not allowed to protect platform guidelines.');
+      return;
+    }
 
     // Send to mobile app's "chat_messages" collection with correct format
     const messageData = {
@@ -1453,7 +1709,7 @@ export default function Home() {
     try {
       // Debug: Log the booking listing data
       console.log('Booking listing data:', bookingListing);
-      
+
       const bookingDoc = {
         userId: user.uid,
         userName: bookingData.contactName,
@@ -1500,10 +1756,10 @@ export default function Home() {
         accessibilityNeeds: '',
         bookingNotes: ''
       });
-      
+
       // Note: Real-time listener will automatically update the bookings list
       // No need to manually refresh as onSnapshot is now being used
-      
+
     } catch (error) {
       console.error('Error submitting booking:', error);
       alert('Failed to submit booking. Please try again.');
@@ -1543,7 +1799,7 @@ export default function Home() {
       };
 
       await addDoc(collection(dbInstance, 'support_tickets'), ticketDoc);
-      
+
       // Clear form
       setSupportBookingId('');
       setSupportReason('Agency is not responding after payment');
@@ -1587,53 +1843,48 @@ export default function Home() {
                 </button> */}
                 <button
                   onClick={() => setActiveSection('overview')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    activeSection === 'overview'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'overview'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Overview
+                  Overview
                 </button>
                 <button
                   onClick={() => setActiveSection('analytics')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    activeSection === 'analytics'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'analytics'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Analytics
+                  Analytics
                 </button>
                 <button
                   onClick={() => setActiveSection('agencies')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    activeSection === 'agencies'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'agencies'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Agencies
+                  Agencies
                 </button>
                 <button
                   onClick={() => setActiveSection('listings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    activeSection === 'listings'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'listings'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                    Listings
+                  Listings
                 </button>
                 <button
                   onClick={() => setActiveSection('settings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    activeSection === 'settings'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'settings'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Settings
+                  Settings
                 </button>
               </div>
             </nav>
@@ -1788,7 +2039,7 @@ export default function Home() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => {/* Reject logic */}}
+                                onClick={() => {/* Reject logic */ }}
                               >
                                 Reject
                               </Button>
@@ -1922,7 +2173,7 @@ export default function Home() {
                         {viewingAgency.companyName} - Details
                       </CardTitle>
                       <Button variant="outline" size="sm" onClick={() => setViewingAgency(null)}>
-                        Back 
+                        Back
                       </Button>
                     </div>
                     <CardDescription>
@@ -1970,9 +2221,9 @@ export default function Home() {
                           <div>
                             <p className="text-sm text-gray-600">Operating From</p>
                             <p className="font-medium">
-                              {viewingAgency.operatingFromHome && viewingAgency.operatingFromOffice ? 'Home & Office' : 
-                               viewingAgency.operatingFromHome ? 'Home' : 
-                               viewingAgency.operatingFromOffice ? 'Office' : 'Not specified'}
+                              {viewingAgency.operatingFromHome && viewingAgency.operatingFromOffice ? 'Home & Office' :
+                                viewingAgency.operatingFromHome ? 'Home' :
+                                  viewingAgency.operatingFromOffice ? 'Office' : 'Not specified'}
                             </p>
                           </div>
                           {viewingAgency.operatingFromOffice && (
@@ -2029,7 +2280,7 @@ export default function Home() {
                         </Button>
                       )}
                       <Button variant="outline" onClick={() => setViewingAgency(null)}>
-                        Back 
+                        Back
                       </Button>
                     </div>
                   </CardContent>
@@ -2157,58 +2408,73 @@ export default function Home() {
       );
     } else if (userData.role === 'user') {
       // User Dashboard
+      const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className="flex flex-col h-screen bg-gray-100">
           {/* Top Navigation Bar */}
-          <header className="bg-[#1C1F26] text-white py-3 px-6 shadow-md z-20 sticky top-0">
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <header className={`header-transition text-white z-20 sticky top-0 shadow-md ${isScrolled ? 'bg-[#1C1F26]/90 backdrop-blur-md py-2 border-b border-gray-800/80 shadow-lg' : 'bg-[#1C1F26] py-3.5'}`}>
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 px-4 w-full">
               {/* Logo & Search */}
               <div className="flex items-center gap-6 flex-1 w-full">
-                <div 
-                  className="text-3xl font-extrabold tracking-wider cursor-pointer"
-                  onClick={() => setUserActiveSection('listings')}
+                <div
+                  className={`font-extrabold tracking-wider cursor-pointer transition-all duration-300 ${isScrolled ? 'text-2xl' : 'text-3xl'}`}
+                  onClick={() => {
+                    setUserActiveSection('listings');
+                    setViewingListing(null);
+                    setSelectedCategoryFilter(null);
+                    setDashboardViewMode('categories');
+                    setSearchTerm('');
+                    setFilters({
+                      priceRange: [0, 10000],
+                      duration: '',
+                      type: '',
+                      rating: 0,
+                      destination: '',
+                      packageType: '',
+                      amenities: []
+                    });
+                    setShowBookingForm(false);
+                    setShowComparison(false);
+                    setWishlistSubTab('wishlist');
+                  }}
                 >
                   <span className="text-white">BOM</span><span className="text-orange-500">TRA</span>
                 </div>
                 <div className="relative w-full max-w-xl">
-                  <Input 
-                    type="text" 
-                    placeholder="Search your Holiday Destination" 
-                    className="w-full pl-10 pr-4 py-2 rounded-full text-black bg-white focus:ring-orange-500 focus:outline-none border-none"
+                  <Input
+                    type="text"
+                    placeholder="Search your Holiday Destination"
+                    className="w-full pl-10 pr-4 py-1.5 rounded-full text-black bg-white focus:ring-orange-500 focus:outline-none border-none text-xs h-9 shadow-inner"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500">🔍</span>
+                    <span className="text-gray-400 text-xs">🔍</span>
                   </div>
                 </div>
               </div>
 
               {/* Right Icons */}
-              <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                <div 
-                  className="flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm"
-                  onClick={() => {
-                    setPincodeInput(pincode.replace('Pincode ', ''));
-                    setShowPincodeModal(true);
-                  }}
-                >
-                  <span className="text-xl">📍</span>
-                  <div className="flex flex-col leading-tight hidden xl:flex">
-                    <span className="font-semibold">{pincode}</span>
-                    <span className="text-xs text-gray-400">Location</span>
+              <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap">
+                {/* Location */}
+                <div className="flex items-center gap-2 text-xs text-white select-none bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm transition-all">
+                  <span className="text-base">📍</span>
+                  <div className="flex flex-col leading-tight hidden sm:flex">
+                    <span className="font-bold text-gray-200">{pincode}</span>
+                    <span className="text-[9px] text-gray-400 font-medium">Location</span>
                   </div>
                 </div>
-                
-                <div 
-                  className={`flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm group relative ${userActiveSection === 'profile' ? 'text-orange-500 font-bold' : ''}`}
+
+                {/* Profile */}
+                <div
+                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
                   onClick={() => setUserActiveSection('profile')}
                 >
-                  <span className="text-xl">👤</span>
-                  <div className="flex flex-col leading-tight hidden xl:flex">
-                    <span className="font-semibold">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
-                    <span 
-                      className="text-xs text-gray-400 hover:text-white" 
+                  <span className="text-base">👤</span>
+                  <div className="flex flex-col leading-tight hidden sm:flex">
+                    <span className="font-semibold text-gray-200">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
+                    <span
+                      className="text-[9px] text-gray-400 hover:text-white"
                       onClick={(e) => {
                         e.stopPropagation();
                         signOut();
@@ -2218,8 +2484,8 @@ export default function Home() {
                     </span>
                   </div>
                   {/* Mobile Sign Out */}
-                  <span 
-                    className="xl:hidden absolute top-8 right-0 bg-black text-white p-2 rounded shadow opacity-0 group-hover:opacity-100" 
+                  <span
+                    className="xl:hidden absolute top-8 right-0 bg-black text-white p-2 rounded shadow opacity-0 group-hover:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation();
                       signOut();
@@ -2229,47 +2495,42 @@ export default function Home() {
                   </span>
                 </div>
 
-                <div 
-                  className="flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm"
-                  onClick={() => setUserActiveSection('bookings')}
+                {/* Compare */}
+                <div
+                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'wishlist' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
+                  onClick={() => {
+                    setUserActiveSection('wishlist');
+                    setWishlistSubTab('wishlist');
+                  }}
                 >
-                  <span className="text-xl">🚶</span>
-                  <div className="flex flex-col leading-tight hidden xl:flex">
-                    <span className="font-semibold">My Tour</span>
-                    <span className="text-xs text-gray-400">& Cancellation</span>
+                  <span className="text-base">⚖️</span>
+                  <div className="flex flex-col leading-tight hidden sm:flex">
+                    <span className="font-semibold text-gray-200">Compare</span>
+                    <span className="text-[9px] text-gray-400 font-medium">& Wishlist</span>
                   </div>
                 </div>
 
-                <div 
-                  className="flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm"
-                  onClick={() => setUserActiveSection('wishlist')}
-                >
-                  <span className="text-xl">⚖️</span>
-                  <div className="flex flex-col leading-tight hidden xl:flex">
-                    <span className="font-semibold">Compare</span>
-                    <span className="text-xs text-gray-400">& Wishlist</span>
-                  </div>
-                </div>
-
-                <div 
-                  className="flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm"
+                {/* Messages */}
+                <div
+                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'chat' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
                   onClick={() => setUserActiveSection('chat')}
                 >
-                  <span className="text-xl">💬</span>
-                  <div className="flex flex-col leading-tight hidden xl:flex">
-                    <span className="font-semibold">Messages</span>
-                    <span className="text-xs text-gray-400">Agencies</span>
+                  <span className="text-base">💬</span>
+                  <div className="flex flex-col leading-tight hidden sm:flex">
+                    <span className="font-semibold text-gray-200">Messages</span>
+                    <span className="text-[9px] text-gray-400 font-medium">Agencies</span>
                   </div>
                 </div>
 
-                <div 
-                  className={`flex items-center gap-2 cursor-pointer hover:text-orange-400 transition-colors text-sm ${userActiveSection === 'support' ? 'text-orange-500 font-bold' : ''}`}
+                {/* Support */}
+                <div
+                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'support' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
                   onClick={() => setUserActiveSection('support')}
                 >
-                  <span className="text-xl">🛡️</span>
-                  <div className="flex flex-col leading-tight hidden xl:flex">
-                    <span className="font-semibold">Support</span>
-                    <span className="text-xs text-gray-400">Dispute & Help</span>
+                  <span className="text-base">🛡️</span>
+                  <div className="flex flex-col leading-tight hidden sm:flex">
+                    <span className="font-semibold text-gray-200">Support</span>
+                    <span className="text-[9px] text-gray-400 font-medium">Dispute & Help</span>
                   </div>
                 </div>
               </div>
@@ -2281,44 +2542,135 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between text-sm text-gray-300 font-medium">
               <div className="flex items-center gap-8">
                 <button className="flex items-center gap-1 hover:text-white transition-colors" onClick={() => setUserActiveSection('listings')}>
-                 
+
                 </button>
               </div>
             </div>
           </nav>
 
           {/* Main Dashboard Scroll Area */}
-          <div 
-            className="flex-1 overflow-y-auto w-full pb-10 dashboard-scroll fast-scroll"
+          <div
+            className={`flex-1 w-full dashboard-scroll fast-scroll ${
+              userActiveSection === 'chat' ? 'overflow-hidden flex flex-col h-full' : 'overflow-y-auto pb-10'
+            }`}
             id="user-dashboard-scroll-container"
           >
             {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-              <div className="w-full bg-gradient-to-r from-[#2B58C4] to-[#407BFF] py-16 px-6 shadow-inner relative overflow-hidden mb-8">
-                {/* Airplane Illustration placeholder */}
-                <div className="absolute top-4 right-10 md:right-40 opacity-30 pointer-events-none">
-                  <span className="text-8xl">✈️</span>
-                </div>
-                <div className="absolute bottom-4 left-10 md:left-40 opacity-30 pointer-events-none">
-                  <span className="text-8xl">🛳️</span>
-                </div>
-                <div className="max-w-4xl mx-auto text-center relative z-10 text-white">
-                  <div className="inline-block bg-[#FDB813] text-black px-4 py-1 font-bold text-sm mb-6 rounded shadow-sm tracking-wide">
-                    BEST TRAVEL AGENTS AT ONE PLACE
+              <div className="w-full bg-[#0F172A] py-20 px-6 relative overflow-hidden mb-8 shadow-2xl mt-0 min-h-[480px] flex flex-col justify-center items-center">
+                {/* Background image overlay */}
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center opacity-25"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#14161C] via-slate-900/35 to-transparent"></div>
+                
+                {/* Floating decor particles */}
+                <div className="absolute top-10 left-10 text-white/5 text-9xl leading-none select-none pointer-events-none">✈️</div>
+                <div className="absolute bottom-10 right-10 text-white/5 text-9xl leading-none select-none pointer-events-none">🗺️</div>
+
+                <div className="max-w-5xl mx-auto w-full text-center relative z-10 text-white mt-4 flex flex-col items-center">
+                  <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-1.5 font-bold text-xs mb-5 rounded-full shadow-lg tracking-wide uppercase">
+                    <span className="animate-pulse">✨</span> Premium Travel Partners
                   </div>
-                  <h1 className="text-4xl md:text-6xl font-extrabold mb-4 tracking-tight drop-shadow-lg">
-                    BOOK YOUR TOUR WITH US
+                  <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tight drop-shadow-2xl leading-none">
+                    Discover Your Next <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300 drop-shadow-sm">Adventure</span>
                   </h1>
-                  <p className="text-lg md:text-xl text-blue-100 font-medium tracking-wide">
-                    Domestic Tour | International tour
+                  <p className="text-sm md:text-base text-gray-300 font-medium tracking-wide drop-shadow-md max-w-xl mx-auto mb-8">
+                    Curated domestic and international tours crafted by experts.
                   </p>
+
+                  {/* PREMIUM MAKEYMYTRIP-STYLE SEARCH WIDGET */}
+                  <div className="w-full max-w-4xl bg-white/10 backdrop-blur-md border border-white/25 shadow-2xl rounded-3xl p-6 md:p-8 text-left animate-in zoom-in-95 duration-300">
+                    {/* Widget Top Tab Row */}
+                    <div className="flex gap-4 mb-4 border-b border-white/10 pb-3 flex-wrap">
+                      {[
+                        { id: 'all', label: '🏖️ All Packages' },
+                        { id: 'domestic', label: '🏔️ Domestic' },
+                        { id: 'international', label: '🌍 International' }
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setHeroTypeSelect(tab.id as any)}
+                          className={`pb-2 text-xs font-bold transition-all relative px-1 ${
+                            heroTypeSelect === tab.id 
+                              ? 'text-orange-400 font-extrabold after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-orange-500' 
+                              : 'text-gray-300 hover:text-white'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Inputs Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                      {/* Destination Input */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-black text-orange-400 uppercase tracking-wider">Destination</label>
+                        <div className="relative">
+                          <Input
+                            type="text"
+                            placeholder="Where are you planning to go?"
+                            value={heroSearchInput}
+                            onChange={(e) => setHeroSearchInput(e.target.value)}
+                            className="w-full pl-9 pr-3 rounded-xl border-none text-black bg-white focus-visible:ring-2 focus-visible:ring-orange-500 h-11 text-xs"
+                          />
+                          <span className="absolute left-3 top-3.5 text-xs text-gray-400">🔍</span>
+                        </div>
+                      </div>
+
+                      {/* Budget Selector */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-black text-orange-400 uppercase tracking-wider">Max Budget (INR/USD)</label>
+                        <select 
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'all') setFilters(prev => ({ ...prev, priceRange: [0, 10000] }));
+                            else if (val === 'budget') setFilters(prev => ({ ...prev, priceRange: [0, 3000] }));
+                            else if (val === 'mid') setFilters(prev => ({ ...prev, priceRange: [3000, 6000] }));
+                            else if (val === 'luxury') setFilters(prev => ({ ...prev, priceRange: [6000, 10000] }));
+                          }}
+                          className="w-full rounded-xl border-none text-black bg-white px-3 h-11 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-orange-500 outline-none"
+                        >
+                          <option value="all">💰 Any Budget</option>
+                          <option value="budget">💰 Budget (Under 3,000)</option>
+                          <option value="mid">💰 Mid-Range (3,000 - 6,000)</option>
+                          <option value="luxury">💰 Luxury (Above 6,000)</option>
+                        </select>
+                      </div>
+
+                      {/* Search Action Button */}
+                      <button
+                        onClick={() => {
+                          setSearchTerm(heroSearchInput);
+                          if (heroTypeSelect === 'domestic') {
+                            setSelectedCategoryFilter({ category: 'domestic', title: 'Domestic Packages' });
+                          } else if (heroTypeSelect === 'international') {
+                            setSelectedCategoryFilter({ category: 'international', title: 'International Packages' });
+                          } else {
+                            setSelectedCategoryFilter(null);
+                          }
+                          setDashboardViewMode('all');
+                          
+                          // Scroll down to active listings section
+                          setTimeout(() => {
+                            const container = document.getElementById('user-dashboard-scroll-container');
+                            if (container) {
+                              container.scrollTo({ top: 380, behavior: 'smooth' });
+                            }
+                          }, 100);
+                        }}
+                        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl h-11 text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-950/20 active:scale-[0.98] transition-all hover:scale-[1.01]"
+                      >
+                        Search Holidays ✈️
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            <main className="px-6 max-w-7xl mx-auto w-full">
+            <main className={`px-6 max-w-7xl mx-auto w-full ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : ''}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
               {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && (
-                <div className="mb-6 flex justify-between items-center border-b pb-4 border-gray-200 mt-6">
+                <div className={`${userActiveSection === 'chat' ? 'mb-4 mt-4 shrink-0' : 'mb-6 mt-6'} flex justify-between items-center border-b pb-4 border-gray-200`}>
                   <h1 className="text-3xl font-bold text-gray-900">
                     {userActiveSection === 'chat' && 'Messages'}
                     {userActiveSection === 'wishlist' && 'My Wishlist'}
@@ -2352,9 +2704,12 @@ export default function Home() {
                             </div>
                           </div>
                           <div className="flex gap-2 w-full sm:w-auto">
-                            <Button 
-                              size="sm" 
-                              onClick={() => setShowComparison(true)}
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setUserActiveSection('wishlist');
+                                setWishlistSubTab('compare');
+                              }}
                               className="flex-1 sm:flex-none"
                             >
                               Compare Now ({comparisonList.length})
@@ -2373,51 +2728,359 @@ export default function Home() {
                     </Card>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {listings.length === 0 ? (
-                      <div className="col-span-full text-center py-12">
-                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-3xl">🏖️</span>
-                        </div>
-                        <p className="text-gray-500">No travel packages available yet.</p>
-                      </div>
-                    ) : (
-                      listings
-                        .filter(listing => {
-                          // Apply search filter - search across all relevant fields
-                          if (searchTerm) {
-                            const searchLower = searchTerm.toLowerCase();
-                            const title = (listing.title || '').toLowerCase();
-                            const description = (listing.description || '').toLowerCase();
-                            const destination = (listing.destination || '').toLowerCase();
-                            const stateName = (listing.stateName || '').toLowerCase();
-                            const countryName = (listing.countryName || '').toLowerCase();
-                            const packageType = (listing.packageType || '').toLowerCase();
-                            const type = (listing.type || '').toLowerCase();
-                            const price = (listing.price || listing.cost || '').toString().toLowerCase();
-                            const duration = (listing.duration || '').toString().toLowerCase();
-                            const itineraryDays = (listing.itinerary?.length || '').toString();
-                            
-                            // Check if search term matches any field
-                            const matches = title.includes(searchLower) ||
-                                          description.includes(searchLower) ||
-                                          destination.includes(searchLower) ||
-                                          stateName.includes(searchLower) ||
-                                          countryName.includes(searchLower) ||
-                                          packageType.includes(searchLower) ||
-                                          type.includes(searchLower) ||
-                                          price.includes(searchLower) ||
-                                          duration.includes(searchLower) ||
-                                          itineraryDays.includes(searchLower);
-                                          
-                            if (!matches) {
-                              return false;
-                            }
-                          }
+                  {/* Category Emoji Navigation Strip */}
+                  <div className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 overflow-x-auto horizontal-scroll-nav scrollbar-hide py-2.5 sticky top-0 z-10 backdrop-blur-md">
+                    <div className="flex gap-2 sm:gap-3.5 w-full justify-between items-center min-w-max px-2">
+                      {[
+                        { id: 'all_categories', label: '🎛️ Categories', type: 'categories', filter: null },
+                        { id: 'all_packages', label: '🏖️ All Packages', type: 'all', filter: null },
+                        { id: 'domestic_tab', label: '🏔️ Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
+                        { id: 'intl_tab', label: '🌍 International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
+                        { id: 'trending_tab', label: '🔥 Trending', type: 'all', filter: { category: 'trending', title: 'Trending Destinations' } },
+                        { id: 'experience_tab', label: '🎒 Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } },
+                        { id: 'honeymoon_tab', label: '🍯 Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } }
+                      ].map((item) => {
+                        const isCategoriesActive = item.type === 'categories' && dashboardViewMode === 'categories' && !selectedCategoryFilter;
+                        const isAllActive = item.type === 'all' && dashboardViewMode === 'all' && !selectedCategoryFilter && !item.filter;
+                        const isFilterActive = item.filter && selectedCategoryFilter && 
+                                               selectedCategoryFilter.category === item.filter.category && 
+                                               selectedCategoryFilter.subcategory === item.filter.subcategory;
+                        
+                        const isActive = isCategoriesActive || isAllActive || isFilterActive;
 
-                          return true;
-                        })
-                        .map((listing) => (
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              if (item.type === 'categories') {
+                                setDashboardViewMode('categories');
+                                setSelectedCategoryFilter(null);
+                              } else {
+                                setDashboardViewMode('all');
+                                setSelectedCategoryFilter(item.filter);
+                              }
+                            }}
+                            className={`px-4 py-2 rounded-full text-xs font-black tracking-wide uppercase transition-all duration-300 flex items-center gap-1.5 shrink-0 hover-lift ${
+                              isActive
+                                ? 'bg-orange-500 text-white shadow-md border-orange-500 scale-[1.03] ring-2 ring-orange-500/25'
+                                : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Category Details Banner */}
+                  {selectedCategoryFilter && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-6 flex justify-between items-center shadow-sm">
+                      <div>
+                        <span className="text-[10px] text-orange-600 font-extrabold uppercase tracking-wider">Filtered Category</span>
+                        <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-0.5">
+                          {selectedCategoryFilter.title} {selectedCategoryFilter.subcategory ? `• ${selectedCategoryFilter.subcategory}` : ''}
+                        </h2>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedCategoryFilter(null)}
+                        className="text-orange-700 hover:text-orange-955 hover:bg-orange-100 font-bold text-xs"
+                      >
+                        Clear Filter
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Search Term Banner */}
+                  {searchTerm && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex justify-between items-center shadow-sm">
+                      <div>
+                        <span className="text-[10px] text-blue-600 font-extrabold uppercase tracking-wider">Search Results For</span>
+                        <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-0.5">
+                          "{searchTerm}"
+                        </h2>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchTerm('')}
+                        className="text-blue-700 hover:text-blue-955 hover:bg-blue-100 font-bold text-xs"
+                      >
+                        Clear Search
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Main View Controller */}
+                  {dashboardViewMode === 'categories' && !selectedCategoryFilter && !searchTerm ? (
+                    /* Category Landing Page */
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
+
+                      {/* Loop Categories Config */}
+                      {categoriesConfig.map((category) => (
+                        <div
+                          key={category.id}
+                          className="bg-white border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8 flex flex-col rounded-none overflow-hidden"
+                        >
+                          <h3 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight mb-6">
+                            {category.title}
+                          </h3>
+
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-6 flex-1">
+                            {category.subcategories.map((sub) => {
+                              const matched = getFilteredListingsForSubcategory(category.id, sub);
+                              const img = getSubcategoryCoverImage(category.id, sub, matched);
+                              const desc = subcategoryDescriptions[sub] || '';
+                              return (
+                                <div
+                                  key={sub}
+                                  className="flex flex-col cursor-pointer group/item"
+                                  onClick={() => setSelectedCategoryFilter({
+                                    category: category.id,
+                                    subcategory: sub,
+                                    title: `${category.title} - ${sub}`
+                                  })}
+                                >
+                                  <div className="relative aspect-[16/10] rounded-none overflow-hidden bg-slate-50 border border-slate-200/40">
+                                    <img
+                                      src={img}
+                                      alt={sub}
+                                      className="w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-105"
+                                      loading="lazy"
+                                    />
+                                    <div className="absolute inset-0 bg-black/5 group-hover/item:bg-transparent transition-colors duration-300"></div>
+                                  </div>
+                                  <div className="mt-2 px-0.5">
+                                    <p className="text-[11px] md:text-xs font-medium text-slate-900 leading-snug group-hover/item:text-orange-500 transition-colors duration-200">
+                                      {category.id === 'tourCategory' && desc
+                                        ? `${sub} | ${desc}`
+                                        : sub
+                                      }
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-6 flex items-center">
+                            <button
+                              onClick={() => setSelectedCategoryFilter({
+                                category: category.id,
+                                title: category.title
+                              })}
+                              className="text-sm font-medium text-sky-600 hover:text-sky-800 hover:underline transition-colors"
+                            >
+                              {category.linkText}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+
+                    </div>
+                  ) : (
+                    /* Filtered Listings Grid */
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {listings.length === 0 ? (
+                        <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border border-gray-100 border-dashed">
+                          <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner relative overflow-hidden">
+                            <span className="text-4xl animate-bounce">🏖️</span>
+                          </div>
+                          <h3 className="text-xl font-bold text-gray-800 mb-2">Fetching Best Deals</h3>
+                          <p className="text-gray-500 font-medium text-center max-w-md">
+                            We are looking for the perfect travel packages for you. If nothing appears, check back later!
+                          </p>
+
+                          {/* Fake skeletons below the text to simulate loading */}
+                          <div className="w-full max-w-4xl mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 opacity-40">
+                            {[1, 2, 3].map(i => (
+                              <div key={i} className="bg-white border border-gray-100 rounded-3xl p-4 h-48 shadow-sm animate-pulse flex flex-col gap-4">
+                                <div className="w-full h-24 bg-gray-200 rounded-2xl"></div>
+                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (() => {
+                        const filtered = listings
+                          .filter(listing => {
+                            if (!listing.approved) return false;
+
+                            // 1. Apply category filter if active
+                            if (selectedCategoryFilter) {
+                              const { category, subcategory } = selectedCategoryFilter;
+
+                              if (category === 'tourCategory') {
+                                const cats = listing.tourCategories || [];
+                                const sub = subcategory || '';
+                                if (sub === 'Family Tour' && !cats.includes('Family')) return false;
+                                if (sub === 'Group Tour' && !(cats.includes('Friends') || cats.includes('Group'))) return false;
+                                if (sub === 'Fix Departure Tour' && !cats.includes('Fix Departure')) return false;
+                                if (sub === 'Honeymoon Tour' && !cats.includes('Honeymoon')) return false;
+                                if (!sub && cats.length === 0) return false;
+                              }
+
+                              else if (category === 'domestic') {
+                                if (listing.packageType !== 'domestic') return false;
+                                if (subcategory) {
+                                  const state = (listing.stateName || '').toLowerCase();
+                                  if (subcategory === 'Kashmir' && !state.includes('kashmir') && !state.includes('jammu')) return false;
+                                  if (subcategory === 'Himachal' && !state.includes('himachal')) return false;
+                                  if (subcategory === 'South' && !state.includes('kerala') && !state.includes('karnataka') && !state.includes('tamil') && !state.includes('south') && !state.includes('goa') && !state.includes('andhra')) return false;
+                                  if (subcategory === 'Rajasthan' && !state.includes('rajasthan')) return false;
+                                }
+                              }
+
+                              else if (category === 'international') {
+                                if (listing.packageType !== 'international') return false;
+                                if (subcategory) {
+                                  const country = (listing.countryName || '').toLowerCase();
+                                  if (subcategory === 'Dubai' && !country.includes('dubai') && !country.includes('emirates') && !country.includes('uae')) return false;
+                                  if (subcategory === 'Europe' && !country.includes('europe') && !country.includes('switzerland') && !country.includes('france') && !country.includes('italy') && !country.includes('germany') && !country.includes('united kingdom') && !country.includes('london')) return false;
+                                  if (subcategory === 'Bali' && !country.includes('bali') && !country.includes('indonesia')) return false;
+                                  if (subcategory === 'Turkey' && !country.includes('turkey')) return false;
+                                }
+                              }
+
+                              else if (category === 'trending') {
+                                if (subcategory) {
+                                  const dest = ((listing.countryName || '') + ' ' + (listing.stateName || '') + ' ' + (listing.title || '')).toLowerCase();
+                                  if (subcategory === 'Baku' && !dest.includes('baku') && !dest.includes('azerbaijan')) return false;
+                                  if (subcategory === 'Singapore' && !dest.includes('singapore')) return false;
+                                  if (subcategory === 'Leh Ladakh' && !dest.includes('ladakh') && !dest.includes('leh')) return false;
+                                  if (subcategory === 'Manali' && !dest.includes('manali')) return false;
+                                } else {
+                                  if (!listing.isTrending) return false;
+                                }
+                              }
+
+                              else if (category === 'offers') {
+                                const priceVal = parseFloat(listing.cost || listing.price || '0');
+                                if (subcategory) {
+                                  if (subcategory === '50% Off' && listing.discountCategory !== '50-off') return false;
+                                  if (subcategory === '10% Off' && listing.discountCategory !== '10-off') return false;
+                                  if (subcategory === 'Packages under 10K' && !(priceVal > 0 && priceVal < 10000)) return false;
+                                  if (subcategory === 'Flash Deals' && listing.discountCategory !== 'flash-deals') return false;
+                                } else {
+                                  const hasOffer = (listing.discountCategory && listing.discountCategory !== 'none') || (priceVal > 0 && priceVal < 10000);
+                                  if (!hasOffer) return false;
+                                }
+                              }
+
+                              else if (category === 'seasons') {
+                                if (subcategory) {
+                                  const seasonVal = (listing.season || '').toLowerCase();
+                                  if (subcategory === 'Summer Retreats' && seasonVal !== 'summer') return false;
+                                  if (subcategory === 'Monsoon Magic' && seasonVal !== 'monsoon') return false;
+                                  if (subcategory === 'Winter Wonderland' && seasonVal !== 'winter') return false;
+                                  if (subcategory === 'Spring Getaways' && seasonVal !== 'spring') return false;
+                                }
+                              }
+
+                              else if (category === 'events') {
+                                if (subcategory) {
+                                  const ev = (listing.eventType || '').toLowerCase();
+                                  if (subcategory === 'New Year & Christmas' && ev !== 'new-year') return false;
+                                  if (subcategory === 'Diwali Specials' && ev !== 'diwali') return false;
+                                  if (subcategory === 'Summer Vacations' && ev !== 'summer-vacation') return false;
+                                  if (subcategory === 'Long Weekend Escapes' && ev !== 'weekend') return false;
+                                }
+                              }
+
+                              else if (category === 'experiences') {
+                                if (subcategory) {
+                                  const exp = (listing.experienceType || '').toLowerCase();
+                                  if (subcategory === 'Trekking' && exp !== 'trekking') return false;
+                                  if (subcategory === 'Snow Enjoyment' && exp !== 'snow') return false;
+                                  if (subcategory === 'Adventure' && exp !== 'adventure') return false;
+                                  if (subcategory === 'Water Sports' && exp !== 'water-sports') return false;
+                                }
+                              }
+                            }
+
+                            // 2. Apply search filter
+                            if (searchTerm) {
+                              const searchLower = searchTerm.toLowerCase();
+                              const title = (listing.title || '').toLowerCase();
+                              const description = (listing.description || '').toLowerCase();
+                              const destination = (listing.destination || '').toLowerCase();
+                              const stateName = (listing.stateName || '').toLowerCase();
+                              const countryName = (listing.countryName || '').toLowerCase();
+                              const packageType = (listing.packageType || '').toLowerCase();
+                              const type = (listing.type || '').toLowerCase();
+                              const price = (listing.price || listing.cost || '').toString().toLowerCase();
+                              const duration = (listing.duration || '').toString().toLowerCase();
+                              const itineraryDays = (listing.itinerary?.length || '').toString();
+
+                              // Match dynamic card details
+                              const pickup = (listing.placesCovered?.[0]?.name || listing.stateName || 'Delhi').toLowerCase();
+                              const drop = (listing.placesCovered?.[listing.placesCovered.length - 1]?.name || listing.stateName || 'Delhi').toLowerCase();
+                              const code = (listing.id ? listing.id.slice(-4) : '1045').toLowerCase();
+                              const tourCats = (Array.isArray(listing.tourCategories) ? listing.tourCategories : typeof listing.tourCategories === 'string' ? [listing.tourCategories] : [])
+                                .map((c: any) => String(c).toLowerCase()).join(' ');
+                              const inclusions = (Array.isArray(listing.inclusions) ? listing.inclusions : typeof listing.inclusions === 'string' ? [listing.inclusions] : [])
+                                .map((i: any) => String(i).toLowerCase()).join(' ');
+                              const agencyName = (listing.agencyName || '').toLowerCase();
+                              const places = (Array.isArray(listing.placesCovered) ? listing.placesCovered : [])
+                                .map((p: any) => String(p?.name || '').toLowerCase()).join(' ');
+
+                              const matches = title.includes(searchLower) ||
+                                description.includes(searchLower) ||
+                                destination.includes(searchLower) ||
+                                stateName.includes(searchLower) ||
+                                countryName.includes(searchLower) ||
+                                packageType.includes(searchLower) ||
+                                type.includes(searchLower) ||
+                                price.includes(searchLower) ||
+                                duration.includes(searchLower) ||
+                                itineraryDays.includes(searchLower) ||
+                                pickup.includes(searchLower) ||
+                                drop.includes(searchLower) ||
+                                code.includes(searchLower) ||
+                                tourCats.includes(searchLower) ||
+                                inclusions.includes(searchLower) ||
+                                agencyName.includes(searchLower) ||
+                                places.includes(searchLower) ||
+                                'sightseeing'.includes(searchLower) ||
+                                'transport'.includes(searchLower) ||
+                                'hotel stay'.includes(searchLower) ||
+                                'meal'.includes(searchLower);
+
+                              if (!matches) {
+                                return false;
+                              }
+                            }
+
+                            // 3. Apply budget price range filter
+                            const rawPrice = (listing.cost || listing.price || '0').toString();
+                            const cleanedPrice = rawPrice.replace(/[^0-9.]/g, '');
+                            const priceVal = parseFloat(cleanedPrice || '0');
+                            if (priceVal > 0) {
+                              const [minPrice, maxPrice] = filters.priceRange;
+                              if (priceVal < minPrice || priceVal > maxPrice) {
+                                return false;
+                              }
+                            }
+
+                            return true;
+                          });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border border-gray-100 border-dashed">
+                              <span className="text-4xl mb-4">🔍</span>
+                              <h3 className="text-lg font-bold text-gray-800 mb-1">No packages match this filter</h3>
+                              <p className="text-gray-500 text-sm text-center max-w-sm">
+                                Try adjusting your filter category or searching for another destination!
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return filtered.map((listing) => (
                           <ListingCard
                             key={listing.id}
                             listing={listing}
@@ -2428,9 +3091,11 @@ export default function Home() {
                             isWishlisted={wishlist.includes(listing.id)}
                             variant="user"
                           />
-                        ))
-                    )}
-                  </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
+
                 </>
               )}
 
@@ -2450,15 +3115,13 @@ export default function Home() {
                     <div className="flex items-center space-x-4 mb-6">
                       {[1, 2, 3, 4].map((step) => (
                         <div key={step} className="flex items-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                            step <= bookingStep ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
-                          }`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step <= bookingStep ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+                            }`}>
                             {step}
                           </div>
                           {step < 4 && (
-                            <div className={`w-12 h-1 mx-2 ${
-                              step < bookingStep ? 'bg-blue-500' : 'bg-gray-200'
-                            }`} />
+                            <div className={`w-12 h-1 mx-2 ${step < bookingStep ? 'bg-blue-500' : 'bg-gray-200'
+                              }`} />
                           )}
                         </div>
                       ))}
@@ -2620,18 +3283,18 @@ export default function Home() {
                             </span>
                           </div>
                         </div>
-                        
+
                         {/* Additional User Features */}
                         <div className="space-y-4">
                           <h3 className="text-lg font-semibold">Additional Services</h3>
-                          
+
                           {/* Travel Insurance */}
                           <div className="flex items-center justify-between p-4 border rounded-lg">
                             <div className="flex items-center space-x-3">
                               <input
                                 type="checkbox"
                                 checked={bookingData.insurance}
-                                onChange={(e) => setBookingData({...bookingData, insurance: e.target.checked})}
+                                onChange={(e) => setBookingData({ ...bookingData, insurance: e.target.checked })}
                                 className="h-4 w-4 text-blue-600"
                               />
                               <div>
@@ -2653,7 +3316,7 @@ export default function Home() {
                               <input
                                 type="checkbox"
                                 checked={bookingData.paymentMethod === 'pay_later'}
-                                onChange={(e) => setBookingData({...bookingData, paymentMethod: e.target.checked ? 'pay_later' : 'pay_now'})}
+                                onChange={(e) => setBookingData({ ...bookingData, paymentMethod: e.target.checked ? 'pay_later' : 'pay_now' })}
                                 className="h-4 w-4 text-blue-600"
                               />
                               <div>
@@ -2676,7 +3339,7 @@ export default function Home() {
                               id="emergencyContact"
                               placeholder="Emergency contact name and phone"
                               value={bookingData.emergencyContact}
-                              onChange={(e) => setBookingData({...bookingData, emergencyContact: e.target.value})}
+                              onChange={(e) => setBookingData({ ...bookingData, emergencyContact: e.target.value })}
                             />
                           </div>
 
@@ -2686,7 +3349,7 @@ export default function Home() {
                               id="dietaryRestrictions"
                               placeholder="Any dietary restrictions or allergies"
                               value={bookingData.dietaryRestrictions}
-                              onChange={(e) => setBookingData({...bookingData, dietaryRestrictions: e.target.value})}
+                              onChange={(e) => setBookingData({ ...bookingData, dietaryRestrictions: e.target.value })}
                             />
                           </div>
 
@@ -2696,7 +3359,7 @@ export default function Home() {
                               id="accessibilityNeeds"
                               placeholder="Any mobility or accessibility requirements"
                               value={bookingData.accessibilityNeeds}
-                              onChange={(e) => setBookingData({...bookingData, accessibilityNeeds: e.target.value})}
+                              onChange={(e) => setBookingData({ ...bookingData, accessibilityNeeds: e.target.value })}
                             />
                           </div>
 
@@ -2708,7 +3371,7 @@ export default function Home() {
                               rows={3}
                               placeholder="Any other special requests or information"
                               value={bookingData.bookingNotes}
-                              onChange={(e) => setBookingData({...bookingData, bookingNotes: e.target.value})}
+                              onChange={(e) => setBookingData({ ...bookingData, bookingNotes: e.target.value })}
                             />
                           </div>
                         </div>
@@ -2755,14 +3418,14 @@ export default function Home() {
               )}
 
               {viewingListing && userActiveSection === 'listings' && !showComparison && (
-                <PackageDetailView 
+                <PackageDetailView
                   listing={viewingListing}
                   onBack={() => setViewingListing(null)}
                   onBook={startBooking}
                   onChat={handleInitiateChat}
                   onWishlist={(listingId) => {
-                    setWishlist(prev => 
-                      prev.includes(listingId) 
+                    setWishlist(prev =>
+                      prev.includes(listingId)
                         ? prev.filter(id => id !== listingId)
                         : [...prev, listingId]
                     );
@@ -2775,9 +3438,13 @@ export default function Home() {
               {showComparison && userActiveSection === 'listings' && (
                 <PackageComparison
                   onBack={() => setShowComparison(false)}
-                  onBook={(listing) => {
+                  onChat={(agencyId: string, agencyName: string) => {
                     setShowComparison(false);
-                    startBooking(listing);
+                    setCurrentChatAgency(agencyId);
+                    setCurrentChatAgencyName(agencyName);
+                    const matchedConv = userConversations.find(c => c.agencyId === agencyId);
+                    setCurrentChatAgencyIsOnline(matchedConv ? matchedConv.isOnline : false);
+                    setUserActiveSection('chat');
                   }}
                 />
               )}
@@ -2812,391 +3479,566 @@ export default function Home() {
                   </div>
 
                   <div className="max-w-5xl mx-auto px-4 py-10 space-y-6">
-                  {userBookings.length === 0 ? (
-                    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-                      <div className="bg-gradient-to-r from-[#2B58C4] to-[#407BFF] h-2 w-full" />
-                      <div className="p-16 text-center">
-                        <div className="w-28 h-28 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
-                          <span className="text-6xl">✈️</span>
+                    {userBookings.length === 0 ? (
+                      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+                        <div className="bg-gradient-to-r from-[#2B58C4] to-[#407BFF] h-2 w-full" />
+                        <div className="p-16 text-center">
+                          <div className="w-28 h-28 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
+                            <span className="text-6xl">✈️</span>
+                          </div>
+                          <h3 className="text-3xl font-extrabold text-gray-900 mb-3">No Trips Booked Yet</h3>
+                          <p className="text-gray-500 text-lg max-w-md mx-auto mb-8 leading-relaxed">
+                            Your travel adventures will appear here. Explore our amazing packages and book your first unforgettable trip!
+                          </p>
+                          <button
+                            onClick={() => setUserActiveSection('listings')}
+                            className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full px-10 py-4 text-lg font-bold shadow-xl hover:shadow-orange-300/50 transition-all duration-300 hover:-translate-y-1"
+                          >
+                            🌍 Explore Packages
+                          </button>
                         </div>
-                        <h3 className="text-3xl font-extrabold text-gray-900 mb-3">No Trips Booked Yet</h3>
-                        <p className="text-gray-500 text-lg max-w-md mx-auto mb-8 leading-relaxed">
-                          Your travel adventures will appear here. Explore our amazing packages and book your first unforgettable trip!
-                        </p>
-                        <button
-                          onClick={() => setUserActiveSection('listings')}
-                          className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full px-10 py-4 text-lg font-bold shadow-xl hover:shadow-orange-300/50 transition-all duration-300 hover:-translate-y-1"
-                        >
-                          🌍 Explore Packages
-                        </button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-5">
-                      {userBookings.map((booking) => {
-                        const isConfirmed = booking.status === 'confirmed';
-                        const isPending = booking.status === 'pending';
-                        const isCancelled = booking.status === 'cancelled';
-                        const isIntl = booking.packageType === 'international';
-                        const currency = isIntl ? '$' : '₹';
-                        const totalAmt = typeof booking.totalAmount === 'number'
-                          ? booking.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                          : parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    ) : (
+                      <div className="space-y-5">
+                        {userBookings.map((booking) => {
+                          const isConfirmed = booking.status === 'confirmed';
+                          const isPending = booking.status === 'pending';
+                          const isCancelled = booking.status === 'cancelled';
+                          const isIntl = booking.packageType === 'international';
+                          const currency = isIntl ? '$' : '₹';
+                          const totalAmt = typeof booking.totalAmount === 'number'
+                            ? booking.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-                        return (
-                          <div key={booking.id} className={`rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border ${
-                            isConfirmed ? 'border-green-200' : isPending ? 'border-amber-200' : 'border-red-200'
-                          }`}>
+                          return (
+                            <div key={booking.id} className={`rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border ${isConfirmed ? 'border-green-200' : isPending ? 'border-amber-200' : 'border-red-200'
+                              }`}>
 
-                            {/* ── TICKET HEADER ── */}
-                            <div className={`relative px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                              isConfirmed
-                                ? 'bg-gradient-to-r from-[#0F4C35] to-[#1a6647]'
-                                : isPending
-                                ? 'bg-gradient-to-r from-[#7B4F00] to-[#A86800]'
-                                : 'bg-gradient-to-r from-[#6B1616] to-[#8B2020]'
-                            }`}>
-                              {/* Decorative circles (ticket punch) */}
-                              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-gray-100 rounded-full hidden sm:block z-10" />
-                              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-6 h-6 bg-gray-100 rounded-full hidden sm:block z-10" />
-
-                              <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 rounded-xl bg-white/15 flex items-center justify-center text-3xl shadow-inner shrink-0">
-                                  {isIntl ? '🌍' : '🏔️'}
-                                </div>
-                                <div>
-                                  <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-0.5">{isIntl ? 'International Tour' : 'Domestic Tour'}</p>
-                                  <h3 className="text-white font-extrabold text-xl leading-tight">{booking.listingTitle || 'Travel Package'}</h3>
-                                  <p className="text-white/70 text-sm mt-0.5">by <span className="font-semibold text-white/90">{booking.agencyName}</span></p>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${
-                                  isConfirmed ? 'bg-green-400/20 text-green-200 border-green-400/40' :
-                                  isPending ? 'bg-amber-400/20 text-amber-200 border-amber-400/40' :
-                                  'bg-red-400/20 text-red-200 border-red-400/40'
+                              {/* ── TICKET HEADER ── */}
+                              <div className={`relative px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isConfirmed
+                                  ? 'bg-gradient-to-r from-[#0F4C35] to-[#1a6647]'
+                                  : isPending
+                                    ? 'bg-gradient-to-r from-[#7B4F00] to-[#A86800]'
+                                    : 'bg-gradient-to-r from-[#6B1616] to-[#8B2020]'
                                 }`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${isConfirmed ? 'bg-green-400' : isPending ? 'bg-amber-400' : 'bg-red-400'} animate-pulse`} />
-                                  {isConfirmed ? 'Confirmed' : isPending ? 'Pending Review' : 'Cancelled'}
-                                </span>
-                                <span className="text-white/50 text-xs font-mono bg-white/10 px-2 py-0.5 rounded">
-                                  #{booking.bookingReference}
-                                </span>
-                              </div>
-                            </div>
+                                {/* Decorative circles (ticket punch) */}
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-gray-100 rounded-full hidden sm:block z-10" />
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-6 h-6 bg-gray-100 rounded-full hidden sm:block z-10" />
 
-                            {/* ── TICKET BODY ── */}
-                            <div className="bg-white">
-                              {/* Dashed divider - ticket tear line */}
-                              <div className="flex items-center px-4">
-                                <div className="w-5 h-5 rounded-full bg-gray-100 -ml-7 shrink-0 hidden sm:block border border-gray-200" />
-                                <div className="flex-1 border-t-2 border-dashed border-gray-200 mx-2" />
-                                <div className="w-5 h-5 rounded-full bg-gray-100 -mr-7 shrink-0 hidden sm:block border border-gray-200" />
-                              </div>
-
-                              {/* Key Details Row */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
-                                {[
-                                  { label: 'DEPARTURE DATE', value: booking.travelDate || 'TBD', icon: '📅' },
-                                  { label: 'PASSENGERS', value: `${booking.travelers} ${booking.travelers === 1 ? 'Person' : 'People'}`, icon: '👤' },
-                                  { label: 'TOTAL FARE', value: `${currency}${totalAmt}`, icon: '💳', green: true },
-                                  { label: 'BOOKED ON', value: booking.createdAtFormatted || '—', icon: '🗓️' },
-                                ].map((item, i) => (
-                                  <div key={i} className="px-5 py-4">
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-                                      <span>{item.icon}</span> {item.label}
-                                    </p>
-                                    <p className={`font-bold text-sm ${item.green ? 'text-emerald-600' : 'text-gray-900'}`}>{item.value}</p>
+                                <div className="flex items-center gap-4">
+                                  <div className="w-14 h-14 rounded-xl bg-white/15 flex items-center justify-center text-3xl shadow-inner shrink-0">
+                                    {isIntl ? '🌍' : '🏔️'}
                                   </div>
-                                ))}
-                              </div>
-
-                              {/* Passenger + Requests Row */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 border-b border-gray-100">
-                                {/* Passenger Info */}
-                                <div className="px-6 py-5">
-                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                                    <span>👤</span> Passenger Info
-                                  </p>
-                                  <div className="space-y-2.5">
-                                    {[
-                                      { label: 'Full Name', value: booking.userName },
-                                      { label: 'Email', value: booking.userEmail },
-                                      { label: 'Mobile', value: booking.userPhone },
-                                    ].map((row, i) => (
-                                      <div key={i} className="flex justify-between items-center text-sm">
-                                        <span className="text-gray-400 font-medium w-20 shrink-0">{row.label}</span>
-                                        <span className="text-gray-800 font-semibold text-right truncate ml-2">{row.value || '—'}</span>
-                                      </div>
-                                    ))}
+                                  <div>
+                                    <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-0.5">{isIntl ? 'International Tour' : 'Domestic Tour'}</p>
+                                    <h3 className="text-white font-extrabold text-xl leading-tight">{booking.listingTitle || 'Travel Package'}</h3>
+                                    <p className="text-white/70 text-sm mt-0.5">by <span className="font-semibold text-white/90">{booking.agencyName}</span></p>
                                   </div>
                                 </div>
 
-                                {/* Status + Preferences */}
-                                <div className="px-6 py-5">
-                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                                    <span>📋</span> {isConfirmed ? 'Booking Status' : isPending ? 'Status Update' : 'Cancellation'}
-                                  </p>
-                                  {isConfirmed && (
-                                    <div className="flex items-start gap-3">
-                                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                                        <span className="text-base">✅</span>
-                                      </div>
-                                      <div>
-                                        <p className="text-green-700 font-bold text-sm">Booking Confirmed</p>
-                                        <p className="text-gray-500 text-xs mt-0.5">Your spot is reserved. Check journey details below.</p>
-                                      </div>
+                                <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+                                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${isConfirmed ? 'bg-green-400/20 text-green-200 border-green-400/40' :
+                                      isPending ? 'bg-amber-400/20 text-amber-200 border-amber-400/40' :
+                                        'bg-red-400/20 text-red-200 border-red-400/40'
+                                    }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isConfirmed ? 'bg-green-400' : isPending ? 'bg-amber-400' : 'bg-red-400'} animate-pulse`} />
+                                    {isConfirmed ? 'Confirmed' : isPending ? 'Pending Review' : 'Cancelled'}
+                                  </span>
+                                  <span className="text-white/50 text-xs font-mono bg-white/10 px-2 py-0.5 rounded">
+                                    #{booking.bookingReference}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* ── TICKET BODY ── */}
+                              <div className="bg-white">
+                                {/* Dashed divider - ticket tear line */}
+                                <div className="flex items-center px-4">
+                                  <div className="w-5 h-5 rounded-full bg-gray-100 -ml-7 shrink-0 hidden sm:block border border-gray-200" />
+                                  <div className="flex-1 border-t-2 border-dashed border-gray-200 mx-2" />
+                                  <div className="w-5 h-5 rounded-full bg-gray-100 -mr-7 shrink-0 hidden sm:block border border-gray-200" />
+                                </div>
+
+                                {/* Key Details Row */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
+                                  {[
+                                    { label: 'DEPARTURE DATE', value: booking.travelDate || 'TBD', icon: '📅' },
+                                    { label: 'PASSENGERS', value: `${booking.travelers} ${booking.travelers === 1 ? 'Person' : 'People'}`, icon: '👤' },
+                                    { label: 'TOTAL FARE', value: `${currency}${totalAmt}`, icon: '💳', green: true },
+                                    { label: 'BOOKED ON', value: booking.createdAtFormatted || '—', icon: '🗓️' },
+                                  ].map((item, i) => (
+                                    <div key={i} className="px-5 py-4">
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                                        <span>{item.icon}</span> {item.label}
+                                      </p>
+                                      <p className={`font-bold text-sm ${item.green ? 'text-emerald-600' : 'text-gray-900'}`}>{item.value}</p>
                                     </div>
-                                  )}
-                                  {isPending && (
-                                    <div className="flex items-start gap-3">
-                                      <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                                        <span className="text-base">⏳</span>
-                                      </div>
-                                      <div>
-                                        <p className="text-amber-700 font-bold text-sm">Under Review by {booking.agencyName}</p>
-                                        <p className="text-gray-500 text-xs mt-0.5">You'll be notified once confirmed.</p>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {isCancelled && (
-                                    <div className="flex items-start gap-3">
-                                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                                        <span className="text-base">❌</span>
-                                      </div>
-                                      <div>
-                                        <p className="text-red-700 font-bold text-sm">Booking Cancelled</p>
-                                        <p className="text-gray-500 text-xs mt-0.5">Contact {booking.agencyName} for refund info.</p>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {booking.preferences && booking.preferences.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-3">
-                                      {booking.preferences.map((pref: string, idx: number) => (
-                                        <span key={idx} className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-xs font-medium border border-gray-200">
-                                          {pref}
-                                        </span>
+                                  ))}
+                                </div>
+
+                                {/* Passenger + Requests Row */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 border-b border-gray-100">
+                                  {/* Passenger Info */}
+                                  <div className="px-6 py-5">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                                      <span>👤</span> Passenger Info
+                                    </p>
+                                    <div className="space-y-2.5">
+                                      {[
+                                        { label: 'Full Name', value: booking.userName },
+                                        { label: 'Email', value: booking.userEmail },
+                                        { label: 'Mobile', value: booking.userPhone },
+                                      ].map((row, i) => (
+                                        <div key={i} className="flex justify-between items-center text-sm">
+                                          <span className="text-gray-400 font-medium w-20 shrink-0">{row.label}</span>
+                                          <span className="text-gray-800 font-semibold text-right truncate ml-2">{row.value || '—'}</span>
+                                        </div>
                                       ))}
                                     </div>
-                                  )}
-                                </div>
-                              </div>
+                                  </div>
 
-                              {/* Journey Preview for Confirmed */}
-                              {isConfirmed && booking.journeyDetails && (
-                                <div className="border-b border-gray-100 bg-slate-50 px-6 py-4">
-                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                                    <span>🗺️</span> Journey Preview
-                                  </p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    {booking.journeyDetails.flight && (
-                                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                        <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1">✈️ Flight</p>
-                                        <p className="text-sm text-gray-700 font-medium">{booking.journeyDetails.flight}</p>
+                                  {/* Status + Preferences */}
+                                  <div className="px-6 py-5">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                                      <span>📋</span> {isConfirmed ? 'Booking Status' : isPending ? 'Status Update' : 'Cancellation'}
+                                    </p>
+                                    {isConfirmed && (
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                                          <span className="text-base">✅</span>
+                                        </div>
+                                        <div>
+                                          <p className="text-green-700 font-bold text-sm">Booking Confirmed</p>
+                                          <p className="text-gray-500 text-xs mt-0.5">Your spot is reserved. Check journey details below.</p>
+                                        </div>
                                       </div>
                                     )}
-                                    {booking.journeyDetails.hotel && (
-                                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                        <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mb-1">🏨 Hotel</p>
-                                        <p className="text-sm text-gray-700 font-medium">{booking.journeyDetails.hotel}</p>
+                                    {isPending && (
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                                          <span className="text-base">⏳</span>
+                                        </div>
+                                        <div>
+                                          <p className="text-amber-700 font-bold text-sm">Under Review by {booking.agencyName}</p>
+                                          <p className="text-gray-500 text-xs mt-0.5">You'll be notified once confirmed.</p>
+                                        </div>
                                       </div>
                                     )}
-                                    {booking.journeyDetails.itinerary && (
-                                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                        <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wider mb-1">📋 Itinerary</p>
-                                        <p className="text-sm text-gray-700 font-medium line-clamp-2">{booking.journeyDetails.itinerary}</p>
+                                    {isCancelled && (
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                                          <span className="text-base">❌</span>
+                                        </div>
+                                        <div>
+                                          <p className="text-red-700 font-bold text-sm">Booking Cancelled</p>
+                                          <p className="text-gray-500 text-xs mt-0.5">Contact {booking.agencyName} for refund info.</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {booking.preferences && booking.preferences.length > 0 && (
+                                      <div className="flex flex-wrap gap-1.5 mt-3">
+                                        {booking.preferences.map((pref: string, idx: number) => (
+                                          <span key={idx} className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-xs font-medium border border-gray-200">
+                                            {pref}
+                                          </span>
+                                        ))}
                                       </div>
                                     )}
                                   </div>
                                 </div>
-                              )}
 
-                              {/* ── ACTION BAR ── */}
-                              <div className="px-6 py-4 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
-                                <p className="text-xs text-gray-400 font-mono">
-                                  Booking Ref: <span className="text-gray-600 font-bold">{booking.bookingReference}</span>
-                                </p>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                  {(isConfirmed || isPending) && (
-                                    <button
-                                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#1C1F26] hover:bg-black text-white rounded-xl px-5 py-2.5 font-bold text-sm shadow-md transition-all hover:-translate-y-0.5"
-                                      onClick={() => {
-                                        setSelectedJourneyBooking(booking);
-                                        setShowJourneyModal(true);
-                                      }}
-                                    >
-                                      <span>📄</span> View Details
-                                    </button>
-                                  )}
-                                  {isConfirmed && (
-                                    <button
-                                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 rounded-xl px-5 py-2.5 font-semibold text-sm transition-all"
-                                      onClick={() => window.print()}
-                                    >
-                                      <span>🖨️</span> Print
-                                    </button>
-                                  )}
+                                {/* Journey Preview for Confirmed */}
+                                {isConfirmed && booking.journeyDetails && (
+                                  <div className="border-b border-gray-100 bg-slate-50 px-6 py-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                                      <span>🗺️</span> Journey Preview
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                      {booking.journeyDetails.flight && (
+                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                          <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1">✈️ Flight</p>
+                                          <p className="text-sm text-gray-700 font-medium">{booking.journeyDetails.flight}</p>
+                                        </div>
+                                      )}
+                                      {booking.journeyDetails.hotel && (
+                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                          <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mb-1">🏨 Hotel</p>
+                                          <p className="text-sm text-gray-700 font-medium">{booking.journeyDetails.hotel}</p>
+                                        </div>
+                                      )}
+                                      {booking.journeyDetails.itinerary && (
+                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                          <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wider mb-1">📋 Itinerary</p>
+                                          <p className="text-sm text-gray-700 font-medium line-clamp-2">{booking.journeyDetails.itinerary}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* ── ACTION BAR ── */}
+                                <div className="px-6 py-4 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
+                                  <p className="text-xs text-gray-400 font-mono">
+                                    Booking Ref: <span className="text-gray-600 font-bold">{booking.bookingReference}</span>
+                                  </p>
+                                  <div className="flex gap-2 w-full sm:w-auto">
+                                    {(isConfirmed || isPending) && (
+                                      <button
+                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#1C1F26] hover:bg-black text-white rounded-xl px-5 py-2.5 font-bold text-sm shadow-md transition-all hover:-translate-y-0.5"
+                                        onClick={() => {
+                                          setSelectedJourneyBooking(booking);
+                                          setShowJourneyModal(true);
+                                        }}
+                                      >
+                                        <span>📄</span> View Details
+                                      </button>
+                                    )}
+                                    {isConfirmed && (
+                                      <button
+                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-gray-705 rounded-xl px-5 py-2.5 font-semibold text-sm transition-all"
+                                        onClick={() => window.print()}
+                                      >
+                                        <span>🖨️</span> Print
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {userActiveSection === 'chat' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Conversations List */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <span className="mr-2">🏢</span>
-                        Agencies
-                      </CardTitle>
-                      <CardDescription>
-                        Agencies you've contacted
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {userConversations.length === 0 ? (
-                          <p className="text-gray-500 text-center py-4">No conversations yet</p>
-                        ) : (
-                          userConversations.map((conversation) => (
-                            <div
-                              key={conversation.agencyId}
-                              onClick={() => {
-                                setCurrentChatAgency(conversation.agencyId);
-                                setCurrentChatAgencyName(conversation.agencyName);
-                              }}
-                              className={`p-3 rounded-lg cursor-pointer border ${
-                                currentChatAgency === conversation.agencyId
-                                  ? 'bg-blue-50 border-blue-200'
-                                  : 'bg-gray-50 hover:bg-gray-100'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                  <span className="text-sm">🏢</span>
+                {userActiveSection === 'chat' && (
+                <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 w-full mb-6 -mx-2 md:-mx-4">
+                  {/* Left Column: Conversations List */}
+                  <div className="w-full md:w-80 flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full">
+                    {/* Sidebar Header */}
+                    <div className="p-4 border-b border-gray-150 bg-white shrink-0">
+                      <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <span>💬</span> Messages
+                      </h3>
+                      <p className="text-[10px] text-gray-450 mt-0.5">Agencies you've contacted</p>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="px-4 pb-3 bg-white border-b border-gray-150 shrink-0">
+                      <div className="relative">
+                        <Input
+                          type="text"
+                          placeholder="Search conversations..."
+                          className="w-full pl-8 pr-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white h-8"
+                          value={chatSearchQuery}
+                          onChange={(e) => setChatSearchQuery(e.target.value)}
+                        />
+                        <span className="absolute left-3 top-2 text-[10px] text-gray-400">🔍</span>
+                      </div>
+                    </div>
+
+                    {/* Scrollable Agency List */}
+                    <div className="flex-1 p-3 space-y-2 sidebar-scroll">
+                      {userConversations.filter(c => c.agencyName.toLowerCase().includes(chatSearchQuery.toLowerCase())).length === 0 ? (
+                        <div className="text-center py-12">
+                          <span className="text-3xl text-gray-305 block mb-2">🏢</span>
+                          <p className="text-xs text-gray-400 font-semibold">No conversations found</p>
+                          <p className="text-[10px] text-gray-400 mt-1 px-4">Contact an agency from a listing card to start chatting.</p>
+                        </div>
+                      ) : (
+                        userConversations
+                          .filter(c => c.agencyName.toLowerCase().includes(chatSearchQuery.toLowerCase()))
+                          .map((conversation) => {
+                            const isActive = currentChatAgency === conversation.agencyId;
+                            const initials = conversation.agencyName ? conversation.agencyName.slice(0, 2).toUpperCase() : 'AG';
+                            return (
+                              <div
+                                key={conversation.agencyId}
+                                onClick={() => {
+                                  setCurrentChatAgency(conversation.agencyId);
+                                  setCurrentChatAgencyName(conversation.agencyName);
+                                  setCurrentChatAgencyIsOnline(conversation.isOnline || false);
+                                }}
+                                className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 border border-l-4 ${
+                                  isActive
+                                    ? 'bg-orange-50/45 border-orange-500 border-l-orange-600 shadow-sm ring-1 ring-orange-500/10'
+                                    : 'bg-white/60 hover:bg-white border-transparent border-l-transparent hover:shadow-sm'
+                                }`}
+                              >
+                                {/* Avatar */}
+                                <div className={`w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm relative ${
+                                  conversation.isOnline ? 'bg-orange-600' : 'bg-slate-900'
+                                }`}>
+                                  {initials}
+                                  {conversation.isOnline && (
+                                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+                                  )}
                                 </div>
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm">{conversation.agencyName}</p>
-                                  <p className="text-xs text-gray-600 truncate">{conversation.lastMessage}</p>
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <span className="font-semibold text-xs text-gray-900 truncate pr-2">
+                                      {conversation.agencyName}
+                                    </span>
+                                    <span className={`text-[9px] font-semibold shrink-0 ${
+                                      conversation.isOnline ? 'text-orange-600' : 'text-gray-400'
+                                    }`}>
+                                      {conversation.isOnline ? 'Online' : 'Offline'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-gray-500 truncate">
+                                    {conversation.lastMessage || "No messages yet"}
+                                  </p>
                                 </div>
                               </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
 
-                  {/* Chat Messages */}
-                  <div className="md:col-span-2">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          <span className="mr-2">💬</span>
-                          {currentChatAgencyName ? `Chat with ${currentChatAgencyName}` : 'Select an agency'}
-                        </CardTitle>
-                        <CardDescription>
-                          {currentChatAgencyName ? 'Ask questions about packages and get personalized recommendations' : 'Choose an agency from the list to start chatting'}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {currentChatAgency ? (
-                          <div className="h-96 bg-gray-50 rounded-lg p-4 flex flex-col">
-                            <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-                              {[...chatMessages]
-                                .filter(msg => msg.chatId === [user?.uid, currentChatAgency].sort().join('_'))
-                                .sort((a, b) => a.timestamp - b.timestamp)
-                                .map((msg, index) => (
-                                  <div key={msg.id || index} className={`flex ${msg.sender === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.sender === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
-                                      <p className="text-sm">{msg.text}</p>
-                                      <p className="text-xs opacity-75">{new Date(msg.timestamp).toLocaleTimeString()}</p>
-                                    </div>
+                  {/* Right Column: Chat Content */}
+                  <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px]">
+                    {currentChatAgency ? (
+                      <div className="flex flex-col h-full relative">
+                        {/* Conversation Header */}
+                        <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
+                              {currentChatAgencyName ? currentChatAgencyName.slice(0, 2).toUpperCase() : 'AG'}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-xs text-gray-900">{currentChatAgencyName}</h4>
+                              {currentChatAgencyIsOnline ? (
+                                <span className="text-[9px] text-emerald-600 font-semibold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                                  Online
+                                </span>
+                              ) : (
+                                <span className="text-[9px] text-gray-500 font-medium flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                  Offline
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Close/Back Button */}
+                          <button 
+                            onClick={() => {
+                              setCurrentChatAgency('');
+                              setCurrentChatAgencyName('');
+                              setCurrentChatAgencyIsOnline(false);
+                            }}
+                            className="text-gray-400 hover:text-gray-650 p-1.5 hover:bg-gray-100 rounded-xl transition-all"
+                            title="Close Chat"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {/* Messages Area */}
+                        <div className="flex-1 p-6 space-y-4 chat-scroll">
+                          {[...chatMessages]
+                            .filter(msg => msg.chatId === [user?.uid, currentChatAgency].sort().join('_'))
+                            .sort((a, b) => a.timestamp - b.timestamp)
+                            .map((msg, index) => {
+                              const isSelf = msg.sender === user?.uid;
+                              return (
+                                <div key={msg.id || index} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                                  <div 
+                                    className={`max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm leading-relaxed text-sm border-r-4 ${
+                                      isSelf 
+                                        ? 'bg-[#1C1F26] text-white rounded-tr-none border-r-orange-500 shadow-md shadow-slate-900/10' 
+                                        : 'bg-white text-gray-900 border border-gray-150 rounded-tl-none border-r-transparent'
+                                    }`}
+                                  >
+                                    <p className="break-words">{msg.text}</p>
+                                    <span className={`text-[9px] mt-1.5 block text-right font-semibold ${isSelf ? 'text-orange-300' : 'text-gray-450'}`}>
+                                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
                                   </div>
-                                ))}
-                            </div>
-                            <div className="flex space-x-2">
-                              <Input
-                                value={chatInput}
-                                onChange={(e) => setChatInput(e.target.value)}
-                                placeholder="Type your message..."
-                                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                              />
-                              <Button onClick={sendMessage} disabled={!chatInput.trim()}>
-                                Send
-                              </Button>
-                            </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        {/* Message Input Box */}
+                        <div className="p-4 bg-white border-t border-gray-150 flex items-center gap-3 relative shrink-0">
+                          {/* Emoji Visual Indicator */}
+                          <div className="relative shrink-0">
+                            <button 
+                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                              className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none" 
+                              title="Add Emoji"
+                            >
+                              😊
+                            </button>
+                            
+                            {showEmojiPicker && (
+                              <div className="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-3xl p-3 shadow-xl z-30 w-56 animate-in slide-in-from-bottom-2 duration-150">
+                                <div className="grid grid-cols-6 gap-1.5 max-h-32 overflow-y-auto">
+                                  {['😊', '😂', '🤣', '👍', '❤️', '🔥', '✈️', '🏝️', '🗺️', '🏨', '🚗', '👏', '😍', '🎉', '🙌', '🙏', '✨', '🌍', '🌅', '🎒', '💬', '🎫', '🏝', '⛰', '🌟', '🛶', '🏄', '🏔', '⛺', '🧭'].map((emoji) => (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => {
+                                        setChatInput((prev) => prev + emoji);
+                                        setShowEmojiPicker(false);
+                                      }}
+                                      className="hover:bg-gray-100 p-1.5 rounded-lg text-lg transition-all active:scale-90 flex items-center justify-center"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="h-96 bg-gray-50 rounded-lg p-4 flex items-center justify-center">
-                            <p className="text-gray-500">Select an agency to start chatting</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                          
+                          {/* Phone number warning notification */}
+                          {chatInput.replace(/\D/g, '').length >= 10 && (
+                            <div className="absolute -top-8 left-4 text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-md border border-red-200 shadow-sm animate-pulse z-20">
+                              ⚠️ Contact sharing detected. Phone numbers cannot be sent.
+                            </div>
+                          )}
+
+                          <Input
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            placeholder="Type your message..."
+                            onKeyPress={(e) => e.key === 'Enter' && chatInput.replace(/\D/g, '').length < 10 && sendMessage()}
+                            className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-xs h-10"
+                          />
+                          
+                          <button 
+                            onClick={sendMessage} 
+                            disabled={!chatInput.trim() || chatInput.replace(/\D/g, '').length >= 10}
+                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md shrink-0 ${
+                              chatInput.trim() && chatInput.replace(/\D/g, '').length < 10
+                                ? 'bg-[#1C1F26] hover:bg-black text-white active:scale-95' 
+                                : 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none'
+                            }`}
+                            title="Send Message"
+                          >
+                            <span className="text-xs font-bold leading-none transform translate-x-px -translate-y-px">➤</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-55/30">
+                        <div className="w-16 h-16 bg-white border border-gray-150 rounded-2xl flex items-center justify-center shadow-md mb-6">
+                          <span className="text-3xl">✈️</span>
+                        </div>
+                        <h4 className="font-extrabold text-gray-900 text-sm mb-2">Your Inbox</h4>
+                        <p className="text-xs text-gray-500 max-w-sm leading-relaxed">
+                          Select an agency from the sidebar list to discuss itineraries, pricing details, or get support.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {userActiveSection === 'wishlist' && (
                 <div className="space-y-6">
-                  <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Wishlist</h2>
-                    <p className="text-gray-600">Save your favorite travel packages for later</p>
+                  {/* Premium White Sub-Tab Toggle */}
+                  <div className="flex border-b border-gray-200">
+                    <button
+                      onClick={() => setWishlistSubTab('wishlist')}
+                      className={`py-3 px-6 text-sm font-semibold border-b-2 transition-all duration-205 ${
+                        wishlistSubTab === 'wishlist'
+                          ? 'border-gray-900 text-gray-900 font-bold'
+                          : 'border-transparent text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      ❤️ Wishlist ({wishlist.length})
+                    </button>
+                    <button
+                      onClick={() => setWishlistSubTab('compare')}
+                      className={`py-3 px-6 text-sm font-semibold border-b-2 transition-all duration-205 ${
+                        wishlistSubTab === 'compare'
+                          ? 'border-gray-900 text-gray-900 font-bold'
+                          : 'border-transparent text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      ⚖️ Compare Packages ({comparisonList.length})
+                    </button>
                   </div>
 
-                  {wishlist.length === 0 ? (
-                    <Card className="text-center py-12">
-                      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-3xl">❤️</span>
+                  {wishlistSubTab === 'wishlist' ? (
+                    <div>
+                      <div className="mb-6 mt-2">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Wishlist</h2>
+                        <p className="text-gray-650">Save your favorite travel packages for later</p>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Your wishlist is empty</h3>
-                      <p className="text-gray-600 mb-6">
-                        Add travel packages to your wishlist by clicking the heart icon on any listing.
-                      </p>
-                      <Button 
-                        onClick={() => setUserActiveSection('listings')}
-                        className="bg-gray-600 hover:bg-gray-700"
-                      >
-                        Browse Travel Packages
-                      </Button>
-                    </Card>
+
+                      {wishlist.length === 0 ? (
+                        <Card className="text-center py-12">
+                          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="text-3xl">❤️</span>
+                          </div>
+                          <h3 className="text-lg font-semibold mb-2">Your wishlist is empty</h3>
+                          <p className="text-gray-600 mb-6">
+                            Add travel packages to your wishlist by clicking the heart icon on any listing.
+                          </p>
+                          <Button
+                            onClick={() => setUserActiveSection('listings')}
+                            className="bg-gray-600 hover:bg-gray-700"
+                          >
+                            Browse Travel Packages
+                          </Button>
+                        </Card>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {listings
+                            .filter(listing => wishlist.includes(listing.id))
+                            .map((listing) => (
+                              <ListingCard
+                                key={listing.id}
+                                listing={listing}
+                                onView={setViewingListing}
+                                onBook={startBooking}
+                                onChat={(listingData) => {
+                                  setCurrentChatAgency(listingData.agencyId);
+                                  setCurrentChatAgencyName(listingData.agencyName);
+                                  const matchedConv = userConversations.find(c => c.agencyId === listingData.agencyId);
+                                  setCurrentChatAgencyIsOnline(matchedConv ? matchedConv.isOnline : false);
+                                  setUserActiveSection('chat');
+                                }}
+                                onWishlist={(listingId) => {
+                                  setWishlist(prev =>
+                                    prev.includes(listingId)
+                                      ? prev.filter(id => id !== listingId)
+                                      : [...prev, listingId]
+                                  );
+                                }}
+                                isWishlisted={wishlist.includes(listing.id)}
+                                variant="user"
+                              />
+                            ))
+                          }
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {listings
-                        .filter(listing => wishlist.includes(listing.id))
-                        .map((listing) => (
-                          <ListingCard
-                            key={listing.id}
-                            listing={listing}
-                            onView={setViewingListing}
-                            onBook={startBooking}
-                            onChat={(listingData) => {
-                              setCurrentChatAgency(listingData.agencyId);
-                              setCurrentChatAgencyName(listingData.agencyName);
-                              setUserActiveSection('chat');
-                            }}
-                            onWishlist={(listingId) => {
-                              setWishlist(prev => 
-                                prev.includes(listingId) 
-                                  ? prev.filter(id => id !== listingId)
-                                  : [...prev, listingId]
-                              );
-                            }}
-                            isWishlisted={wishlist.includes(listing.id)}
-                            variant="user"
-                          />
-                        ))
-                      }
+                    <div>
+                      <div className="mb-6 mt-2">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Compare Packages</h2>
+                        <p className="text-gray-650">Compare side-by-side to choose the best travel plan</p>
+                      </div>
+
+                      <PackageComparison
+                        onBack={() => setUserActiveSection('listings')}
+                        onChat={(agencyId, agencyName) => {
+                          setCurrentChatAgency(agencyId);
+                          setCurrentChatAgencyName(agencyName);
+                          const matchedConv = userConversations.find(c => c.agencyId === agencyId);
+                          setCurrentChatAgencyIsOnline(matchedConv ? matchedConv.isOnline : false);
+                          setUserActiveSection('chat');
+                        }}
+                      />
                     </div>
                   )}
                 </div>
@@ -3212,9 +4054,9 @@ export default function Home() {
                           {/* Avatar Display */}
                           <div className="relative w-32 h-32 mx-auto mb-4 group">
                             {profilePhotoUrl ? (
-                              <img 
-                                src={profilePhotoUrl} 
-                                alt={profileName} 
+                              <img
+                                src={profilePhotoUrl}
+                                alt={profileName}
                                 className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
                               />
                             ) : (
@@ -3225,11 +4067,11 @@ export default function Home() {
                             {/* Camera Icon Overlay */}
                             <label className="absolute bottom-1 right-1 bg-orange-500 hover:bg-orange-600 text-white rounded-full p-2.5 shadow-md cursor-pointer transition-all duration-200 group-hover:scale-105 border-2 border-white flex items-center justify-center">
                               <span className="text-sm font-bold">📷+</span>
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={handleProfilePhotoChange} 
-                                className="hidden" 
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleProfilePhotoChange}
+                                className="hidden"
                               />
                             </label>
                           </div>
@@ -3256,12 +4098,11 @@ export default function Home() {
 
                         {/* Navigation Links mimicking the Mockup */}
                         <div className="p-4 space-y-1">
-                          <button 
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${
-                              profileTab === 'account' 
-                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10' 
+                          <button
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${profileTab === 'account'
+                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10'
                                 : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                            }`}
+                              }`}
                             onClick={() => {
                               setProfileTab('account');
                               setUserActiveSection('profile');
@@ -3271,12 +4112,11 @@ export default function Home() {
                             <span className="text-lg">👤</span>
                             <span>My Account</span>
                           </button>
-                          <button 
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${
-                              profileTab === 'credits' 
-                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10' 
+                          <button
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${profileTab === 'credits'
+                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10'
                                 : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                            }`}
+                              }`}
                             onClick={() => {
                               setProfileTab('credits');
                               setUserActiveSection('profile');
@@ -3286,21 +4126,15 @@ export default function Home() {
                             <span className="text-lg">💳</span>
                             <span>Plan & Credits</span>
                           </button>
-                          <button 
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
-                            onClick={() => setUserActiveSection('bookings')}
-                          >
-                            <span className="text-lg">📅</span>
-                            <span>My Booking</span>
-                          </button>
-                          <button 
+                          {/* Bookings navigation tab removed */}
+                          <button
                             className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
                             onClick={() => setUserActiveSection('wishlist')}
                           >
                             <span className="text-lg">🛒</span>
                             <span>My Holiday Cart</span>
                           </button>
-                          <button 
+                          <button
                             className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
                             onClick={() => setUserActiveSection('wishlist')}
                           >
@@ -3316,665 +4150,655 @@ export default function Home() {
                       {profileTab === 'account' && (
                         <>
                           {/* Personal Details Card */}
-                      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
-                        <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
-                          <h2 className="text-lg font-bold text-gray-955">Your Personal Details</h2>
-                          {!isEditingProfile ? (
-                            <Button 
-                              onClick={() => setIsEditingProfile(true)}
-                              variant="outline"
-                              className="border-[#2B58C4] text-[#2B58C4] hover:bg-[#2B58C4]/5 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
-                            >
-                              ✏️ Edit Profile
-                            </Button>
-                          ) : (
-                            <div className="flex gap-2">
-                              <Button 
-                                onClick={handleSaveProfile}
-                                disabled={savingProfile}
-                                className="bg-[#2B58C4] hover:bg-[#1E439B] text-white text-xs font-semibold rounded-xl px-4 py-2 h-auto"
-                              >
-                                {savingProfile ? 'Saving...' : '💾 Save'}
-                              </Button>
-                              <Button 
-                                onClick={() => {
-                                  // Restore old states
-                                  setProfileName(userData?.name || '');
-                                  setProfilePhone(userData?.phone || userData?.contactNumber || '');
-                                  setIsEditingProfile(false);
-                                }}
-                                variant="outline"
-                                className="border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Details Panel */}
-                        <div className="space-y-4">
-                          {!isEditingProfile ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Name</p>
-                                <p className="text-sm font-semibold text-gray-800 mt-1">{profileName || '—'}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Contact</p>
-                                <p className="text-sm font-semibold text-gray-800 mt-1">{profilePhone || '—'}</p>
-                              </div>
-                              <div className="md:col-span-2">
-                                <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Email ID</p>
-                                <p className="text-sm font-semibold text-gray-800 mt-1 flex items-center gap-2">
-                                  {profileEmail}
-                                  {user?.emailVerified && (
-                                    <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 rounded-full w-4 h-4 text-[10px] font-bold">✓</span>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <Label htmlFor="editName" className="text-xs font-semibold text-gray-500">Name</Label>
-                                  <Input 
-                                    id="editName"
-                                    type="text"
-                                    value={profileName}
-                                    onChange={(e) => setProfileName(e.target.value)}
-                                    className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="editPhone" className="text-xs font-semibold text-gray-500">Contact</Label>
-                                  <Input 
-                                    id="editPhone"
-                                    type="text"
-                                    value={profilePhone}
-                                    onChange={(e) => setProfilePhone(e.target.value)}
-                                    placeholder="e.g. +91 932 329 4525"
-                                    className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs font-semibold text-gray-500">Email ID (Cannot be changed)</Label>
-                                <Input 
-                                  type="text"
-                                  value={profileEmail}
-                                  disabled
-                                  className="mt-1 bg-gray-50 border-gray-200 text-gray-500 rounded-xl cursor-not-allowed"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Co-traveller details Section */}
-                        <div className="mt-8 pt-8 border-t border-gray-150">
-                          <div className="flex justify-between items-center mb-4">
-                            <div>
-                              <h3 className="text-base font-bold text-gray-900">Co-traveller details</h3>
-                              <p className="text-xs text-gray-400 mt-0.5">Manage details of passengers traveling with you</p>
-                            </div>
-                            <button 
-                              onClick={() => setShowAddCoTraveller(true)}
-                              className="w-10 h-10 bg-gray-100 hover:bg-gray-205 text-gray-700 flex items-center justify-center rounded-full shadow-sm hover:shadow-md transition-all duration-200 font-bold text-xl"
-                              title="Add Co-traveller"
-                            >
-                              ＋
-                            </button>
-                          </div>
-
-                          {/* Inline Add Co-traveller Form */}
-                          {showAddCoTraveller && (
-                            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
-                              <h4 className="text-sm font-bold text-gray-805">Add New Co-traveller</h4>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div>
-                                  <Label htmlFor="coName" className="text-xs text-gray-500">Name</Label>
-                                  <Input 
-                                    id="coName"
-                                    placeholder="Full Name"
-                                    value={newCoTraveller.name}
-                                    onChange={(e) => setNewCoTraveller({...newCoTraveller, name: e.target.value})}
-                                    className="mt-1 bg-white rounded-xl text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="coContact" className="text-xs text-gray-500">Contact Number</Label>
-                                  <Input 
-                                    id="coContact"
-                                    placeholder="Phone"
-                                    value={newCoTraveller.contact}
-                                    onChange={(e) => setNewCoTraveller({...newCoTraveller, contact: e.target.value})}
-                                    className="mt-1 bg-white rounded-xl text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="coRelation" className="text-xs text-gray-500">Relationship</Label>
-                                  <select
-                                    id="coRelation"
-                                    value={newCoTraveller.relationship}
-                                    onChange={(e) => setNewCoTraveller({...newCoTraveller, relationship: e.target.value})}
-                                    className="mt-1 block w-full rounded-xl border-gray-200 bg-white p-2.5 text-xs text-gray-800 shadow-sm focus:border-[#2B58C4] focus:ring-[#2B58C4]"
-                                  >
-                                    <option>Spouse</option>
-                                    <option>Child</option>
-                                    <option>Parent</option>
-                                    <option>Sibling</option>
-                                    <option>Friend</option>
-                                    <option>Other</option>
-                                  </select>
-                                </div>
-                              </div>
-                              <div className="flex gap-2 justify-end">
-                                <Button 
-                                  onClick={async () => {
-                                    if (!newCoTraveller.name.trim() || !newCoTraveller.contact.trim()) {
-                                      alert('Please fill in Name and Contact number');
-                                      return;
-                                    }
-                                    const updatedList = [...coTravellers, { 
-                                      id: `${Date.now()}`, 
-                                      ...newCoTraveller 
-                                    }];
-                                    
-                                    // Save instantly to database if user is saved
-                                    const dbInstance = getDbInstance();
-                                    if (dbInstance && user) {
-                                      try {
-                                        await updateDoc(doc(dbInstance, 'users', user.uid), {
-                                          coTravellers: updatedList
-                                        });
-                                      } catch (err) {
-                                        console.error('Error saving co-travellers list:', err);
-                                      }
-                                    }
-
-                                    setCoTravellers(updatedList);
-                                    setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
-                                    setShowAddCoTraveller(false);
-                                  }}
-                                  className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 h-auto rounded-xl border-none"
-                                >
-                                  Add Traveler
-                                </Button>
-                                <Button 
+                          <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
+                            <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
+                              <h2 className="text-lg font-bold text-gray-955">Your Personal Details</h2>
+                              {!isEditingProfile ? (
+                                <Button
+                                  onClick={() => setIsEditingProfile(true)}
                                   variant="outline"
-                                  onClick={() => setShowAddCoTraveller(false)}
-                                  className="border-gray-200 text-gray-750 text-xs px-3 py-1.5 h-auto rounded-xl"
+                                  className="border-[#2B58C4] text-[#2B58C4] hover:bg-[#2B58C4]/5 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
                                 >
-                                  Cancel
+                                  ✏️ Edit Profile
                                 </Button>
-                              </div>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <Button
+                                    onClick={handleSaveProfile}
+                                    disabled={savingProfile}
+                                    className="bg-[#2B58C4] hover:bg-[#1E439B] text-white text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                                  >
+                                    {savingProfile ? 'Saving...' : '💾 Save'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => {
+                                      // Restore old states
+                                      setProfileName(userData?.name || '');
+                                      setProfilePhone(userData?.phone || userData?.contactNumber || '');
+                                      setIsEditingProfile(false);
+                                    }}
+                                    variant="outline"
+                                    className="border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              )}
                             </div>
-                          )}
 
-                          {/* List of Co-travellers */}
-                          {coTravellers.length === 0 ? (
-                            <p className="text-sm text-gray-500 italic text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                              No co-travellers added yet. Click the ＋ icon to add your travel companions.
-                            </p>
-                          ) : (
-                            <div className="space-y-3">
-                              {coTravellers.map((traveller) => (
-                                <div 
-                                  key={traveller.id} 
-                                  className="flex justify-between items-center p-4 bg-gray-50 border border-gray-150 rounded-2xl hover:bg-gray-100/70 transition-all duration-150 shadow-sm animate-in fade-in"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-[#2B58C4]/10 rounded-full flex items-center justify-center text-[#2B58C4] font-bold">
-                                      👤
+                            {/* Details Panel */}
+                            <div className="space-y-4">
+                              {!isEditingProfile ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Name</p>
+                                    <p className="text-sm font-semibold text-gray-800 mt-1">{profileName || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Contact</p>
+                                    <p className="text-sm font-semibold text-gray-800 mt-1">{profilePhone || '—'}</p>
+                                  </div>
+                                  <div className="md:col-span-2">
+                                    <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Email ID</p>
+                                    <p className="text-sm font-semibold text-gray-800 mt-1 flex items-center gap-2">
+                                      {profileEmail}
+                                      {user?.emailVerified && (
+                                        <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 rounded-full w-4 h-4 text-[10px] font-bold">✓</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <Label htmlFor="editName" className="text-xs font-semibold text-gray-500">Name</Label>
+                                      <Input
+                                        id="editName"
+                                        type="text"
+                                        value={profileName}
+                                        onChange={(e) => setProfileName(e.target.value)}
+                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
+                                      />
                                     </div>
                                     <div>
-                                      <p className="text-sm font-semibold text-gray-800">{traveller.name}</p>
-                                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                                        <span>📞 {traveller.contact}</span>
-                                        <span>•</span>
-                                        <span className="bg-[#2B58C4]/5 text-[#2B58C4] px-2 py-0.5 rounded-full font-medium text-[10px]">{traveller.relationship}</span>
-                                      </div>
+                                      <Label htmlFor="editPhone" className="text-xs font-semibold text-gray-500">Contact</Label>
+                                      <Input
+                                        id="editPhone"
+                                        type="text"
+                                        value={profilePhone}
+                                        onChange={(e) => setProfilePhone(e.target.value)}
+                                        placeholder="e.g. +91 932 329 4525"
+                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
+                                      />
                                     </div>
                                   </div>
-                                  <button 
-                                    onClick={async () => {
-                                      const updatedList = coTravellers.filter(t => t.id !== traveller.id);
-                                      
-                                      const dbInstance = getDbInstance();
-                                      if (dbInstance && user) {
-                                        try {
-                                          await updateDoc(doc(dbInstance, 'users', user.uid), {
-                                            coTravellers: updatedList
-                                          });
-                                        } catch (err) {
-                                          console.error('Error deleting co-traveller:', err);
-                                        }
-                                      }
-
-                                      setCoTravellers(updatedList);
-                                    }}
-                                    className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-all duration-150"
-                                    title="Remove Traveler"
-                                  >
-                                    🗑️
-                                  </button>
+                                  <div>
+                                    <Label className="text-xs font-semibold text-gray-500">Email ID (Cannot be changed)</Label>
+                                    <Input
+                                      type="text"
+                                      value={profileEmail}
+                                      disabled
+                                      className="mt-1 bg-gray-50 border-gray-200 text-gray-500 rounded-xl cursor-not-allowed"
+                                    />
+                                  </div>
                                 </div>
-                              ))}
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </Card>
-                      </>
+
+                            {/* Co-traveller details Section */}
+                            <div className="mt-8 pt-8 border-t border-gray-150">
+                              <div className="flex justify-between items-center mb-4">
+                                <div>
+                                  <h3 className="text-base font-bold text-gray-900">Co-traveller details</h3>
+                                  <p className="text-xs text-gray-400 mt-0.5">Manage details of passengers traveling with you</p>
+                                </div>
+                                <button
+                                  onClick={() => setShowAddCoTraveller(true)}
+                                  className="w-10 h-10 bg-gray-100 hover:bg-gray-205 text-gray-700 flex items-center justify-center rounded-full shadow-sm hover:shadow-md transition-all duration-200 font-bold text-xl"
+                                  title="Add Co-traveller"
+                                >
+                                  ＋
+                                </button>
+                              </div>
+
+                              {/* Inline Add Co-traveller Form */}
+                              {showAddCoTraveller && (
+                                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
+                                  <h4 className="text-sm font-bold text-gray-805">Add New Co-traveller</h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                      <Label htmlFor="coName" className="text-xs text-gray-500">Name</Label>
+                                      <Input
+                                        id="coName"
+                                        placeholder="Full Name"
+                                        value={newCoTraveller.name}
+                                        onChange={(e) => setNewCoTraveller({ ...newCoTraveller, name: e.target.value })}
+                                        className="mt-1 bg-white rounded-xl text-xs"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="coContact" className="text-xs text-gray-500">Contact Number</Label>
+                                      <Input
+                                        id="coContact"
+                                        placeholder="Phone"
+                                        value={newCoTraveller.contact}
+                                        onChange={(e) => setNewCoTraveller({ ...newCoTraveller, contact: e.target.value })}
+                                        className="mt-1 bg-white rounded-xl text-xs"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="coRelation" className="text-xs text-gray-500">Relationship</Label>
+                                      <select
+                                        id="coRelation"
+                                        value={newCoTraveller.relationship}
+                                        onChange={(e) => setNewCoTraveller({ ...newCoTraveller, relationship: e.target.value })}
+                                        className="mt-1 block w-full rounded-xl border-gray-200 bg-white p-2.5 text-xs text-gray-800 shadow-sm focus:border-[#2B58C4] focus:ring-[#2B58C4]"
+                                      >
+                                        <option>Spouse</option>
+                                        <option>Child</option>
+                                        <option>Parent</option>
+                                        <option>Sibling</option>
+                                        <option>Friend</option>
+                                        <option>Other</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      onClick={async () => {
+                                        if (!newCoTraveller.name.trim() || !newCoTraveller.contact.trim()) {
+                                          alert('Please fill in Name and Contact number');
+                                          return;
+                                        }
+                                        const updatedList = [...coTravellers, {
+                                          id: `${Date.now()}`,
+                                          ...newCoTraveller
+                                        }];
+
+                                        // Save instantly to database if user is saved
+                                        const dbInstance = getDbInstance();
+                                        if (dbInstance && user) {
+                                          try {
+                                            await updateDoc(doc(dbInstance, 'users', user.uid), {
+                                              coTravellers: updatedList
+                                            });
+                                          } catch (err) {
+                                            console.error('Error saving co-travellers list:', err);
+                                          }
+                                        }
+
+                                        setCoTravellers(updatedList);
+                                        setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
+                                        setShowAddCoTraveller(false);
+                                      }}
+                                      className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 h-auto rounded-xl border-none"
+                                    >
+                                      Add Traveler
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => setShowAddCoTraveller(false)}
+                                      className="border-gray-200 text-gray-750 text-xs px-3 py-1.5 h-auto rounded-xl"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* List of Co-travellers */}
+                              {coTravellers.length === 0 ? (
+                                <p className="text-sm text-gray-500 italic text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                  No co-travellers added yet. Click the ＋ icon to add your travel companions.
+                                </p>
+                              ) : (
+                                <div className="space-y-3">
+                                  {coTravellers.map((traveller) => (
+                                    <div
+                                      key={traveller.id}
+                                      className="flex justify-between items-center p-4 bg-gray-50 border border-gray-150 rounded-2xl hover:bg-gray-100/70 transition-all duration-150 shadow-sm animate-in fade-in"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-[#2B58C4]/10 rounded-full flex items-center justify-center text-[#2B58C4] font-bold">
+                                          👤
+                                        </div>
+                                        <div>
+                                          <p className="text-sm font-semibold text-gray-800">{traveller.name}</p>
+                                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                            <span>📞 {traveller.contact}</span>
+                                            <span>•</span>
+                                            <span className="bg-[#2B58C4]/5 text-[#2B58C4] px-2 py-0.5 rounded-full font-medium text-[10px]">{traveller.relationship}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={async () => {
+                                          const updatedList = coTravellers.filter(t => t.id !== traveller.id);
+
+                                          const dbInstance = getDbInstance();
+                                          if (dbInstance && user) {
+                                            try {
+                                              await updateDoc(doc(dbInstance, 'users', user.uid), {
+                                                coTravellers: updatedList
+                                              });
+                                            } catch (err) {
+                                              console.error('Error deleting co-traveller:', err);
+                                            }
+                                          }
+
+                                          setCoTravellers(updatedList);
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-all duration-150"
+                                        title="Remove Traveler"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </Card>
+                        </>
                       )}
 
                       {profileTab === 'credits' && (
                         <div id="plans-and-credits-card" className="space-y-6">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-xl font-bold text-gray-900">Plan & Message Credits</h2>
-                            <p className="text-xs text-gray-500 mt-0.5">Manage subscription plans, buy add-on credits, and track transaction history</p>
-                          </div>
-                        </div>
-
-                        {/* Hero Header */}
-                        <div className="bg-gradient-to-r from-[#1E293B] to-[#0F172A] text-white rounded-3xl p-6 shadow-lg relative overflow-hidden">
-                          <div className="absolute right-10 bottom-0 opacity-10 text-[120px] pointer-events-none select-none">💳</div>
-                          <div className="relative z-10 max-w-3xl">
-                            <div className="inline-flex items-center gap-1.5 bg-[#3B82F6]/20 backdrop-blur-sm text-[#93C5FD] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 border border-[#3B82F6]/30">
-                              💳 Billing & Subscription Control Panel
-                            </div>
-                            <h1 className="text-2xl font-extrabold mb-1 tracking-tight">
-                              Premium Messaging Credits
-                            </h1>
-                            <p className="text-slate-300 text-xs leading-relaxed opacity-90 max-w-2xl">
-                              Select subscription plans or purchase add-on credit packages to start secure chats with travel agencies.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Current Plan Summary Card & Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <Card className="md:col-span-1 bg-white border border-gray-200 shadow-md rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+                          <div className="flex justify-between items-center">
                             <div>
-                              <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Plan</h3>
-                                <Badge className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${
-                                  userData?.plan === 'premium' ? 'bg-purple-100 text-purple-700 border-purple-200' :
-                                  userData?.plan === 'starter' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                  'bg-blue-100 text-blue-700 border-blue-200'
-                                }`}>
-                                  {userData?.plan || 'Free'} Plan
-                                </Badge>
+                              <h2 className="text-xl font-bold text-gray-900">Plan & Message Credits</h2>
+                              <p className="text-xs text-gray-500 mt-0.5">Manage subscription plans, buy add-on credits, and track transaction history</p>
+                            </div>
+                          </div>
+
+                          {/* Hero Header */}
+                          <div className="bg-gradient-to-r from-[#1E293B] to-[#0F172A] text-white rounded-3xl p-6 shadow-lg relative overflow-hidden">
+                            <div className="absolute right-10 bottom-0 opacity-10 text-[120px] pointer-events-none select-none">💳</div>
+                            <div className="relative z-10 max-w-3xl">
+                              <div className="inline-flex items-center gap-1.5 bg-[#3B82F6]/20 backdrop-blur-sm text-[#93C5FD] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 border border-[#3B82F6]/30">
+                                💳 Billing & Subscription Control Panel
                               </div>
-                              <div className="space-y-3">
-                                <div>
-                                  <p className="text-2xl font-extrabold text-gray-900">
-                                    {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` : 
-                                     userData?.plan === 'premium' ? `${userData?.freeChats ?? 0} Free Chats` : 
-                                     `${userData?.freeChats ?? 0} Free Chats`}
+                              <h1 className="text-2xl font-extrabold mb-1 tracking-tight">
+                                Premium Messaging Credits
+                              </h1>
+                              <p className="text-slate-300 text-xs leading-relaxed opacity-90 max-w-2xl">
+                                Select subscription plans or purchase add-on credit packages to start secure chats with travel agencies.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Current Plan Summary Card & Stats */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <Card className="md:col-span-1 bg-white border border-gray-200 shadow-md rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+                              <div>
+                                <div className="flex justify-between items-center mb-4">
+                                  <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Plan</h3>
+                                  <Badge className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${userData?.plan === 'premium' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                      userData?.plan === 'starter' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                        'bg-blue-100 text-blue-700 border-blue-200'
+                                    }`}>
+                                    {userData?.plan || 'Free'} Plan
+                                  </Badge>
+                                </div>
+                                <div className="space-y-3">
+                                  <div>
+                                    <p className="text-2xl font-extrabold text-gray-900">
+                                      {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` :
+                                        userData?.plan === 'premium' ? `${userData?.freeChats ?? 0} Free Chats` :
+                                          `${userData?.freeChats ?? 0} Free Chats`}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">Cycle balance remaining</p>
+                                  </div>
+                                  <div className="border-t pt-3 space-y-1.5 text-[11px]">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">Cycle Ends</span>
+                                      <span className="font-semibold text-gray-800">July 16, 2026</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">Unlocked</span>
+                                      <span className="font-semibold text-gray-800">{(userData?.unlockedAgencies || []).length} Agencies</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </Card>
+
+                            {/* Quick Stats Grid */}
+                            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Per Chat Cost</p>
+                                  <h4 className="text-sm font-bold text-gray-900">
+                                    {userData?.plan === 'free' && '1 Free Chat'}
+                                    {userData?.plan === 'starter' && '200 Credits'}
+                                    {userData?.plan === 'premium' && '1 Free Chat'}
+                                  </h4>
+                                  <p className="text-[10px] text-gray-500 leading-snug">
+                                    {userData?.plan === 'premium' && '150 cr after free chats deplete'}
+                                    {userData?.plan === 'free' && 'Unlock uses 1 free chat'}
+                                    {userData?.plan === 'starter' && 'Deducted per unlock'}
                                   </p>
-                                  <p className="text-[10px] text-gray-500 mt-0.5">Cycle balance remaining</p>
                                 </div>
-                                <div className="border-t pt-3 space-y-1.5 text-[11px]">
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-500">Cycle Ends</span>
-                                    <span className="font-semibold text-gray-800">July 16, 2026</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-500">Unlocked</span>
-                                    <span className="font-semibold text-gray-800">{(userData?.unlockedAgencies || []).length} Agencies</span>
-                                  </div>
+                                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
+                                  💬
                                 </div>
-                              </div>
+                              </Card>
+
+                              <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Transactions</p>
+                                  <h4 className="text-sm font-bold text-gray-900">
+                                    {(userData?.creditHistory || []).length} Operations
+                                  </h4>
+                                  <p className="text-[10px] text-gray-500 leading-snug">Logs of top-ups & usage</p>
+                                </div>
+                                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-lg">
+                                  📋
+                                </div>
+                              </Card>
+                            </div>
+                          </div>
+
+                          {/* Developer Testing Panel inside Dashboard */}
+                          <Card className="bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
+                            <h4 className="text-xs font-bold text-orange-850 flex items-center gap-1.5 mb-1.5">
+                              🛠️ Developer Billing & Credits Simulator
+                            </h4>
+                            <p className="text-[10px] text-orange-700 mb-3 leading-relaxed">
+                              Use these controls to simulate plan resets, add credits, and verify unlock behavior. Changes reflect in Firebase Firestore immediately.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                onClick={() => simulateResetCredits('free')}
+                                variant="outline"
+                                className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-blue-700 py-1.5 h-auto border-gray-300"
+                              >
+                                Reset to Free
+                              </Button>
+                              <Button
+                                onClick={() => simulateResetCredits('starter')}
+                                variant="outline"
+                                className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-amber-700 py-1.5 h-auto border-gray-300"
+                              >
+                                Reset to Starter
+                              </Button>
+                              <Button
+                                onClick={() => simulateResetCredits('premium')}
+                                variant="outline"
+                                className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-purple-705 py-1.5 h-auto border-gray-300"
+                              >
+                                Reset to Premium
+                              </Button>
+                              <Button
+                                onClick={async () => {
+                                  if (!user || !userData) return;
+                                  const currentCredits = userData.credits || 0;
+                                  const txId = 'TX-SIM-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+                                  const newTransaction = {
+                                    id: txId,
+                                    type: 'top-up',
+                                    amount: 500,
+                                    description: 'Simulated Developer top-up',
+                                    timestamp: Date.now()
+                                  };
+                                  await updateDoc(doc(getDbInstance()!, 'users', user.uid), {
+                                    credits: currentCredits + 500,
+                                    creditHistory: [newTransaction, ...(userData.creditHistory || [])]
+                                  });
+                                  alert('Simulated: Added 500 Credits');
+                                }}
+                                variant="outline"
+                                className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-green-750 py-1.5 h-auto border-gray-300"
+                              >
+                                +500 Credits
+                              </Button>
                             </div>
                           </Card>
 
-                          {/* Quick Stats Grid */}
-                          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Per Chat Cost</p>
-                                <h4 className="text-sm font-bold text-gray-900">
-                                  {userData?.plan === 'free' && '1 Free Chat'}
-                                  {userData?.plan === 'starter' && '200 Credits'}
-                                  {userData?.plan === 'premium' && '1 Free Chat'}
-                                </h4>
-                                <p className="text-[10px] text-gray-500 leading-snug">
-                                  {userData?.plan === 'premium' && '150 cr after free chats deplete'}
-                                  {userData?.plan === 'free' && 'Unlock uses 1 free chat'}
-                                  {userData?.plan === 'starter' && 'Deducted per unlock'}
-                                </p>
-                              </div>
-                              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
-                                💬
-                              </div>
-                            </Card>
-
-                            <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Transactions</p>
-                                <h4 className="text-sm font-bold text-gray-900">
-                                  {(userData?.creditHistory || []).length} Operations
-                                </h4>
-                                <p className="text-[10px] text-gray-500 leading-snug">Logs of top-ups & usage</p>
-                              </div>
-                              <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-lg">
-                                📋
-                              </div>
-                            </Card>
-                          </div>
-                        </div>
-
-                        {/* Developer Testing Panel inside Dashboard */}
-                        <Card className="bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
-                          <h4 className="text-xs font-bold text-orange-850 flex items-center gap-1.5 mb-1.5">
-                            🛠️ Developer Billing & Credits Simulator
-                          </h4>
-                          <p className="text-[10px] text-orange-700 mb-3 leading-relaxed">
-                            Use these controls to simulate plan resets, add credits, and verify unlock behavior. Changes reflect in Firebase Firestore immediately.
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            <Button 
-                              onClick={() => simulateResetCredits('free')}
-                              variant="outline" 
-                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-blue-700 py-1.5 h-auto border-gray-300"
-                            >
-                              Reset to Free
-                            </Button>
-                            <Button 
-                              onClick={() => simulateResetCredits('starter')}
-                              variant="outline"
-                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-amber-700 py-1.5 h-auto border-gray-300"
-                            >
-                              Reset to Starter
-                            </Button>
-                            <Button 
-                              onClick={() => simulateResetCredits('premium')}
-                              variant="outline"
-                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-purple-705 py-1.5 h-auto border-gray-300"
-                            >
-                              Reset to Premium
-                            </Button>
-                            <Button 
-                              onClick={async () => {
-                                if (!user || !userData) return;
-                                const currentCredits = userData.credits || 0;
-                                const txId = 'TX-SIM-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-                                const newTransaction = {
-                                  id: txId,
-                                  type: 'top-up',
-                                  amount: 500,
-                                  description: 'Simulated Developer top-up',
-                                  timestamp: Date.now()
-                                };
-                                await updateDoc(doc(getDbInstance()!, 'users', user.uid), {
-                                  credits: currentCredits + 500,
-                                  creditHistory: [newTransaction, ...(userData.creditHistory || [])]
-                                });
-                                alert('Simulated: Added 500 Credits');
-                              }}
-                              variant="outline"
-                              className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-green-750 py-1.5 h-auto border-gray-300"
-                            >
-                              +500 Credits
-                            </Button>
-                          </div>
-                        </Card>
-
-                        {/* Plan Grid */}
-                        <div id="plans-comparison-grid" className="pt-2">
-                          <div className="mb-4">
-                            <h2 className="text-base font-bold text-gray-900 mb-0.5">Subscription Plans</h2>
-                            <p className="text-[11px] text-gray-500">Select the perfect tier for your travel search needs. Upgrade or downgrade anytime.</p>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {/* Free Plan */}
-                            <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${
-                              userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-blue-500' : 'border-gray-200'
-                            }`}>
-                              <div>
-                                <div className="mb-2">
-                                  <span className="text-[8px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-full">Basic Tier</span>
-                                </div>
-                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Free Plan</h3>
-                                <div className="flex items-baseline gap-1 my-1.5">
-                                  <span className="text-lg font-extrabold text-gray-900">₹0</span>
-                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
-                                </div>
-                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Perfect for simple search and quick agency queries.</p>
-                                <ul className="space-y-2 text-[10px] text-gray-600 border-t pt-3 mb-4">
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span><strong>2 Free Chats</strong> monthly</span>
-                                  </li>
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span>Standard speeds</span>
-                                  </li>
-                                  <li className="flex items-center gap-1.5 text-gray-400">
-                                    <span className="text-gray-300 font-bold">✗</span>
-                                    <span>Add-on top-ups</span>
-                                  </li>
-                                </ul>
-                              </div>
-                              <Button 
-                                onClick={() => upgradePlan('free')}
-                                disabled={userData?.plan === 'free' || !userData?.plan}
-                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${
-                                  userData?.plan === 'free' || !userData?.plan
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none' 
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                }`}
-                              >
-                                {userData?.plan === 'free' || !userData?.plan ? 'Current Plan' : 'Select Free Plan'}
-                              </Button>
-                            </Card>
-
-                            {/* Starter Plan */}
-                            <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-starter ${
-                              userData?.plan === 'starter' ? 'ring-2 ring-amber-500' : 'border-gray-200'
-                            }`}>
-                              <div>
-                                <div className="mb-2 flex justify-between items-center">
-                                  <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-full">Most Popular</span>
-                                </div>
-                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Starter Plan</h3>
-                                <div className="flex items-baseline gap-1 my-1.5">
-                                  <span className="text-lg font-extrabold text-gray-900">₹2,000</span>
-                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
-                                </div>
-                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Best for active travelers planning holiday details.</p>
-                                <ul className="space-y-2 text-[10px] text-gray-650 border-t pt-3 mb-4">
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span><strong>2,000 Credits</strong> monthly</span>
-                                  </li>
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span>Starter cost: <strong>200 cr / chat</strong></span>
-                                  </li>
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span>Buy credit top-up packs</span>
-                                  </li>
-                                </ul>
-                              </div>
-                              <Button 
-                                onClick={() => upgradePlan('starter')}
-                                disabled={userData?.plan === 'starter'}
-                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${
-                                  userData?.plan === 'starter'
-                                    ? 'bg-gray-100 text-gray-405 cursor-not-allowed hover:bg-gray-100 border-none' 
-                                    : 'bg-amber-500 hover:bg-amber-600 text-white'
-                                }`}
-                              >
-                                {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Starter'}
-                              </Button>
-                            </Card>
-
-                            {/* Premium Plan */}
-                            <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${
-                              userData?.plan === 'premium' ? 'ring-2 ring-purple-500' : 'border-gray-200'
-                            }`}>
-                              <div>
-                                <div className="mb-2">
-                                  <span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest bg-purple-50 px-2.5 py-0.5 rounded-full">Power User</span>
-                                </div>
-                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Premium Plan</h3>
-                                <div className="flex items-baseline gap-1 my-1.5">
-                                  <span className="text-lg font-extrabold text-gray-900">₹5,000</span>
-                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
-                                </div>
-                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">For frequent travelers looking for ultimate options.</p>
-                                <ul className="space-y-2 text-[10px] text-gray-650 border-t pt-3 mb-4">
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span><strong>20 Free Chats</strong> monthly</span>
-                                  </li>
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span>Thereafter: <strong>150 cr / chat</strong></span>
-                                  </li>
-                                  <li className="flex items-center gap-1.5">
-                                    <span className="text-green-500 font-bold">✓</span>
-                                    <span>Mediation agent dispute help</span>
-                                  </li>
-                                </ul>
-                              </div>
-                              <Button 
-                                onClick={() => upgradePlan('premium')}
-                                disabled={userData?.plan === 'premium'}
-                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${
-                                  userData?.plan === 'premium'
-                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none' 
-                                    : 'bg-purple-600 hover:bg-purple-700 text-white'
-                                }`}
-                              >
-                                {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
-                              </Button>
-                            </Card>
-                          </div>
-                        </div>
-
-                        {/* Add-on Credit Packages */}
-                        <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                            <div>
-                              <h3 className="text-sm font-bold text-gray-900">Buy Add-on Credits</h3>
-                              <p className="text-[10px] text-gray-500">Need more credits? Buy extra packs instantly (Requires Starter or Premium plan).</p>
+                          {/* Plan Grid */}
+                          <div id="plans-comparison-grid" className="pt-2">
+                            <div className="mb-4">
+                              <h2 className="text-base font-bold text-gray-900 mb-0.5">Subscription Plans</h2>
+                              <p className="text-[11px] text-gray-500">Select the perfect tier for your travel search needs. Upgrade or downgrade anytime.</p>
                             </div>
-                            <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-555 mt-2 sm:mt-0 font-medium">
-                              Plan: {userData?.plan || 'free'}
-                            </Badge>
-                          </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {[
-                              { name: 'Starter Pack', credits: 500, price: 100, desc: 'Ideal for 2 extra agency unlocks' },
-                              { name: 'Growth Pack', credits: 1000, price: 180, desc: 'Best Value! 5 unlocks (Starter)', recommended: true },
-                              { name: 'Pro Pack', credits: 2500, price: 400, desc: 'For heavy research needs' }
-                            ].map((pack) => (
-                              <div 
-                                key={pack.name} 
-                                className={`border rounded-2xl p-4 flex flex-col justify-between relative bg-slate-50/50 hover:bg-slate-50 transition-all ${
-                                  pack.recommended ? 'border-amber-400 ring-1 ring-amber-400' : 'border-gray-200'
-                                }`}
-                              >
-                                {pack.recommended && (
-                                  <span className="absolute -top-2 right-3 bg-amber-400 text-amber-950 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
-                                    Best Value
-                                  </span>
-                                )}
-                                <div className="mb-3">
-                                  <h4 className="font-bold text-xs text-gray-900">{pack.name}</h4>
-                                  <p className="text-base font-extrabold text-blue-600 my-1">+{pack.credits} Credits</p>
-                                  <p className="text-[10px] text-gray-500 leading-snug">{pack.desc}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              {/* Free Plan */}
+                              <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-blue-500' : 'border-gray-200'
+                                }`}>
+                                <div>
+                                  <div className="mb-2">
+                                    <span className="text-[8px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-full">Basic Tier</span>
+                                  </div>
+                                  <h3 className="text-sm font-bold text-gray-900 mb-0.5">Free Plan</h3>
+                                  <div className="flex items-baseline gap-1 my-1.5">
+                                    <span className="text-lg font-extrabold text-gray-900">₹0</span>
+                                    <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Perfect for simple search and quick agency queries.</p>
+                                  <ul className="space-y-2 text-[10px] text-gray-600 border-t pt-3 mb-4">
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span><strong>2 Free Chats</strong> monthly</span>
+                                    </li>
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span>Standard speeds</span>
+                                    </li>
+                                    <li className="flex items-center gap-1.5 text-gray-400">
+                                      <span className="text-gray-300 font-bold">✗</span>
+                                      <span>Add-on top-ups</span>
+                                    </li>
+                                  </ul>
                                 </div>
-                                <div className="pt-3 border-t flex items-center justify-between gap-2">
-                                  <span className="font-extrabold text-xs text-gray-800">₹{pack.price}</span>
-                                  <Button 
-                                    onClick={() => buyCredits(pack.credits, pack.price)}
-                                    disabled={!userData?.plan || userData.plan === 'free'}
-                                    className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
-                                  >
-                                    Buy Pack
-                                  </Button>
+                                <Button
+                                  onClick={() => upgradePlan('free')}
+                                  disabled={userData?.plan === 'free' || !userData?.plan}
+                                  className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'free' || !userData?.plan
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
+                                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
+                                >
+                                  {userData?.plan === 'free' || !userData?.plan ? 'Current Plan' : 'Select Free Plan'}
+                                </Button>
+                              </Card>
+
+                              {/* Starter Plan */}
+                              <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-starter ${userData?.plan === 'starter' ? 'ring-2 ring-amber-500' : 'border-gray-200'
+                                }`}>
+                                <div>
+                                  <div className="mb-2 flex justify-between items-center">
+                                    <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-full">Most Popular</span>
+                                  </div>
+                                  <h3 className="text-sm font-bold text-gray-900 mb-0.5">Starter Plan</h3>
+                                  <div className="flex items-baseline gap-1 my-1.5">
+                                    <span className="text-lg font-extrabold text-gray-900">₹2,000</span>
+                                    <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Best for active travelers planning holiday details.</p>
+                                  <ul className="space-y-2 text-[10px] text-gray-650 border-t pt-3 mb-4">
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span><strong>2,000 Credits</strong> monthly</span>
+                                    </li>
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span>Starter cost: <strong>200 cr / chat</strong></span>
+                                    </li>
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span>Buy credit top-up packs</span>
+                                    </li>
+                                  </ul>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                                <Button
+                                  onClick={() => upgradePlan('starter')}
+                                  disabled={userData?.plan === 'starter'}
+                                  className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'starter'
+                                      ? 'bg-gray-100 text-gray-405 cursor-not-allowed hover:bg-gray-100 border-none'
+                                      : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                    }`}
+                                >
+                                  {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Starter'}
+                                </Button>
+                              </Card>
 
-                        {/* Transaction History Logs */}
-                        <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6">
-                          <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1.5">
-                            <span>📋</span> Credit Transaction History
-                          </h3>
-
-                          {(!userData?.creditHistory || userData.creditHistory.length === 0) ? (
-                            <div className="text-center py-10 text-gray-400 text-xs italic bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                              No transactions recorded.
+                              {/* Premium Plan */}
+                              <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'premium' ? 'ring-2 ring-purple-500' : 'border-gray-200'
+                                }`}>
+                                <div>
+                                  <div className="mb-2">
+                                    <span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest bg-purple-50 px-2.5 py-0.5 rounded-full">Power User</span>
+                                  </div>
+                                  <h3 className="text-sm font-bold text-gray-900 mb-0.5">Premium Plan</h3>
+                                  <div className="flex items-baseline gap-1 my-1.5">
+                                    <span className="text-lg font-extrabold text-gray-900">₹5,000</span>
+                                    <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">For frequent travelers looking for ultimate options.</p>
+                                  <ul className="space-y-2 text-[10px] text-gray-650 border-t pt-3 mb-4">
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span><strong>20 Free Chats</strong> monthly</span>
+                                    </li>
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span>Thereafter: <strong>150 cr / chat</strong></span>
+                                    </li>
+                                    <li className="flex items-center gap-1.5">
+                                      <span className="text-green-500 font-bold">✓</span>
+                                      <span>Mediation agent dispute help</span>
+                                    </li>
+                                  </ul>
+                                </div>
+                                <Button
+                                  onClick={() => upgradePlan('premium')}
+                                  disabled={userData?.plan === 'premium'}
+                                  className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'premium'
+                                      ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
+                                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                    }`}
+                                >
+                                  {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
+                                </Button>
+                              </Card>
                             </div>
-                          ) : (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse text-[10px]">
-                                <thead>
-                                  <tr className="border-b text-gray-400 font-bold uppercase tracking-wider">
-                                    <th className="pb-3 pr-4">Transaction ID</th>
-                                    <th className="pb-3 pr-4">Type</th>
-                                    <th className="pb-3 pr-4">Description</th>
-                                    <th className="pb-3 pr-4 text-right">Amount</th>
-                                    <th className="pb-3 text-right">Date</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                                  {userData.creditHistory.map((tx) => (
-                                    <tr key={tx.id} className="transaction-row">
-                                      <td className="py-3 font-mono text-gray-400">{tx.id}</td>
-                                      <td className="py-3 pr-4">
-                                        <Badge className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${
-                                          tx.type === 'top-up' ? 'bg-green-50 text-green-700 border-green-200' :
-                                          tx.type === 'plan-change' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                          tx.type === 'reset' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                          'bg-red-50 text-red-700 border-red-200'
-                                        }`}>
-                                          {tx.type}
-                                        </Badge>
-                                      </td>
-                                      <td className="py-3 pr-4">{tx.description}</td>
-                                      <td className={`py-3 pr-4 text-right font-extrabold text-xs ${
-                                        tx.type === 'top-up' ? 'text-green-600' : 
-                                        tx.type === 'plan-change' ? 'text-purple-600' : 
-                                        tx.type === 'reset' ? 'text-blue-600' :
-                                        'text-red-600'
-                                      }`}>
-                                        {tx.type === 'top-up' && '+'}
-                                        {tx.type === 'deduction' && '-'}
-                                        {tx.amount}
-                                        {userData.plan === 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' cr' : ''}
-                                        {userData.plan !== 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' chat' : ''}
-                                        {tx.type === 'plan-change' && ' ₹'}
-                                      </td>
-                                      <td className="py-3 text-right text-gray-400">
-                                        {new Date(tx.timestamp).toLocaleString('en-IN', {
-                                          day: 'numeric',
-                                          month: 'short',
-                                          year: 'numeric',
-                                          hour: '2-digit',
-                                          minute: '2-digit'
-                                        })}
-                                      </td>
+                          </div>
+
+                          {/* Add-on Credit Packages */}
+                          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                              <div>
+                                <h3 className="text-sm font-bold text-gray-900">Buy Add-on Credits</h3>
+                                <p className="text-[10px] text-gray-500">Need more credits? Buy extra packs instantly (Requires Starter or Premium plan).</p>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-555 mt-2 sm:mt-0 font-medium">
+                                Plan: {userData?.plan || 'free'}
+                              </Badge>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              {[
+                                { name: 'Starter Pack', credits: 500, price: 100, desc: 'Ideal for 2 extra agency unlocks' },
+                                { name: 'Growth Pack', credits: 1000, price: 180, desc: 'Best Value! 5 unlocks (Starter)', recommended: true },
+                                { name: 'Pro Pack', credits: 2500, price: 400, desc: 'For heavy research needs' }
+                              ].map((pack) => (
+                                <div
+                                  key={pack.name}
+                                  className={`border rounded-2xl p-4 flex flex-col justify-between relative bg-slate-50/50 hover:bg-slate-50 transition-all ${pack.recommended ? 'border-amber-400 ring-1 ring-amber-400' : 'border-gray-200'
+                                    }`}
+                                >
+                                  {pack.recommended && (
+                                    <span className="absolute -top-2 right-3 bg-amber-400 text-amber-950 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                                      Best Value
+                                    </span>
+                                  )}
+                                  <div className="mb-3">
+                                    <h4 className="font-bold text-xs text-gray-900">{pack.name}</h4>
+                                    <p className="text-base font-extrabold text-blue-600 my-1">+{pack.credits} Credits</p>
+                                    <p className="text-[10px] text-gray-500 leading-snug">{pack.desc}</p>
+                                  </div>
+                                  <div className="pt-3 border-t flex items-center justify-between gap-2">
+                                    <span className="font-extrabold text-xs text-gray-800">₹{pack.price}</span>
+                                    <Button
+                                      onClick={() => buyCredits(pack.credits, pack.price)}
+                                      disabled={!userData?.plan || userData.plan === 'free'}
+                                      className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
+                                    >
+                                      Buy Pack
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Transaction History Logs */}
+                          <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6">
+                            <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1.5">
+                              <span>📋</span> Credit Transaction History
+                            </h3>
+
+                            {(!userData?.creditHistory || userData.creditHistory.length === 0) ? (
+                              <div className="text-center py-10 text-gray-400 text-xs italic bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                No transactions recorded.
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-[10px]">
+                                  <thead>
+                                    <tr className="border-b text-gray-400 font-bold uppercase tracking-wider">
+                                      <th className="pb-3 pr-4">Transaction ID</th>
+                                      <th className="pb-3 pr-4">Type</th>
+                                      <th className="pb-3 pr-4">Description</th>
+                                      <th className="pb-3 pr-4 text-right">Amount</th>
+                                      <th className="pb-3 text-right">Date</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </Card>
-                      </div>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                    {userData.creditHistory.map((tx) => (
+                                      <tr key={tx.id} className="transaction-row">
+                                        <td className="py-3 font-mono text-gray-400">{tx.id}</td>
+                                        <td className="py-3 pr-4">
+                                          <Badge className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${tx.type === 'top-up' ? 'bg-green-50 text-green-700 border-green-200' :
+                                              tx.type === 'plan-change' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                tx.type === 'reset' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                  'bg-red-50 text-red-700 border-red-200'
+                                            }`}>
+                                            {tx.type}
+                                          </Badge>
+                                        </td>
+                                        <td className="py-3 pr-4">{tx.description}</td>
+                                        <td className={`py-3 pr-4 text-right font-extrabold text-xs ${tx.type === 'top-up' ? 'text-green-600' :
+                                            tx.type === 'plan-change' ? 'text-purple-600' :
+                                              tx.type === 'reset' ? 'text-blue-600' :
+                                                'text-red-600'
+                                          }`}>
+                                          {tx.type === 'top-up' && '+'}
+                                          {tx.type === 'deduction' && '-'}
+                                          {tx.amount}
+                                          {userData.plan === 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' cr' : ''}
+                                          {userData.plan !== 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' chat' : ''}
+                                          {tx.type === 'plan-change' && ' ₹'}
+                                        </td>
+                                        <td className="py-3 text-right text-gray-400">
+                                          {new Date(tx.timestamp).toLocaleString('en-IN', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </Card>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -4006,7 +4830,7 @@ export default function Home() {
                         <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                           <span>📝</span> Submit a Dispute / Help Ticket
                         </h2>
-                        
+
                         <form onSubmit={submitSupportTicket} className="space-y-5">
                           {/* Booking Selector */}
                           <div>
@@ -4146,7 +4970,7 @@ export default function Home() {
                                   <span className="font-bold text-gray-800 truncate max-w-[120px]" title={ticket.subject}>
                                     {ticket.subject}
                                   </span>
-                                  <Badge 
+                                  <Badge
                                     className={`
                                       ${ticket.status === 'pending' ? 'bg-yellow-50 text-yellow-750 border-yellow-200 hover:bg-yellow-50' : ''}
                                       ${ticket.status === 'in-review' ? 'bg-blue-50 text-blue-750 border-blue-200 hover:bg-blue-50' : ''}
@@ -4208,7 +5032,7 @@ export default function Home() {
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
-                          onClick={() => setNewReview({...newReview, rating: star})}
+                          onClick={() => setNewReview({ ...newReview, rating: star })}
                           className={`text-2xl ${newReview.rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
                         >
                           ⭐
@@ -4217,10 +5041,10 @@ export default function Home() {
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
                       {newReview.rating === 0 ? 'Select a rating' :
-                       newReview.rating === 1 ? 'Poor' :
-                       newReview.rating === 2 ? 'Fair' :
-                       newReview.rating === 3 ? 'Good' :
-                       newReview.rating === 4 ? 'Very Good' : 'Excellent'}
+                        newReview.rating === 1 ? 'Poor' :
+                          newReview.rating === 2 ? 'Fair' :
+                            newReview.rating === 3 ? 'Good' :
+                              newReview.rating === 4 ? 'Very Good' : 'Excellent'}
                     </p>
                   </div>
 
@@ -4232,7 +5056,7 @@ export default function Home() {
                       className="w-full p-3 border rounded-lg mt-1"
                       rows={4}
                       value={newReview.comment}
-                      onChange={(e) => setNewReview({...newReview, comment: e.target.value})}
+                      onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
                       placeholder="Tell others about your experience..."
                     />
                   </div>
@@ -4285,53 +5109,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Pincode Change Modal */}
-          {showPincodeModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-in fade-in duration-200">
-              <Card className="w-full max-w-sm mx-4 bg-[#1C1F26] border-gray-800 text-white shadow-2xl">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <span className="text-xl">📍</span> Update Location
-                  </CardTitle>
-                  <CardDescription className="text-xs text-gray-405">
-                    Enter your 6-digit postal code to customize your experience
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Input
-                    type="text"
-                    maxLength={6}
-                    placeholder="e.g. 400001"
-                    value={pincodeInput}
-                    onChange={(e) => setPincodeInput(e.target.value.replace(/\D/g, ''))}
-                    className="bg-gray-900 border-gray-800 text-white text-center text-lg tracking-widest font-mono"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => {
-                        if (pincodeInput.length !== 6) {
-                          alert('Please enter a valid 6-digit pincode');
-                          return;
-                        }
-                        setPincode(`Pincode ${pincodeInput}`);
-                        setShowPincodeModal(false);
-                      }}
-                      className="flex-1 bg-orange-500 hover:bg-orange-605"
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowPincodeModal(false)}
-                      className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          {/* Pincode Change Modal Removed */}
 
           {/* ── REDESIGNED PREMIUM UNLOCK CHAT CONVERSATION MODAL ── */}
           {showUnlockModal && chatUnlockTarget && (
@@ -4352,7 +5130,7 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="p-6 space-y-6">
                   {/* Explanation and Features List */}
                   <div className="space-y-3">
@@ -4399,7 +5177,7 @@ export default function Home() {
                         Plan: {userData?.plan || 'Free'}
                       </span>
                     </div>
-                    
+
                     {/* Visual credit deduction flow */}
                     <div className="flex items-center justify-between gap-4 py-1">
                       <div className="text-center flex-1">
@@ -4413,7 +5191,7 @@ export default function Home() {
                           {userData?.plan === 'starter' ? 'Credits' : 'Free Chats'}
                         </span>
                       </div>
-                      
+
                       <div className="flex flex-col items-center">
                         <span className="text-[9px] text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-black">
                           -{userData?.plan === 'starter' ? '200' : '1'}
@@ -4439,7 +5217,7 @@ export default function Home() {
                   {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
                     (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
                     ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
-                    
+
                     <div className="bg-red-50 text-red-800 border border-red-150 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
                       <span className="text-xl leading-none">⚠️</span>
                       <div className="text-xs">
@@ -4453,8 +5231,8 @@ export default function Home() {
                 </div>
 
                 <div className="p-4 bg-gray-50 border-t flex flex-row gap-3">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => setShowUnlockModal(false)}
                     className="flex-1 rounded-xl text-xs font-bold border-gray-300 py-3.5 text-gray-700 bg-white hover:bg-gray-100 transition-all border"
                   >
@@ -4464,8 +5242,8 @@ export default function Home() {
                   {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
                     (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
                     ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
-                    
-                    <Button 
+
+                    <Button
                       onClick={() => {
                         setShowUnlockModal(false);
                         setProfileTab('credits');
@@ -4477,7 +5255,7 @@ export default function Home() {
                       Top Up / Upgrade Plan
                     </Button>
                   ) : (
-                    <Button 
+                    <Button
                       onClick={() => unlockChat(chatUnlockTarget.agencyId, chatUnlockTarget.agencyName)}
                       className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
                     >
@@ -4513,11 +5291,10 @@ export default function Home() {
           {/* Premium Custom Toast Notification */}
           {toast && (
             <div className="fixed bottom-6 right-6 z-[200] animate-in slide-in-from-bottom-5 fade-in duration-300">
-              <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 ${
-                toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-emerald-100/50' :
-                toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
-                'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
-              }`}>
+              <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 ${toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-emerald-100/50' :
+                  toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
+                    'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
+                }`}>
                 <span className="text-xl">
                   {toast.type === 'success' && '✨'}
                   {toast.type === 'error' && '⚠️'}
@@ -4526,7 +5303,7 @@ export default function Home() {
                 <div className="text-xs font-bold tracking-wide">
                   {toast.message}
                 </div>
-                <button 
+                <button
                   onClick={() => setToast(null)}
                   className="text-gray-400 hover:text-gray-650 transition-colors ml-2 font-bold focus:outline-none"
                 >
@@ -4551,34 +5328,31 @@ export default function Home() {
               <div className="space-y-2">
                 <button
                   onClick={() => setAgencyActiveSection('listings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'listings'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'listings'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Listings
+                  Listings
                 </button>
-                { <button
+                {<button
                   onClick={() => setAgencyActiveSection('overview')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'overview'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'overview'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Overview
-                </button> }
-                { <button
+                  Overview
+                </button>}
+                {<button
                   onClick={() => setAgencyActiveSection('analytics')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'analytics'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'analytics'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Analytics
-                </button> }
+                  Analytics
+                </button>}
                 {/* <button
                   onClick={() => setAgencyActiveSection('bookings')}
                   className={`w-full text-left px-4 py-2 rounded-lg ${
@@ -4589,42 +5363,39 @@ export default function Home() {
                 >
                    Bookings
                 </button> */}
-                { <button
+                {<button
                   onClick={() => setAgencyActiveSection('revenue')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'revenue'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'revenue'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Revenue
-                </button> }
+                  Revenue
+                </button>}
                 {<button
                   onClick={() => setAgencyActiveSection('chat')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'chat'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'chat'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Customer Chat
-                </button> }
-                { <button
+                  Customer Chat
+                </button>}
+                {<button
                   onClick={() => setAgencyActiveSection('settings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'settings'
+                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'settings'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
-                   Settings
-                </button> }
+                  Settings
+                </button>}
               </div>
             </nav>
           </div>
 
           <div className="flex-1 dashboard-scroll mr-4 mt-4">
-           <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated">
+            <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {agencyActiveSection === 'overview' && 'Agency Overview'}
@@ -4839,9 +5610,8 @@ export default function Home() {
                                         )}
                                         <p className="text-sm text-gray-600">
                                           {listing.itinerary?.length || 0} days • {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || listing.price || 'N/A'}
-                                          <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                                            listing.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                          }`}>
+                                          <span className={`ml-2 px-2 py-1 rounded-full text-xs ${listing.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                            }`}>
                                             {listing.approved ? 'Approved' : 'Pending'}
                                           </span>
                                         </p>
@@ -4975,14 +5745,14 @@ export default function Home() {
                                     return acc;
                                   }, {} as Record<string, number>)
                                 )
-                                .sort(([,a], [,b]) => b - a)
-                                .slice(0, 5)
-                                .map(([destination, count]) => (
-                                  <div key={destination} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                    <span className="font-medium">{destination}</span>
-                                    <span className="text-sm text-gray-600">{count} listings</span>
-                                  </div>
-                                ))
+                                  .sort(([, a], [, b]) => b - a)
+                                  .slice(0, 5)
+                                  .map(([destination, count]) => (
+                                    <div key={destination} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                      <span className="font-medium">{destination}</span>
+                                      <span className="text-sm text-gray-600">{count} listings</span>
+                                    </div>
+                                  ))
                               ) : (
                                 <p className="text-gray-500 text-center py-8">No listings yet</p>
                               )}
@@ -5157,11 +5927,10 @@ export default function Home() {
                                     </div>
                                   </div>
                                   <div className="flex flex-col items-end space-y-2">
-                                    <span className={`px-2 py-1 rounded-full text-xs ${
-                                      booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                      booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
+                                    <span className={`px-2 py-1 rounded-full text-xs ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                          'bg-red-100 text-red-800'
+                                      }`}>
                                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                                     </span>
                                     <div className="flex space-x-2">
@@ -5331,14 +6100,14 @@ export default function Home() {
                                     return acc;
                                   }, {} as Record<string, number>)
                                 )
-                                .sort(([,a], [,b]) => b - a)
-                                .slice(0, 6)
-                                .map(([month, revenue]) => (
-                                  <div key={month} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                    <span className="font-medium">{month}</span>
-                                    <span className="text-sm font-semibold text-green-600">₹{revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                  </div>
-                                ))
+                                  .sort(([, a], [, b]) => b - a)
+                                  .slice(0, 6)
+                                  .map(([month, revenue]) => (
+                                    <div key={month} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                      <span className="font-medium">{month}</span>
+                                      <span className="text-sm font-semibold text-green-600">₹{revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                  ))
                               ) : (
                                 <div className="text-center py-8">
                                   <p className="text-gray-500">No revenue data yet</p>
@@ -5408,11 +6177,10 @@ export default function Home() {
                                 <div
                                   key={conversation.userId}
                                   onClick={() => selectConversation(conversation)}
-                                  className={`p-3 rounded-lg cursor-pointer border ${
-                                    selectedConversation?.userId === conversation.userId
+                                  className={`p-3 rounded-lg cursor-pointer border ${selectedConversation?.userId === conversation.userId
                                       ? 'bg-blue-50 border-blue-200'
                                       : 'bg-gray-50 hover:bg-gray-100'
-                                  }`}
+                                    }`}
                                 >
                                   <div className="flex items-center space-x-3">
                                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -5564,11 +6332,11 @@ export default function Home() {
   // Journey Details Modal Component
   function JourneyDetailsModal({ booking, onClose }: { booking: any; onClose: () => void }) {
     console.log('Modal component rendering with booking:', booking);
-    
+
     if (!booking) return null;
 
     const currencySymbol = booking.packageType === 'international' ? '$' : '₹';
-    
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -5579,7 +6347,7 @@ export default function Home() {
                 <h2 className="text-2xl font-bold">Journey Details</h2>
                 <p className="text-blue-100 mt-1">{booking.listingTitle}</p>
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
               >
@@ -5591,13 +6359,12 @@ export default function Home() {
           <div className="p-6 space-y-6">
             {/* Status Badge */}
             <div className="flex items-center justify-between">
-              <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-                booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                {booking.status === 'confirmed' ? '✅ Confirmed' : 
-                 booking.status === 'pending' ? '⏳ Pending' : '❌ Cancelled'}
+              <span className={`px-4 py-2 rounded-full text-sm font-medium ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                  booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                }`}>
+                {booking.status === 'confirmed' ? '✅ Confirmed' :
+                  booking.status === 'pending' ? '⏳ Pending' : '❌ Cancelled'}
               </span>
               <span className="text-gray-500 text-sm">
                 Booked on {booking.createdAtFormatted}
@@ -5641,7 +6408,7 @@ export default function Home() {
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   ✈️ Travel Itinerary
                 </h3>
-                
+
                 {booking.journeyDetails.flight && (
                   <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
                     <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
@@ -5764,15 +6531,15 @@ export default function Home() {
               <Button onClick={onClose} variant="outline" className="flex-1">
                 Close
               </Button>
-              <Button 
-                onClick={() => window.print()} 
+              <Button
+                onClick={() => window.print()}
                 variant="outline"
                 className="flex-1"
               >
                 🖨️ Print Details
               </Button>
               {booking.status === 'confirmed' && (
-                <Button 
+                <Button
                   className="flex-1 bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     // Share functionality
@@ -6193,7 +6960,7 @@ export default function Home() {
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
-                      onClick={() => setNewReview({...newReview, rating: star})}
+                      onClick={() => setNewReview({ ...newReview, rating: star })}
                       className={`text-2xl ${newReview.rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
                     >
                       ⭐
@@ -6202,10 +6969,10 @@ export default function Home() {
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
                   {newReview.rating === 0 ? 'Select a rating' :
-                   newReview.rating === 1 ? 'Poor' :
-                   newReview.rating === 2 ? 'Fair' :
-                   newReview.rating === 3 ? 'Good' :
-                   newReview.rating === 4 ? 'Very Good' : 'Excellent'}
+                    newReview.rating === 1 ? 'Poor' :
+                      newReview.rating === 2 ? 'Fair' :
+                        newReview.rating === 3 ? 'Good' :
+                          newReview.rating === 4 ? 'Very Good' : 'Excellent'}
                 </p>
               </div>
 
@@ -6217,7 +6984,7 @@ export default function Home() {
                   className="w-full p-3 border rounded-lg mt-1"
                   rows={4}
                   value={newReview.comment}
-                  onChange={(e) => setNewReview({...newReview, comment: e.target.value})}
+                  onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
                   placeholder="Tell others about your experience..."
                 />
               </div>
@@ -6272,60 +7039,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Pincode Change Modal */}
-      {showPincodeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <Card className="w-full max-w-sm mx-4 bg-[#1C1F26] border-gray-800 text-white shadow-2xl">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <span className="text-xl">📍</span> Update Location
-              </CardTitle>
-              <CardDescription className="text-xs text-gray-400">
-                Enter your 6-digit postal code to customize your experience
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="pincodeInput" className="text-xs font-semibold text-gray-300">Pincode</Label>
-                <Input
-                  id="pincodeInput"
-                  type="text"
-                  maxLength={6}
-                  placeholder="e.g., 400605"
-                  className="bg-gray-900 border-gray-800 text-white mt-1 w-full tracking-wider font-mono text-center text-lg focus:ring-orange-500 focus:border-orange-500"
-                  value={pincodeInput}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    setPincodeInput(val);
-                  }}
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button
-                  onClick={() => {
-                    if (pincodeInput.length === 6) {
-                      setPincode(`Pincode ${pincodeInput}`);
-                      setShowPincodeModal(false);
-                    } else {
-                      alert('Please enter a valid 6-digit pincode');
-                    }
-                  }}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 border-none font-semibold transition-all duration-200"
-                >
-                  Save Location
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPincodeModal(false)}
-                  className="flex-1 border-gray-750 text-gray-300 hover:bg-gray-800 hover:text-white"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Pincode Change Modal Removed */}
 
       {/* ── REDESIGNED PREMIUM UNLOCK CHAT CONVERSATION MODAL ── */}
       {showUnlockModal && chatUnlockTarget && (
@@ -6346,7 +7060,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-6 space-y-6">
               {/* Explanation and Features List */}
               <div className="space-y-3">
@@ -6393,7 +7107,7 @@ export default function Home() {
                     Plan: {userData?.plan || 'Free'}
                   </span>
                 </div>
-                
+
                 {/* Visual credit deduction flow */}
                 <div className="flex items-center justify-between gap-4 py-1">
                   <div className="text-center flex-1">
@@ -6407,7 +7121,7 @@ export default function Home() {
                       {userData?.plan === 'starter' ? 'Credits' : 'Free Chats'}
                     </span>
                   </div>
-                  
+
                   <div className="flex flex-col items-center">
                     <span className="text-[9px] text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-black">
                       -{userData?.plan === 'starter' ? '200' : '1'}
@@ -6433,7 +7147,7 @@ export default function Home() {
               {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
                 (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
                 ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
-                
+
                 <div className="bg-red-50 text-red-800 border border-red-150 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
                   <span className="text-xl leading-none">⚠️</span>
                   <div className="text-xs">
@@ -6447,8 +7161,8 @@ export default function Home() {
             </div>
 
             <div className="p-4 bg-gray-50 border-t flex flex-row gap-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowUnlockModal(false)}
                 className="flex-1 rounded-xl text-xs font-bold border-gray-300 py-3.5 text-gray-700 bg-white hover:bg-gray-100 transition-all border"
               >
@@ -6458,8 +7172,8 @@ export default function Home() {
               {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
                 (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
                 ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
-                
-                <Button 
+
+                <Button
                   onClick={() => {
                     setShowUnlockModal(false);
                     setProfileTab('credits');
@@ -6471,7 +7185,7 @@ export default function Home() {
                   Top Up / Upgrade Plan
                 </Button>
               ) : (
-                <Button 
+                <Button
                   onClick={() => unlockChat(chatUnlockTarget.agencyId, chatUnlockTarget.agencyName)}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
                 >
@@ -6506,11 +7220,10 @@ export default function Home() {
       {/* Premium Custom Toast Notification */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-[200] animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 ${
-            toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-emerald-100/50' :
-            toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
-            'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
-          }`}>
+          <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 ${toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-emerald-100/50' :
+              toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
+                'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
+            }`}>
             <span className="text-xl">
               {toast.type === 'success' && '✨'}
               {toast.type === 'error' && '⚠️'}
@@ -6519,7 +7232,7 @@ export default function Home() {
             <div className="text-xs font-bold tracking-wide">
               {toast.message}
             </div>
-            <button 
+            <button
               onClick={() => setToast(null)}
               className="text-gray-400 hover:text-gray-650 transition-colors ml-2 font-bold focus:outline-none"
             >
@@ -6528,6 +7241,22 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Floating Particles Renderer */}
+      {floatingEffects.map((effect) => (
+        <div
+          key={effect.id}
+          className={`fixed pointer-events-none z-[9999] select-none text-2xl ${
+            effect.type === 'wishlist' ? 'animate-float-heart' : 'animate-float-scale'
+          }`}
+          style={{
+            left: effect.x,
+            top: effect.y,
+          }}
+        >
+          {effect.type === 'wishlist' ? '❤️' : '⚖️'}
+        </div>
+      ))}
 
     </div>
   );

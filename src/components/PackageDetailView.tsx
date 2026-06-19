@@ -315,12 +315,14 @@ export default function PackageDetailView({
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
           {/* Main Photo */}
           <div className="lg:col-span-3">
-            <div className="relative aspect-[16/9] bg-gray-200 rounded-xl overflow-hidden">
+            <div className="relative aspect-[16/9] bg-gray-200 rounded-2xl overflow-hidden shadow-lg group">
               {mainImage ? (
                 <img 
                   src={optimizeImageUrl(mainImage, { width: 1200, quality: 90, format: 'auto', cacheBust: true })} 
                   alt={listing.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -737,11 +739,13 @@ export default function PackageDetailView({
             </div>
             <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4">
               {allImages.map((image, index) => (
-                <div key={index} className="aspect-square rounded-lg overflow-hidden">
+                <div key={index} className="aspect-square rounded-xl overflow-hidden shadow-md">
                   <img 
                     src={optimizeImageUrl(image, { width: 800, quality: 90, format: 'auto', cacheBust: true })} 
                     alt={`Photo ${index + 1}`}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform"
+                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500 ease-out"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               ))}

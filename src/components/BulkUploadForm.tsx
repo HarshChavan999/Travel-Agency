@@ -50,12 +50,17 @@ interface ParsedListing {
     itinerary: Array<{ id: string; day: number; placeName: string; description: string }>;
     inclusions: string;
     exclusions: string;
+    experienceType?: string;
+    discountCategory?: string;
+    isTrending?: boolean;
+    season?: string;
+    eventType?: string;
   };
   errors: string[];
   isValid: boolean;
 }
 
-const VALID_TOUR_CATEGORIES = ['Family', 'Honeymoon', 'Friends', 'Religious'];
+const VALID_TOUR_CATEGORIES = ['Family', 'Honeymoon', 'Friends', 'Religious', 'Fix Departure'];
 const VALID_HOTEL_TYPES = ['budget', 'deluxe', 'premium'];
 const VALID_MEAL_PLANS = ['no-meal', 'breakfast', 'breakfast-dinner', 'all-meals'];
 
@@ -71,9 +76,9 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
   // Generate and download sample CSV Template
   const handleDownloadTemplate = () => {
     const csvContent = [
-      ['packageType', 'countryName', 'stateName', 'cost', 'tourCategories', 'hotelTypes', 'mealPlan', 'placesCovered', 'imageUrls', 'itinerary', 'inclusions', 'exclusions'],
-      ['domestic', '', 'Goa', '15000', 'Family, Friends', 'budget, deluxe', 'breakfast-dinner', 'Panaji, Calangute Beach, Dudhsagar Falls', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e', 'Panaji @ Day 1: Arrival & transfer to hotel. Spend evening at leisure.||Calangute Beach @ Day 2: North Goa sightseeing tour.||Dudhsagar Falls @ Day 3: South Goa sightseeing tour & spice plantation.||Panaji @ Day 4: Departure transfer to airport.', '3 Nights hotel accommodation;Daily breakfast and dinner;North & South Goa sightseeing transfers', 'Airfare/Train tickets;Lunch;Personal expenses;Monument entry fees'],
-      ['international', 'Thailand', '', '35000', 'Honeymoon, Friends', 'deluxe, premium', 'breakfast', 'Bangkok, Pattaya, Coral Island', 'https://images.unsplash.com/photo-1528127269322-539801943592, https://images.unsplash.com/photo-1552465011-b4e21bf6e79a', 'Pattaya @ Day 1: Arrival in Bangkok & transfer to Pattaya hotel.||Coral Island @ Day 2: Coral Island speedboat tour with lunch.||Bangkok @ Day 3: Transfer back to Bangkok. Afternoon city temple tour.||Bangkok @ Day 4: Departure transfer to Bangkok Airport.', '3 Nights hotel stay;Daily breakfast;Coral Island tour with lunch;Airport & hotel transfers', 'Flights;Thailand visa fees;Dinner;Personal expenses']
+      ['packageType', 'countryName', 'stateName', 'cost', 'tourCategories', 'hotelTypes', 'mealPlan', 'placesCovered', 'imageUrls', 'itinerary', 'inclusions', 'exclusions', 'experienceType', 'discountCategory', 'isTrending', 'season', 'eventType'],
+      ['domestic', '', 'Goa', '15000', 'Family, Friends', 'budget, deluxe', 'breakfast-dinner', 'Panaji, Calangute Beach, Dudhsagar Falls', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e', 'Panaji @ Day 1: Arrival & transfer to hotel. Spend evening at leisure.||Calangute Beach @ Day 2: North Goa sightseeing tour.||Dudhsagar Falls @ Day 3: South Goa sightseeing tour & spice plantation.||Panaji @ Day 4: Departure transfer to airport.', '3 Nights hotel accommodation;Daily breakfast and dinner;North & South Goa sightseeing transfers', 'Airfare/Train tickets;Lunch;Personal expenses;Monument entry fees', 'adventure', '10-off', 'false', 'summer', 'weekend'],
+      ['international', 'Thailand', '', '35000', 'Honeymoon, Friends', 'deluxe, premium', 'breakfast', 'Bangkok, Pattaya, Coral Island', 'https://images.unsplash.com/photo-1528127269322-539801943592, https://images.unsplash.com/photo-1552465011-b4e21bf6e79a', 'Pattaya @ Day 1: Arrival in Bangkok & transfer to Pattaya hotel.||Coral Island @ Day 2: Coral Island speedboat tour with lunch.||Bangkok @ Day 3: Transfer back to Bangkok. Afternoon city temple tour.||Bangkok @ Day 4: Departure transfer to Bangkok Airport.', '3 Nights hotel stay;Daily breakfast;Coral Island tour with lunch;Airport & hotel transfers', 'Flights;Thailand visa fees;Dinner;Personal expenses', 'adventure', 'none', 'true', 'winter', 'new-year']
     ];
 
     const csvString = Papa.unparse(csvContent);
@@ -228,6 +233,13 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
           const inclusions = (row.inclusions || '').trim().replace(/;/g, '\n');
           const exclusions = (row.exclusions || '').trim().replace(/;/g, '\n');
 
+          // 11. Parse classification fields
+          const experienceType = (row.experienceType || '').trim().toLowerCase();
+          const discountCategory = (row.discountCategory || '').trim().toLowerCase() || 'none';
+          const isTrending = (row.isTrending || '').trim().toLowerCase() === 'true';
+          const season = (row.season || '').trim().toLowerCase();
+          const eventType = (row.eventType || '').trim().toLowerCase();
+
           return {
             rowNum,
             data: {
@@ -241,7 +253,12 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
               placesCovered,
               itinerary,
               inclusions,
-              exclusions
+              exclusions,
+              experienceType,
+              discountCategory,
+              isTrending,
+              season,
+              eventType
             },
             errors,
             isValid: errors.filter(err => !err.startsWith('Warning:')).length === 0
@@ -298,6 +315,11 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
         exclusions: listing.data.exclusions,
         cost: listing.data.cost,
         photos: mainPhoto ? [mainPhoto] : [],
+        experienceType: listing.data.experienceType || '',
+        discountCategory: listing.data.discountCategory || 'none',
+        isTrending: !!listing.data.isTrending,
+        season: listing.data.season || '',
+        eventType: listing.data.eventType || '',
         agencyId,
         approved: false, // Subject to admin approval
         createdAt: new Date(),

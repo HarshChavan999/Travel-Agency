@@ -163,6 +163,9 @@ export default function ListingCard({
         reviewsCount: listing.reviewsCount,
         tourCategories: listing.tourCategories,
       });
+      window.dispatchEvent(new CustomEvent('floating-effect', {
+        detail: { x: e.clientX, y: e.clientY, type: 'compare' }
+      }));
       setCompareToastMessage('Added to compare!');
       setShowCompareToast(true);
       setTimeout(() => setShowCompareToast(false), 2000);
@@ -170,7 +173,7 @@ export default function ListingCard({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group flex flex-col gap-4">
+    <div className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group flex flex-col gap-4">
       {/* Compare Toast */}
       {showCompareToast && (
         <div className="absolute top-4 right-4 z-10 animate-in fade-in duration-200">
@@ -217,7 +220,7 @@ export default function ListingCard({
                   cacheBust: false
                 })}
                 alt={`${cardTitle} photo ${currentImageIndex + 1}`}
-                className="w-full h-full object-fill transition-all duration-500 scale-100 group-hover/image:scale-105"
+                className="w-full h-full object-cover transition-transform duration-700 ease-out scale-100 group-hover/image:scale-110"
                 loading="lazy"
                 decoding="async"
               />
@@ -270,9 +273,9 @@ export default function ListingCard({
               <img
                 src={optimizedImageUrl}
                 alt={cardTitle}
-                className={`w-full h-full object-fill transition-all duration-500 ${
-                  imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
-                } group-hover:scale-105`}
+                className={`w-full h-full object-cover transition-all duration-700 ease-out ${
+                  imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-110'
+                } group-hover:scale-110`}
                 onLoad={handleImageLoad}
                 onError={handleImageError}
                 loading="lazy"
@@ -475,6 +478,9 @@ export default function ListingCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     onWishlist?.(listing.id);
+                    window.dispatchEvent(new CustomEvent('floating-effect', {
+                      detail: { x: e.clientX, y: e.clientY, type: 'wishlist' }
+                    }));
                   }}
                 >
                   <Heart 

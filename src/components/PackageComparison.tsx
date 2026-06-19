@@ -17,7 +17,7 @@ import {
   Bus,
   Camera,
   Check,
-  ShoppingCart,
+  MessageSquare,
   AlertCircle,
   Trash2
 } from 'lucide-react';
@@ -26,7 +26,7 @@ import { optimizeImageUrl } from '@/lib/imageOptimization';
 
 interface PackageComparisonProps {
   onBack: () => void;
-  onBook: (listing: any) => void;
+  onChat: (agencyId: string, agencyName: string) => void;
 }
 
 // Helper function to get main image
@@ -112,8 +112,8 @@ const getTourHighlights = (pkg: ComparisonPackage) => {
 const PackageCard: React.FC<{
   pkg: ComparisonPackage;
   onRemove: () => void;
-  onBook: () => void;
-}> = ({ pkg, onRemove, onBook }) => {
+  onChat: () => void;
+}> = ({ pkg, onRemove, onChat }) => {
   const mainImage = getMainImage(pkg);
   const optimizedImage = mainImage ? optimizeImageUrl(mainImage, { quality: 85, format: 'auto' }) : null;
   const duration = pkg.itinerary?.length || pkg.duration || 0;
@@ -122,12 +122,12 @@ const PackageCard: React.FC<{
   const currency = pkg.packageType === 'international' ? '$' : '₹';
   const hotelDetails = getHotelDetails(pkg);
   const inclusionsList = parseList(pkg.inclusions);
-  const exclusionsList = parseList(pkg.exclusions);
+  
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
       {/* Package Image */}
-      <div className="relative h-48 bg-gray-100">
+      <div className="relative h-48 bg-gray-50">
         {optimizedImage ? (
           <img
             src={optimizedImage}
@@ -135,68 +135,68 @@ const PackageCard: React.FC<{
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200">
-            <Camera className="h-12 w-12 text-blue-400" />
+          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <Camera className="h-12 w-12 text-gray-300" />
           </div>
         )}
         <button
           onClick={onRemove}
-          className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+          className="absolute top-2.5 right-2.5 p-1.5 bg-white/95 text-gray-700 rounded-full hover:bg-white border border-gray-200 shadow-sm transition-colors"
         >
           <X className="h-4 w-4" />
         </button>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-          <Badge className="bg-orange-500 text-white border-0">
+        <div className="absolute bottom-3 left-3">
+          <Badge className="bg-white/95 text-slate-800 border border-gray-200 backdrop-blur-sm shadow-sm font-semibold">
             {pkg.packageType === 'international' ? 'International' : 'Domestic'}
           </Badge>
         </div>
       </div>
 
       {/* Package Info */}
-      <div className="p-4 flex-1 flex flex-col">
+      <div className="p-5 flex-1 flex flex-col">
         <h3 className="font-bold text-lg text-gray-900 mb-1 line-clamp-2">{pkg.title}</h3>
-        <p className="text-sm text-gray-500 mb-3">By {pkg.agencyName || 'Travel Agency'}</p>
+        <p className="text-xs text-gray-500 mb-4">By {pkg.agencyName || 'Travel Agency'}</p>
 
         {/* Rating */}
-        <div className="flex items-center gap-1 mb-3">
+        <div className="flex items-center gap-1 mb-4">
           {[1, 2, 3, 4, 5].map((star) => (
             <Star
               key={star}
-              className={`h-4 w-4 ${star <= (pkg.rating || 4) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+              className={`h-4 w-4 ${star <= (pkg.rating || 4) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`}
             />
           ))}
-          <span className="text-sm text-gray-600 ml-1">{pkg.rating || 4}/5</span>
+          <span className="text-xs font-semibold text-gray-650 ml-1">{pkg.rating || 4}/5</span>
         </div>
 
         {/* Price */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-3 rounded-lg mb-4">
-          <p className="text-xs opacity-90">Starting from</p>
-          <p className="text-2xl font-bold">{currency}{price}</p>
-          <p className="text-xs opacity-90">per person</p>
+        <div className="bg-white border border-gray-200 p-4 rounded-xl mb-4 shadow-sm">
+          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Starting from</p>
+          <p className="text-2xl font-extrabold text-gray-900 mt-0.5">{currency}{price}</p>
+          <p className="text-[10px] text-gray-450 font-medium">per person</p>
         </div>
 
         {/* Duration */}
-        <div className="flex items-center gap-2 mb-4 text-sm">
-          <Calendar className="h-4 w-4 text-blue-600" />
-          <span className="font-medium">{duration} Days / {nights} Nights</span>
+        <div className="flex items-center gap-2 mb-4 text-sm font-medium text-gray-700">
+          <Calendar className="h-4 w-4 text-slate-500" />
+          <span>{duration} Days / {nights} Nights</span>
         </div>
 
         {/* Hotel Details */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
-            <Hotel className="h-4 w-4 text-purple-600" />
-            <span className="font-semibold text-sm">Hotels</span>
+            <Hotel className="h-4 w-4 text-slate-500" />
+            <span className="font-semibold text-sm text-gray-900">Hotels</span>
           </div>
           <div className="space-y-2">
             {hotelDetails.slice(0, 3).map((hotel, idx) => (
-              <div key={idx} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                <div className="flex items-center gap-1 mb-1">
-                  <MapPin className="h-3 w-3" />
-                  <span className="font-medium">{hotel.city}</span>
+              <div key={idx} className="text-xs text-gray-605 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                <div className="flex items-center gap-1 mb-1 font-semibold text-gray-800">
+                  <MapPin className="h-3 w-3 text-slate-400" />
+                  <span>{hotel.city}</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 text-gray-500">
                   <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                  <span>{hotel.hotels[0]}</span>
+                  <span className="truncate">{hotel.hotels[0]}</span>
                   <span className="text-gray-400">({hotel.nights}N)</span>
                 </div>
               </div>
@@ -207,31 +207,31 @@ const PackageCard: React.FC<{
         {/* Meal Plan */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
-            <Utensils className="h-4 w-4 text-green-600" />
-            <span className="font-semibold text-sm">Meal Plan</span>
+            <Utensils className="h-4 w-4 text-slate-500" />
+            <span className="font-semibold text-sm text-gray-900">Meal Plan</span>
           </div>
-          <p className="text-xs text-gray-600 bg-green-50 p-2 rounded">{getMealPlan(pkg.inclusions)}</p>
+          <p className="text-xs text-gray-605 bg-gray-50 p-2.5 rounded-lg border border-gray-100">{getMealPlan(pkg.inclusions)}</p>
         </div>
 
         {/* Transfers */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
-            <Bus className="h-4 w-4 text-blue-600" />
-            <span className="font-semibold text-sm">Transfers</span>
+            <Bus className="h-4 w-4 text-slate-500" />
+            <span className="font-semibold text-sm text-gray-900">Transfers</span>
           </div>
-          <p className="text-xs text-gray-600 bg-blue-50 p-2 rounded">{getTransferDetails(pkg.inclusions)}</p>
+          <p className="text-xs text-gray-605 bg-gray-50 p-2.5 rounded-lg border border-gray-100">{getTransferDetails(pkg.inclusions)}</p>
         </div>
 
         {/* Sightseeing */}
         <div className="mb-4 flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <Camera className="h-4 w-4 text-pink-600" />
-            <span className="font-semibold text-sm">Sightseeing</span>
+            <Camera className="h-4 w-4 text-slate-500" />
+            <span className="font-semibold text-sm text-gray-900">Sightseeing</span>
           </div>
-          <ul className="text-xs text-gray-600 space-y-1">
+          <ul className="text-xs text-gray-600 space-y-1.5">
             {getSightseeingDetails(pkg).slice(0, 3).map((item, idx) => (
-              <li key={idx} className="flex items-start gap-1">
-                <Check className="h-3 w-3 text-green-500 mt-0.5 flex-shrink-0" />
+              <li key={idx} className="flex items-start gap-1.5">
+                <Check className="h-3.5 w-3.5 text-slate-500 mt-0.5 flex-shrink-0" />
                 <span className="line-clamp-2">{item}</span>
               </li>
             ))}
@@ -241,13 +241,13 @@ const PackageCard: React.FC<{
         {/* Tour Highlights */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
-            <Star className="h-4 w-4 text-yellow-600" />
-            <span className="font-semibold text-sm">Tour Highlights</span>
+            <Star className="h-4 w-4 text-slate-505" />
+            <span className="font-semibold text-sm text-gray-900">Tour Highlights</span>
           </div>
-          <ul className="text-xs text-gray-600 space-y-1 max-h-32 overflow-y-auto">
+          <ul className="text-xs text-gray-600 space-y-1.5 max-h-32 overflow-y-auto pr-1">
             {getTourHighlights(pkg).slice(0, 5).map((highlight, idx) => (
-              <li key={idx} className="flex items-start gap-1">
-                <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mt-1.5 flex-shrink-0" />
+              <li key={idx} className="flex items-start gap-1.5">
+                <div className="w-1.5 h-1.5 bg-slate-400 rounded-full mt-1.5 flex-shrink-0" />
                 <span className="line-clamp-2">{highlight}</span>
               </li>
             ))}
@@ -255,25 +255,25 @@ const PackageCard: React.FC<{
         </div>
 
         {/* Inclusions Summary */}
-        <div className="mb-4">
-          <p className="font-semibold text-sm mb-2">Inclusions</p>
-          <div className="flex flex-wrap gap-1">
+        <div className="mb-5">
+          <p className="font-semibold text-sm text-gray-900 mb-2">Inclusions</p>
+          <div className="flex flex-wrap gap-1.5">
             {inclusionsList.slice(0, 4).map((item, idx) => (
-              <Badge key={idx} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                <Check className="h-3 w-3 mr-1" />
+              <Badge key={idx} variant="outline" className="text-xs bg-gray-50 text-gray-650 border-gray-200 px-2 py-0.5 rounded-md">
+                <Check className="h-3 w-3 mr-1 text-slate-500" />
                 {item.substring(0, 20)}{item.length > 20 ? '...' : ''}
               </Badge>
             ))}
           </div>
         </div>
 
-        {/* Add to Cart Button */}
+        {/* Chat with Agency Button */}
         <Button 
-          onClick={onBook}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+          onClick={onChat}
+          className="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center justify-center"
         >
-          <ShoppingCart className="h-4 w-4 mr-2" />
-          Add to Cart
+          <MessageSquare className="h-4 w-4 mr-2" />
+          Chat with Agency
         </Button>
       </div>
     </div>
@@ -285,8 +285,8 @@ const ComparisonRow: React.FC<{
   icon: React.ReactNode;
   values: React.ReactNode[];
 }> = ({ label, icon, values }) => (
-  <div className="grid grid-cols-4 gap-4 py-3 border-b border-gray-100 last:border-0">
-    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+  <div className="grid grid-cols-4 gap-4 py-4 border-b border-gray-100 last:border-0 items-center">
+    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
       {icon}
       {label}
     </div>
@@ -298,45 +298,55 @@ const ComparisonRow: React.FC<{
   </div>
 );
 
-export default function PackageComparison({ onBack, onBook }: PackageComparisonProps) {
+export default function PackageComparison({ onBack, onChat }: PackageComparisonProps) {
   const { comparisonList, removeFromComparison, clearComparison, canAddMore, maxPackages } = useComparison();
 
-  const handleBook = (pkg: ComparisonPackage) => {
-    onBook(pkg);
+  const handleChat = (pkg: ComparisonPackage) => {
+    onChat(pkg.agencyId || '', pkg.agencyName || 'Travel Agency');
   };
 
   // Create empty slots for comparison
   const emptySlots = maxPackages - comparisonList.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" onClick={onBack}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onBack}
+                className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2 text-slate-500" />
                 Back
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Scale className="h-6 w-6 text-blue-600" />
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 tracking-tight">
+                  <Scale className="h-6 w-6 text-slate-800" />
                   Compare Packages
                 </h1>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-gray-500 mt-0.5">
                   Comparing {comparisonList.length} of {maxPackages} packages
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               {!canAddMore && (
-                <div className="flex items-center gap-2 text-amber-600 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  Maximum packages selected
+                <div className="flex items-center gap-1.5 text-slate-600 text-xs font-semibold">
+                  <AlertCircle className="h-4 w-4 text-slate-500" />
+                  Maximum selected
                 </div>
               )}
-              <Button variant="outline" size="sm" onClick={clearComparison} className="text-red-600 hover:text-red-700">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={clearComparison} 
+                className="text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-xl font-semibold"
+              >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All
               </Button>
@@ -348,16 +358,19 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {comparisonList.length === 0 ? (
-          <Card className="text-center py-16">
+          <Card className="text-center py-16 border-gray-200 bg-white rounded-2xl">
             <CardContent>
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-100 shadow-inner">
                 <Scale className="h-10 w-10 text-gray-400" />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">No Packages to Compare</h2>
-              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">No Packages to Compare</h2>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm">
                 Add packages to comparison by clicking the compare button on any travel package. You can compare up to 3 packages at a time.
               </p>
-              <Button onClick={onBack}>
+              <Button 
+                onClick={onBack}
+                className="bg-slate-900 hover:bg-black text-white px-5 py-2 rounded-xl font-semibold shadow-sm"
+              >
                 Browse Packages
               </Button>
             </CardContent>
@@ -365,28 +378,32 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
         ) : (
           <>
             {/* Side-by-Side Comparison Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
               {comparisonList.map((pkg) => (
                 <PackageCard
                   key={pkg.id}
                   pkg={pkg}
                   onRemove={() => removeFromComparison(pkg.id)}
-                  onBook={() => handleBook(pkg)}
+                  onChat={() => handleChat(pkg)}
                 />
               ))}
               
               {/* Empty Slot Placeholders */}
               {Array.from({ length: emptySlots }).map((_, idx) => (
-                <Card key={`empty-${idx}`} className="border-dashed border-2 border-gray-300 bg-gray-50/50">
+                <Card key={`empty-${idx}`} className="border-dashed border-2 border-gray-200 bg-gray-50/20 rounded-2xl">
                   <CardContent className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-6">
-                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
+                    <div className="w-16 h-16 bg-gray-55/40 rounded-full flex items-center justify-center mb-4">
                       <Scale className="h-8 w-8 text-gray-400" />
                     </div>
-                    <p className="text-gray-500 font-medium mb-2">Add another package</p>
-                    <p className="text-sm text-gray-400">
-                      Select another package to compare
+                    <p className="text-gray-650 font-bold text-sm mb-1">Add another package</p>
+                    <p className="text-xs text-gray-400 max-w-[200px]">
+                      Select another package from the listings to compare
                     </p>
-                    <Button variant="outline" className="mt-4" onClick={onBack}>
+                    <Button 
+                      variant="outline" 
+                      className="mt-5 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold px-4" 
+                      onClick={onBack}
+                    >
                       Browse More
                     </Button>
                   </CardContent>
@@ -396,33 +413,33 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
 
             {/* Detailed Comparison Table */}
             {comparisonList.length > 1 && (
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="text-lg">Detailed Comparison</CardTitle>
+              <Card className="mb-10 border border-gray-200 bg-white rounded-2xl shadow-sm overflow-hidden">
+                <CardHeader className="border-b border-gray-100 bg-gray-50/40 py-5">
+                  <CardTitle className="text-base font-bold text-gray-900">Detailed Comparison</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   {/* Header Row with Package Names */}
-                  <div className="grid grid-cols-4 gap-4 py-3 border-b-2 border-gray-200 font-semibold">
-                    <div className="text-gray-900">Feature</div>
+                  <div className="grid grid-cols-4 gap-4 py-3 border-b-2 border-gray-100 font-bold text-sm text-gray-900">
+                    <div>Feature</div>
                     {comparisonList.map((pkg) => (
-                      <div key={pkg.id} className="text-blue-600 truncate">
+                      <div key={pkg.id} className="text-slate-800 truncate" title={pkg.title}>
                         {pkg.title}
                       </div>
                     ))}
                     {emptySlots > 0 && (
-                      <div className="text-gray-400">-</div>
+                      <div className="text-gray-300">-</div>
                     )}
                   </div>
 
                   {/* Price Row */}
                   <ComparisonRow
                     label="Price"
-                    icon={<DollarSign className="h-4 w-4" />}
+                    icon={<DollarSign className="h-4 w-4 text-slate-500" />}
                     values={comparisonList.map(pkg => {
                       const price = pkg.cost || pkg.price || 0;
                       const currency = pkg.packageType === 'international' ? '$' : '₹';
                       return (
-                        <span className="font-bold text-orange-600">
+                        <span className="font-extrabold text-gray-900 text-base">
                           {currency}{price}
                         </span>
                       );
@@ -432,7 +449,7 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
                   {/* Duration Row */}
                   <ComparisonRow
                     label="Duration"
-                    icon={<Calendar className="h-4 w-4" />}
+                    icon={<Calendar className="h-4 w-4 text-slate-500" />}
                     values={comparisonList.map(pkg => {
                       const duration = pkg.itinerary?.length || pkg.duration || 0;
                       const nights = duration > 0 ? duration - 1 : 0;
@@ -443,7 +460,7 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
                   {/* Destinations Row */}
                   <ComparisonRow
                     label="Destinations"
-                    icon={<MapPin className="h-4 w-4" />}
+                    icon={<MapPin className="h-4 w-4 text-slate-500" />}
                     values={comparisonList.map(pkg => {
                       if (pkg.packageType === 'international') {
                         return pkg.countryName || 'International';
@@ -455,7 +472,7 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
                   {/* Hotel Type Row */}
                   <ComparisonRow
                     label="Hotel Type"
-                    icon={<Hotel className="h-4 w-4" />}
+                    icon={<Hotel className="h-4 w-4 text-slate-500" />}
                     values={comparisonList.map(pkg => {
                       const types = pkg.hotelTypes || ['Standard'];
                       return types[0];
@@ -465,9 +482,9 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
                   {/* Rating Row */}
                   <ComparisonRow
                     label="Rating"
-                    icon={<Star className="h-4 w-4" />}
+                    icon={<Star className="h-4 w-4 text-slate-500" />}
                     values={comparisonList.map(pkg => (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 font-semibold text-gray-800">
                         <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
                         <span>{pkg.rating || 4}/5</span>
                       </div>
@@ -477,14 +494,14 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
                   {/* Agency Row */}
                   <ComparisonRow
                     label="Agency"
-                    icon={<Check className="h-4 w-4" />}
+                    icon={<Check className="h-4 w-4 text-slate-500" />}
                     values={comparisonList.map(pkg => pkg.agencyName || 'Travel Agency')}
                   />
 
                   {/* Places Covered Row */}
                   <ComparisonRow
                     label="Places"
-                    icon={<MapPin className="h-4 w-4" />}
+                    icon={<MapPin className="h-4 w-4 text-slate-500" />}
                     values={comparisonList.map(pkg => {
                       const count = pkg.placesCovered?.length || 0;
                       return `${count} destination${count !== 1 ? 's' : ''}`;
@@ -495,11 +512,11 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
             )}
 
             {/* Summary Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Comparison Summary</CardTitle>
+            <Card className="border border-gray-200 bg-white rounded-2xl shadow-sm">
+              <CardHeader className="border-b border-gray-100 bg-gray-50/40 py-5">
+                <CardTitle className="text-base font-bold text-gray-900">Comparison Summary</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {comparisonList.map((pkg) => {
                     const price = Number(pkg.cost || pkg.price || 0);
@@ -507,21 +524,21 @@ export default function PackageComparison({ onBack, onBook }: PackageComparisonP
                     const isBestValue = price === minPrice;
                     
                     return (
-                      <div key={pkg.id} className={`p-4 rounded-lg border-2 ${isBestValue ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
-                        <h4 className="font-semibold text-gray-900 mb-2 truncate">{pkg.title}</h4>
+                      <div key={pkg.id} className={`p-5 rounded-2xl border bg-white transition-all ${isBestValue ? 'border-slate-800 shadow-md ring-1 ring-slate-800' : 'border-gray-200'}`}>
+                        <h4 className="font-bold text-gray-900 mb-2 truncate" title={pkg.title}>{pkg.title}</h4>
                         {isBestValue && (
-                          <Badge className="bg-green-500 text-white mb-2">Best Value</Badge>
+                          <Badge className="bg-slate-900 text-white border-0 mb-3 text-xs font-semibold">Best Value</Badge>
                         )}
-                        <p className="text-2xl font-bold text-orange-600 mb-1">
+                        <p className="text-2xl font-extrabold text-slate-900 mb-1">
                           {pkg.packageType === 'international' ? '$' : '₹'}{price}
                         </p>
-                        <p className="text-sm text-gray-500 mb-3">per person</p>
+                        <p className="text-xs text-gray-500 mb-4">per person</p>
                         <Button 
-                          onClick={() => handleBook(pkg)}
-                          className="w-full bg-orange-500 hover:bg-orange-600"
+                          onClick={() => handleChat(pkg)}
+                          className="w-full bg-slate-900 hover:bg-black text-white font-bold py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center"
                         >
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Book Now
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Chat with Agency
                         </Button>
                       </div>
                     );

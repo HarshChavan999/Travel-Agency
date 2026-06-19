@@ -38,6 +38,11 @@ interface FormData {
   inclusions: string;
   exclusions: string;
   cost: string;
+  experienceType?: 'trekking' | 'snow' | 'adventure' | 'water-sports' | '';
+  discountCategory?: 'none' | '10-off' | '50-off' | 'flash-deals' | '';
+  isTrending?: boolean;
+  season?: 'summer' | 'monsoon' | 'winter' | 'spring' | '';
+  eventType?: 'new-year' | 'diwali' | 'summer-vacation' | 'weekend' | '';
 }
 
 interface AgencyListingFormProps {
@@ -50,7 +55,8 @@ const tourCategories = [
   'Family',
   'Honeymoon', 
   'Friends',
-  'Religious'
+  'Religious',
+  'Fix Departure'
 ];
 
 const hotelTypes = [
@@ -169,7 +175,12 @@ const {
       itinerary: [],
       inclusions: '',
       exclusions: '',
-      cost: ''
+      cost: '',
+      experienceType: '',
+      discountCategory: 'none',
+      isTrending: false,
+      season: '',
+      eventType: ''
     }
   });
 
@@ -725,10 +736,119 @@ const packageType = watch('packageType');
               />
             </div>
 
-            {/* 8. Inclusions & Exclusions */}
+            {/* 8. Category Classification Details */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Experience Type */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">8. Experience Type</h3>
+                <Controller
+                  name="experienceType"
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      {...field}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Select experience type</option>
+                      <option value="trekking">Trekking</option>
+                      <option value="snow">Snow Enjoyment</option>
+                      <option value="adventure">Adventure</option>
+                      <option value="water-sports">Water Sports</option>
+                    </select>
+                  )}
+                />
+              </div>
+
+              {/* Deals & Offers Category */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">9. Deals & Offers</h3>
+                <Controller
+                  name="discountCategory"
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      {...field}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="none">Standard Price (No Offer)</option>
+                      <option value="10-off">10% Off</option>
+                      <option value="50-off">50% Off</option>
+                      <option value="flash-deals">Flash Deals</option>
+                    </select>
+                  )}
+                />
+              </div>
+
+              {/* Trending Status */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">10. Trending Package</h3>
+                <Controller
+                  name="isTrending"
+                  control={control}
+                  render={({ field }) => (
+                    <label className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors animate-none"
+                      />
+                      <span className="text-sm font-medium">Mark as Trending Destination</span>
+                    </label>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Seasonal and Events Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Season Getaways */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">11. Seasonal Escapes</h3>
+                <Controller
+                  name="season"
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      {...field}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Select season</option>
+                      <option value="summer">Summer Retreat (May - Jul)</option>
+                      <option value="monsoon">Monsoon Magic (Aug - Oct)</option>
+                      <option value="winter">Winter Wonderland (Nov - Jan)</option>
+                      <option value="spring">Spring Getaway (Feb - Apr)</option>
+                    </select>
+                  )}
+                />
+              </div>
+
+              {/* Festive & Event Specials */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">12. Festive & Event Specials</h3>
+                <Controller
+                  name="eventType"
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      {...field}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Select festival/event</option>
+                      <option value="new-year">New Year & Christmas Specials</option>
+                      <option value="diwali">Diwali Specials</option>
+                      <option value="summer-vacation">Summer Vacations</option>
+                      <option value="weekend">Long Weekend Escapes</option>
+                    </select>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* 13. Inclusions & Exclusions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">8. Inclusions</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">13. Inclusions</h3>
                 <Controller
                   name="inclusions"
                   control={control}
@@ -744,7 +864,7 @@ const packageType = watch('packageType');
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">9. Exclusions</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">14. Exclusions</h3>
                 <Controller
                   name="exclusions"
                   control={control}
