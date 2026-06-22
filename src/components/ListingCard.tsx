@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from './ui/badge';
 import { useComparison } from '@/contexts/ComparisonContext';
-import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2, Camera, Bus, Bed, Utensils, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2, Camera, Bus, Bed, Utensils, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { optimizeImageUrl, generateBlurPlaceholder, preloadImage } from '@/lib/imageOptimization';
 import { injectImageStyles } from '@/lib/imageStyles';
 
@@ -206,7 +206,7 @@ export default function ListingCard({
           {/* Error State */}
           {imageError && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-              <span className="text-xl text-gray-400">📸</span>
+              <Camera className="h-6 w-6 text-gray-400" />
             </div>
           )}
 
@@ -291,8 +291,9 @@ export default function ListingCard({
           {/* Agency Badge over image if needed, or verified check */}
           {listing.agencyData?.verified && (
             <div className="absolute bottom-1.5 left-1.5 z-10">
-              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[9px] px-1 py-0 shadow-sm">
-                ✅ Verified
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0.5 shadow-sm flex items-center gap-1">
+                <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
+                Verified
               </Badge>
             </div>
           )}

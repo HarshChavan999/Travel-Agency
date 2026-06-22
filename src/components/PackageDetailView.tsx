@@ -11,10 +11,10 @@ import {
   Heart, 
   MapPin, 
   Calendar, 
-  DollarSign,
+
   ChevronRight,
   Home,
-  Hotel,
+  
   Camera,
   Video,
   Check,
@@ -24,7 +24,10 @@ import {
   ArrowLeft,
   MessageCircle,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Building2,
+  ShieldCheck,
+  Banknote
 } from 'lucide-react';
 
 interface PackageDetailViewProps {
@@ -360,7 +363,7 @@ export default function PackageDetailView({
               }`}
               onClick={() => setActiveImageTab('hotel')}
             >
-              <Hotel className="h-8 w-8 text-sky-600 mb-2" />
+              <Building2 className="h-8 w-8 text-sky-600 mb-2" />
               <span className="text-sm font-medium text-sky-800">Hotel Photos</span>
               <span className="text-xs text-sky-600 mt-1">View hotels</span>
             </div>
@@ -401,7 +404,7 @@ export default function PackageDetailView({
             </div>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Hotel className="h-6 w-6 text-purple-600" />
+                <Building2 className="h-6 w-6 text-purple-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Hotel Type</p>
@@ -410,7 +413,7 @@ export default function PackageDetailView({
             </div>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-orange-600" />
+                <Banknote className="h-6 w-6 text-orange-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Starting From</p>
@@ -487,7 +490,7 @@ export default function PackageDetailView({
             <Card>
               <CardHeader className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
                 <CardTitle className="flex items-center gap-2 text-xl">
-                  <Hotel className="h-5 w-5" />
+                  <Building2 className="h-5 w-5" />
                   Accommodation Details
                 </CardTitle>
               </CardHeader>
@@ -496,7 +499,7 @@ export default function PackageDetailView({
                   {(listing.placesCovered || defaultAccommodations).map((place: any, index: number) => (
                     <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Hotel className="h-5 w-5 text-blue-600" />
+                        <Building2 className="h-5 w-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900">{place.name || place.city}</h4>
@@ -648,14 +651,15 @@ export default function PackageDetailView({
                 <CardContent className="p-4">
                   <h3 className="font-semibold text-lg mb-3">Offered By</h3>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-xl">🏢</span>
+                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                      <Building2 className="h-6 w-6 text-orange-650" />
                     </div>
                     <div>
                       <p className="font-medium">{listing.agencyName || 'Travel Agency'}</p>
                       {listing.agencyData?.verified && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                          ✅ Verified
+                        <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                          Verified
                         </Badge>
                       )}
                     </div>
@@ -733,8 +737,9 @@ export default function PackageDetailView({
                 variant="ghost" 
                 size="sm"
                 onClick={() => setShowAllPhotos(false)}
+                className="flex items-center gap-1"
               >
-                ✕ Close
+                <X className="h-4 w-4" /> Close
               </Button>
             </div>
             <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4">

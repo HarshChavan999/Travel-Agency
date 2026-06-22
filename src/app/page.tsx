@@ -14,11 +14,63 @@ import ListingCard from '@/components/ListingCard';
 import PackageDetailView from '@/components/PackageDetailView';
 import PackageComparison from '@/components/PackageComparison';
 import { useComparison } from '@/contexts/ComparisonContext';
+import { 
+  User, 
+  MapPin, 
+  Scale, 
+  MessageSquare, 
+  Shield, 
+  CreditCard, 
+  ShoppingCart, 
+  Heart, 
+  Pencil, 
+  Save, 
+  Plus, 
+  Trash2, 
+  ArrowLeft, 
+  ClipboardList, 
+  Wrench,
+  Camera,
+  Search,
+  LayoutGrid,
+  Palmtree,
+  Mountain,
+  Globe,
+  Flame,
+  Compass,
+  CheckCircle2,
+  Clock,
+  XCircle
+} from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
 import { getFirestore } from 'firebase/firestore';
 import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
+
+const getTabIcon = (id: string, className?: string) => {
+  switch (id) {
+    case 'all':
+    case 'all_packages':
+      return <Palmtree className={className || "h-4 w-4"} />;
+    case 'domestic':
+    case 'domestic_tab':
+      return <Mountain className={className || "h-4 w-4"} />;
+    case 'international':
+    case 'intl_tab':
+      return <Globe className={className || "h-4 w-4"} />;
+    case 'all_categories':
+      return <LayoutGrid className={className || "h-4 w-4"} />;
+    case 'trending_tab':
+      return <Flame className={className || "h-4 w-4"} />;
+    case 'experience_tab':
+      return <Compass className={className || "h-4 w-4"} />;
+    case 'honeymoon_tab':
+      return <Heart className={className || "h-4 w-4 fill-current text-current"} />;
+    default:
+      return null;
+  }
+};
 
 const categoriesConfig = [
   {
@@ -132,6 +184,7 @@ export default function Home() {
   const [pendingListings, setPendingListings] = useState<any[]>([]);
   const [agencyActiveSection, setAgencyActiveSection] = useState('listings');
   const [userActiveSection, setUserActiveSection] = useState('listings');
+  const [fromSection, setFromSection] = useState('listings');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [currentChatAgency, setCurrentChatAgency] = useState<string>('agency1');
@@ -257,6 +310,7 @@ export default function Home() {
   const [profilePhone, setProfilePhone] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+  const [profileImageError, setProfileImageError] = useState(false);
   const [coTravellers, setCoTravellers] = useState<any[]>([]);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showAddCoTraveller, setShowAddCoTraveller] = useState(false);
@@ -462,6 +516,7 @@ export default function Home() {
       setProfilePhone(userData.phone || userData.contactNumber || '');
       setProfileEmail(user.email || '');
       setProfilePhotoUrl(userData.avatarUrl || user.photoURL || '');
+      setProfileImageError(false);
       setCoTravellers(userData.coTravellers || []);
     }
   }, [user, userData]);
@@ -585,6 +640,7 @@ export default function Home() {
       });
 
       setProfilePhotoUrl(downloadUrl);
+      setProfileImageError(false);
       alert('Profile picture updated successfully!');
     } catch (error) {
       console.error('Error uploading profile photo:', error);
@@ -2449,7 +2505,7 @@ export default function Home() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-400 text-xs">🔍</span>
+                    <Search className="h-4 w-4 text-gray-400" />
                   </div>
                 </div>
               </div>
@@ -2458,7 +2514,7 @@ export default function Home() {
               <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap">
                 {/* Location */}
                 <div className="flex items-center gap-2 text-xs text-white select-none bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm transition-all">
-                  <span className="text-base">📍</span>
+                  <MapPin className="h-4 w-4 text-orange-500" />
                   <div className="flex flex-col leading-tight hidden sm:flex">
                     <span className="font-bold text-gray-200">{pincode}</span>
                     <span className="text-[9px] text-gray-400 font-medium">Location</span>
@@ -2468,9 +2524,12 @@ export default function Home() {
                 {/* Profile */}
                 <div
                   className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
-                  onClick={() => setUserActiveSection('profile')}
+                  onClick={() => {
+                    setFromSection(userActiveSection);
+                    setUserActiveSection('profile');
+                  }}
                 >
-                  <span className="text-base">👤</span>
+                  <User className="h-4 w-4" />
                   <div className="flex flex-col leading-tight hidden sm:flex">
                     <span className="font-semibold text-gray-200">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
                     <span
@@ -2499,11 +2558,12 @@ export default function Home() {
                 <div
                   className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'wishlist' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
                   onClick={() => {
+                    setFromSection(userActiveSection);
                     setUserActiveSection('wishlist');
                     setWishlistSubTab('wishlist');
                   }}
                 >
-                  <span className="text-base">⚖️</span>
+                  <Scale className="h-4 w-4" />
                   <div className="flex flex-col leading-tight hidden sm:flex">
                     <span className="font-semibold text-gray-200">Compare</span>
                     <span className="text-[9px] text-gray-400 font-medium">& Wishlist</span>
@@ -2513,9 +2573,12 @@ export default function Home() {
                 {/* Messages */}
                 <div
                   className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'chat' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
-                  onClick={() => setUserActiveSection('chat')}
+                  onClick={() => {
+                    setFromSection(userActiveSection);
+                    setUserActiveSection('chat');
+                  }}
                 >
-                  <span className="text-base">💬</span>
+                  <MessageSquare className="h-4 w-4" />
                   <div className="flex flex-col leading-tight hidden sm:flex">
                     <span className="font-semibold text-gray-200">Messages</span>
                     <span className="text-[9px] text-gray-400 font-medium">Agencies</span>
@@ -2525,9 +2588,12 @@ export default function Home() {
                 {/* Support */}
                 <div
                   className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'support' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
-                  onClick={() => setUserActiveSection('support')}
+                  onClick={() => {
+                    setFromSection(userActiveSection);
+                    setUserActiveSection('support');
+                  }}
                 >
-                  <span className="text-base">🛡️</span>
+                  <Shield className="h-4 w-4" />
                   <div className="flex flex-col leading-tight hidden sm:flex">
                     <span className="font-semibold text-gray-200">Support</span>
                     <span className="text-[9px] text-gray-400 font-medium">Dispute & Help</span>
@@ -2581,19 +2647,20 @@ export default function Home() {
                     {/* Widget Top Tab Row */}
                     <div className="flex gap-4 mb-4 border-b border-white/10 pb-3 flex-wrap">
                       {[
-                        { id: 'all', label: '🏖️ All Packages' },
-                        { id: 'domestic', label: '🏔️ Domestic' },
-                        { id: 'international', label: '🌍 International' }
+                        { id: 'all', label: 'All Packages' },
+                        { id: 'domestic', label: 'Domestic' },
+                        { id: 'international', label: 'International' }
                       ].map(tab => (
                         <button
                           key={tab.id}
                           onClick={() => setHeroTypeSelect(tab.id as any)}
-                          className={`pb-2 text-xs font-bold transition-all relative px-1 ${
+                          className={`pb-2 text-xs font-bold transition-all relative px-1 flex items-center gap-1.5 ${
                             heroTypeSelect === tab.id 
                               ? 'text-orange-400 font-extrabold after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-orange-500' 
                               : 'text-gray-300 hover:text-white'
                           }`}
                         >
+                          {getTabIcon(tab.id, "h-3.5 w-3.5")}
                           {tab.label}
                         </button>
                       ))}
@@ -2671,10 +2738,21 @@ export default function Home() {
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
               {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && (
                 <div className={`${userActiveSection === 'chat' ? 'mb-4 mt-4 shrink-0' : 'mb-6 mt-6'} flex justify-between items-center border-b pb-4 border-gray-200`}>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {userActiveSection === 'chat' && 'Messages'}
-                    {userActiveSection === 'wishlist' && 'My Wishlist'}
-                  </h1>
+                  <div className="flex items-center gap-3">
+                    {userActiveSection === 'wishlist' && (
+                      <button
+                        onClick={() => setUserActiveSection(fromSection)}
+                        className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-750 transition-all hover:scale-105 active:scale-95 text-lg font-bold shadow-sm"
+                        title="Go back"
+                      >
+                        ←
+                      </button>
+                    )}
+                    <h1 className="text-3xl font-bold text-gray-900">
+                      {userActiveSection === 'chat' && 'Messages'}
+                      {userActiveSection === 'wishlist' && 'My Wishlist'}
+                    </h1>
+                  </div>
                 </div>
               )}
 
@@ -2732,13 +2810,13 @@ export default function Home() {
                   <div className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 overflow-x-auto horizontal-scroll-nav scrollbar-hide py-2.5 sticky top-0 z-10 backdrop-blur-md">
                     <div className="flex gap-2 sm:gap-3.5 w-full justify-between items-center min-w-max px-2">
                       {[
-                        { id: 'all_categories', label: '🎛️ Categories', type: 'categories', filter: null },
-                        { id: 'all_packages', label: '🏖️ All Packages', type: 'all', filter: null },
-                        { id: 'domestic_tab', label: '🏔️ Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
-                        { id: 'intl_tab', label: '🌍 International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
-                        { id: 'trending_tab', label: '🔥 Trending', type: 'all', filter: { category: 'trending', title: 'Trending Destinations' } },
-                        { id: 'experience_tab', label: '🎒 Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } },
-                        { id: 'honeymoon_tab', label: '🍯 Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } }
+                        { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
+                        { id: 'all_packages', label: 'All Packages', type: 'all', filter: null },
+                        { id: 'domestic_tab', label: 'Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
+                        { id: 'intl_tab', label: 'International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
+                        { id: 'trending_tab', label: 'Trending', type: 'all', filter: { category: 'trending', title: 'Trending Destinations' } },
+                        { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } },
+                        { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } }
                       ].map((item) => {
                         const isCategoriesActive = item.type === 'categories' && dashboardViewMode === 'categories' && !selectedCategoryFilter;
                         const isAllActive = item.type === 'all' && dashboardViewMode === 'all' && !selectedCategoryFilter && !item.filter;
@@ -2766,6 +2844,7 @@ export default function Home() {
                                 : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300'
                             }`}
                           >
+                            {getTabIcon(item.id, "h-3.5 w-3.5")}
                             {item.label}
                           </button>
                         );
@@ -3599,13 +3678,13 @@ export default function Home() {
 
                                   {/* Status + Preferences */}
                                   <div className="px-6 py-5">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                                      <span>📋</span> {isConfirmed ? 'Booking Status' : isPending ? 'Status Update' : 'Cancellation'}
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                      <ClipboardList className="h-3.5 w-3.5" /> {isConfirmed ? 'Booking Status' : isPending ? 'Status Update' : 'Cancellation'}
                                     </p>
                                     {isConfirmed && (
                                       <div className="flex items-start gap-3">
                                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                                          <span className="text-base">✅</span>
+                                          <CheckCircle2 className="h-5 w-5 text-green-600" />
                                         </div>
                                         <div>
                                           <p className="text-green-700 font-bold text-sm">Booking Confirmed</p>
@@ -3616,7 +3695,7 @@ export default function Home() {
                                     {isPending && (
                                       <div className="flex items-start gap-3">
                                         <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                                          <span className="text-base">⏳</span>
+                                          <Clock className="h-5 w-5 text-amber-600" />
                                         </div>
                                         <div>
                                           <p className="text-amber-700 font-bold text-sm">Under Review by {booking.agencyName}</p>
@@ -3627,7 +3706,7 @@ export default function Home() {
                                     {isCancelled && (
                                       <div className="flex items-start gap-3">
                                         <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                                          <span className="text-base">❌</span>
+                                          <XCircle className="h-5 w-5 text-red-600" />
                                         </div>
                                         <div>
                                           <p className="text-red-700 font-bold text-sm">Booking Cancelled</p>
@@ -4030,7 +4109,7 @@ export default function Home() {
                       </div>
 
                       <PackageComparison
-                        onBack={() => setUserActiveSection('listings')}
+                        onBack={() => setUserActiveSection(fromSection)}
                         onChat={(agencyId, agencyName) => {
                           setCurrentChatAgency(agencyId);
                           setCurrentChatAgencyName(agencyName);
@@ -4046,107 +4125,141 @@ export default function Home() {
 
               {userActiveSection === 'profile' && (
                 <div className="py-6 animate-in fade-in duration-200">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* LEFT COLUMN: PROFILE CARD */}
-                    <div className="lg:col-span-1">
-                      <Card className="bg-white border border-gray-200 shadow-md rounded-2xl overflow-hidden">
-                        <div className="relative pt-8 pb-6 px-6 text-center border-b border-gray-100 bg-gradient-to-b from-[#1C1F26]/5 to-transparent">
-                          {/* Avatar Display */}
-                          <div className="relative w-32 h-32 mx-auto mb-4 group">
-                            {profilePhotoUrl ? (
-                              <img
-                                src={profilePhotoUrl}
-                                alt={profileName}
-                                className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
-                              />
+                  {/* FULL-WIDTH PREMIUM PROFILE HEADER CARD */}
+                  <div className="bg-[#1C1F26] text-white rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 flex flex-col md:flex-row items-center justify-between gap-6 border border-gray-800">
+                    {/* Decorative overlay */}
+                    <div className="absolute right-0 top-0 opacity-[0.03] text-[150px] pointer-events-none select-none">👤</div>
+
+                    <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 text-center md:text-left w-full md:w-auto">
+                      {/* Avatar Display */}
+                      <div className="relative w-24 h-24 group shrink-0">
+                        {profilePhotoUrl && !profileImageError ? (
+                          <img
+                            src={profilePhotoUrl}
+                            alt={profileName}
+                            onError={() => setProfileImageError(true)}
+                            className="w-full h-full rounded-full object-cover border-4 border-white/10 shadow-lg"
+                          />
+                        ) : (
+                          <div className="w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center text-white text-3xl font-extrabold shadow-lg border-4 border-white/10">
+                            {profileName ? profileName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+                          </div>
+                        )}
+                        {/* Camera Icon Overlay */}
+                        <label className="absolute bottom-0 right-0 bg-orange-500 hover:bg-orange-600 text-white rounded-full p-2 shadow-md cursor-pointer transition-all duration-200 group-hover:scale-105 border-2 border-[#1C1F26] flex items-center justify-center w-8 h-8">
+                          <span className="text-[11px] font-black">📷</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleProfilePhotoChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Quick Details */}
+                      <div>
+                        <div className="flex flex-col md:flex-row items-center gap-2.5">
+                          <h2 className="text-2xl font-bold text-white leading-snug">{profileName || 'User'}</h2>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                            userData?.plan === 'premium' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
+                            userData?.plan === 'starter' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                            'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                          }`}>
+                            {userData?.plan || 'Free'} Plan
+                          </span>
+                        </div>
+                        
+                        <div className="mt-2 flex flex-col md:flex-row md:items-center gap-3 text-sm text-gray-300 font-medium">
+                          <div className="flex items-center justify-center md:justify-start gap-1.5">
+                            <span>📧 {profileEmail}</span>
+                            {user?.emailVerified ? (
+                              <span className="text-emerald-400 text-xs font-black" title="Verified email">✓ Verified</span>
                             ) : (
-                              <div className="w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center text-white text-4xl font-extrabold shadow-lg border-4 border-white">
-                                {profileName ? profileName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
-                              </div>
+                              <span className="text-orange-400 hover:underline text-xs font-bold cursor-pointer" onClick={() => alert('Verification email sent!')} title="Click to verify">Verify</span>
                             )}
-                            {/* Camera Icon Overlay */}
-                            <label className="absolute bottom-1 right-1 bg-orange-500 hover:bg-orange-600 text-white rounded-full p-2.5 shadow-md cursor-pointer transition-all duration-200 group-hover:scale-105 border-2 border-white flex items-center justify-center">
-                              <span className="text-sm font-bold">📷+</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleProfilePhotoChange}
-                                className="hidden"
-                              />
-                            </label>
                           </div>
-
-                          {/* Profile Quick Info */}
-                          <h3 className="text-xl font-bold text-gray-900 leading-snug">{profileName || 'User'}</h3>
-                          <div className="mt-1 flex flex-col gap-1 text-sm text-gray-500">
-                            <div className="flex items-center justify-center gap-1">
-                              <span>{profileEmail}</span>
-                              {user?.emailVerified ? (
-                                <span className="text-emerald-500 text-xs" title="Verified email">✓</span>
-                              ) : (
-                                <span className="text-blue-500 hover:underline text-xs font-semibold cursor-pointer" onClick={() => alert('Verification email sent!')} title="Click to verify">Verify</span>
-                              )}
+                          {profilePhone && (
+                            <div className="flex items-center justify-center md:justify-start gap-1.5">
+                              <span>📞 {profilePhone}</span>
                             </div>
-                            {profilePhone && (
-                              <div className="flex items-center justify-center gap-1.5 text-xs text-gray-600 font-medium">
-                                <span>{profilePhone}</span>
-                                <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 rounded-full w-4 h-4 text-[10px] font-bold">✓</span>
-                              </div>
-                            )}
-                          </div>
+                          )}
                         </div>
+                      </div>
+                    </div>
 
-                        {/* Navigation Links mimicking the Mockup */}
-                        <div className="p-4 space-y-1">
-                          <button
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${profileTab === 'account'
-                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10'
-                                : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                              }`}
-                            onClick={() => {
-                              setProfileTab('account');
-                              setUserActiveSection('profile');
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                          >
-                            <span className="text-lg">👤</span>
-                            <span>My Account</span>
-                          </button>
-                          <button
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 ${profileTab === 'credits'
-                                ? 'font-bold text-[#2B58C4] bg-[#2B58C4]/10'
-                                : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                              }`}
-                            onClick={() => {
-                              setProfileTab('credits');
-                              setUserActiveSection('profile');
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                          >
-                            <span className="text-lg">💳</span>
-                            <span>Plan & Credits</span>
-                          </button>
-                          {/* Bookings navigation tab removed */}
-                          <button
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
-                            onClick={() => setUserActiveSection('wishlist')}
-                          >
-                            <span className="text-lg">🛒</span>
-                            <span>My Holiday Cart</span>
-                          </button>
-                          <button
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-205"
-                            onClick={() => setUserActiveSection('wishlist')}
-                          >
-                            <span className="text-lg">❤️</span>
-                            <span>Wishlist</span>
-                          </button>
-                        </div>
+                    {/* Stats overview on right */}
+                    <div className="flex gap-4 relative z-10 w-full md:w-auto justify-around md:justify-end border-t border-white/10 md:border-none pt-4 md:pt-0">
+                      <div className="text-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl min-w-[100px] shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Unlocks</p>
+                        <p className="text-lg font-black text-white mt-0.5">{(userData?.unlockedAgencies || []).length}</p>
+                      </div>
+                      <div className="text-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl min-w-[100px] shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Credits</p>
+                        <p className="text-lg font-black text-orange-400 mt-0.5">{userData?.credits ?? 0}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* GRID LAYOUT FOR NAVIGATION & CONTENT */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* LEFT SIDEBAR: NAVIGATION MENU */}
+                    <div className="md:col-span-1">
+                      <Card className="bg-white border border-gray-200 shadow-sm rounded-3xl p-4 space-y-1">
+                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 mb-2">Settings Menu</h4>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 border-l-4 ${profileTab === 'account'
+                              ? 'font-bold text-orange-600 bg-orange-50/50 border-orange-500'
+                              : 'font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 border-transparent'
+                            }`}
+                          onClick={() => {
+                            setProfileTab('account');
+                            setUserActiveSection('profile');
+                          }}
+                        >
+                          <User className="h-4 w-4 shrink-0" />
+                          <span>My Account</span>
+                        </button>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 border-l-4 ${profileTab === 'credits'
+                              ? 'font-bold text-orange-600 bg-orange-50/50 border-orange-500'
+                              : 'font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 border-transparent'
+                            }`}
+                          onClick={() => {
+                            setProfileTab('credits');
+                            setUserActiveSection('profile');
+                          }}
+                        >
+                          <CreditCard className="h-4 w-4 shrink-0" />
+                          <span>Plan & Credits</span>
+                        </button>
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-xl transition-all duration-205 border-l-4 border-transparent"
+                          onClick={() => {
+                            setFromSection('profile');
+                            setWishlistSubTab('compare');
+                            setUserActiveSection('wishlist');
+                          }}
+                        >
+                          <ShoppingCart className="h-4 w-4 shrink-0" />
+                          <span>My Holiday Cart</span>
+                        </button>
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-xl transition-all duration-205 border-l-4 border-transparent"
+                          onClick={() => {
+                            setFromSection('profile');
+                            setWishlistSubTab('wishlist');
+                            setUserActiveSection('wishlist');
+                          }}
+                        >
+                          <Heart className="h-4 w-4 shrink-0" />
+                          <span>Wishlist</span>
+                        </button>
                       </Card>
                     </div>
 
-                    {/* RIGHT COLUMN: ACCOUNT DETAILS */}
-                    <div className="lg:col-span-2 space-y-6">
+                    {/* RIGHT COLUMN: MAIN CONTENT PANEL */}
+                    <div className="md:col-span-3 space-y-6">
                       {profileTab === 'account' && (
                         <>
                           {/* Personal Details Card */}
@@ -4157,18 +4270,24 @@ export default function Home() {
                                 <Button
                                   onClick={() => setIsEditingProfile(true)}
                                   variant="outline"
-                                  className="border-[#2B58C4] text-[#2B58C4] hover:bg-[#2B58C4]/5 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                                  className="border-orange-500 text-orange-600 hover:bg-orange-50/50 hover:text-orange-700 text-xs font-semibold rounded-xl px-4 py-2 h-auto transition-all flex items-center gap-1.5"
                                 >
-                                  ✏️ Edit Profile
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit Profile
                                 </Button>
                               ) : (
                                 <div className="flex gap-2">
                                   <Button
                                     onClick={handleSaveProfile}
                                     disabled={savingProfile}
-                                    className="bg-[#2B58C4] hover:bg-[#1E439B] text-white text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs font-semibold rounded-xl px-4 py-2 h-auto border-none transition-all shadow-sm flex items-center gap-1.5"
                                   >
-                                    {savingProfile ? 'Saving...' : '💾 Save'}
+                                    {savingProfile ? 'Saving...' : (
+                                      <>
+                                        <Save className="h-3.5 w-3.5" />
+                                        Save
+                                      </>
+                                    )}
                                   </Button>
                                   <Button
                                     onClick={() => {
@@ -4178,7 +4297,7 @@ export default function Home() {
                                       setIsEditingProfile(false);
                                     }}
                                     variant="outline"
-                                    className="border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl px-4 py-2 h-auto"
+                                    className="border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl px-4 py-2 h-auto transition-all"
                                   >
                                     Cancel
                                   </Button>
@@ -4218,7 +4337,7 @@ export default function Home() {
                                         type="text"
                                         value={profileName}
                                         onChange={(e) => setProfileName(e.target.value)}
-                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
+                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl focus-visible:ring-orange-500"
                                       />
                                     </div>
                                     <div>
@@ -4229,7 +4348,7 @@ export default function Home() {
                                         value={profilePhone}
                                         onChange={(e) => setProfilePhone(e.target.value)}
                                         placeholder="e.g. +91 932 329 4525"
-                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl"
+                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl focus-visible:ring-orange-500"
                                       />
                                     </div>
                                   </div>
@@ -4245,9 +4364,11 @@ export default function Home() {
                                 </div>
                               )}
                             </div>
+                          </Card>
 
-                            {/* Co-traveller details Section */}
-                            <div className="mt-8 pt-8 border-t border-gray-150">
+                          {/* Co-traveller details Section */}
+                          <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
+                            <div>
                               <div className="flex justify-between items-center mb-4">
                                 <div>
                                   <h3 className="text-base font-bold text-gray-900">Co-traveller details</h3>
@@ -4255,17 +4376,17 @@ export default function Home() {
                                 </div>
                                 <button
                                   onClick={() => setShowAddCoTraveller(true)}
-                                  className="w-10 h-10 bg-gray-100 hover:bg-gray-205 text-gray-700 flex items-center justify-center rounded-full shadow-sm hover:shadow-md transition-all duration-200 font-bold text-xl"
+                                  className="w-10 h-10 bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center rounded-full shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
                                   title="Add Co-traveller"
                                 >
-                                  ＋
+                                  <Plus className="h-5 w-5" />
                                 </button>
                               </div>
 
                               {/* Inline Add Co-traveller Form */}
                               {showAddCoTraveller && (
                                 <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
-                                  <h4 className="text-sm font-bold text-gray-805">Add New Co-traveller</h4>
+                                  <h4 className="text-sm font-bold text-gray-800">Add New Co-traveller</h4>
                                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <div>
                                       <Label htmlFor="coName" className="text-xs text-gray-500">Name</Label>
@@ -4274,7 +4395,7 @@ export default function Home() {
                                         placeholder="Full Name"
                                         value={newCoTraveller.name}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, name: e.target.value })}
-                                        className="mt-1 bg-white rounded-xl text-xs"
+                                        className="mt-1 bg-white rounded-xl text-xs focus-visible:ring-orange-500"
                                       />
                                     </div>
                                     <div>
@@ -4284,7 +4405,7 @@ export default function Home() {
                                         placeholder="Phone"
                                         value={newCoTraveller.contact}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, contact: e.target.value })}
-                                        className="mt-1 bg-white rounded-xl text-xs"
+                                        className="mt-1 bg-white rounded-xl text-xs focus-visible:ring-orange-500"
                                       />
                                     </div>
                                     <div>
@@ -4293,7 +4414,7 @@ export default function Home() {
                                         id="coRelation"
                                         value={newCoTraveller.relationship}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, relationship: e.target.value })}
-                                        className="mt-1 block w-full rounded-xl border-gray-200 bg-white p-2.5 text-xs text-gray-800 shadow-sm focus:border-[#2B58C4] focus:ring-[#2B58C4]"
+                                        className="mt-1 block w-full rounded-xl border-gray-200 bg-white p-2.5 text-xs text-gray-800 shadow-sm focus:border-orange-500 focus:ring-orange-500 focus-visible:ring-orange-500"
                                       >
                                         <option>Spouse</option>
                                         <option>Child</option>
@@ -4332,14 +4453,14 @@ export default function Home() {
                                         setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
                                         setShowAddCoTraveller(false);
                                       }}
-                                      className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 h-auto rounded-xl border-none"
+                                      className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs px-4 py-2 h-auto rounded-xl border-none transition-all shadow-sm"
                                     >
                                       Add Traveler
                                     </Button>
                                     <Button
                                       variant="outline"
                                       onClick={() => setShowAddCoTraveller(false)}
-                                      className="border-gray-200 text-gray-750 text-xs px-3 py-1.5 h-auto rounded-xl"
+                                      className="border-gray-200 text-gray-700 text-xs px-4 py-2 h-auto rounded-xl transition-all"
                                     >
                                       Cancel
                                     </Button>
@@ -4349,8 +4470,8 @@ export default function Home() {
 
                               {/* List of Co-travellers */}
                               {coTravellers.length === 0 ? (
-                                <p className="text-sm text-gray-500 italic text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                                  No co-travellers added yet. Click the ＋ icon to add your travel companions.
+                                <p className="text-xs text-gray-500 italic text-center py-6 bg-orange-50/20 rounded-2xl border border-dashed border-orange-200/50">
+                                  No co-travellers added yet. Click the + icon to add your travel companions.
                                 </p>
                               ) : (
                                 <div className="space-y-3">
@@ -4360,15 +4481,15 @@ export default function Home() {
                                       className="flex justify-between items-center p-4 bg-gray-50 border border-gray-150 rounded-2xl hover:bg-gray-100/70 transition-all duration-150 shadow-sm animate-in fade-in"
                                     >
                                       <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-[#2B58C4]/10 rounded-full flex items-center justify-center text-[#2B58C4] font-bold">
-                                          👤
+                                        <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
+                                          <User className="h-5 w-5" />
                                         </div>
                                         <div>
-                                          <p className="text-sm font-semibold text-gray-800">{traveller.name}</p>
+                                          <p className="text-sm font-semibold text-gray-850">{traveller.name}</p>
                                           <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                                             <span>📞 {traveller.contact}</span>
                                             <span>•</span>
-                                            <span className="bg-[#2B58C4]/5 text-[#2B58C4] px-2 py-0.5 rounded-full font-medium text-[10px]">{traveller.relationship}</span>
+                                            <span className="bg-orange-50 text-orange-600 border border-orange-100/50 px-2 py-0.5 rounded-full font-bold text-[10px]">{traveller.relationship}</span>
                                           </div>
                                         </div>
                                       </div>
@@ -4392,7 +4513,7 @@ export default function Home() {
                                         className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-all duration-150"
                                         title="Remove Traveler"
                                       >
-                                        🗑️
+                                        <Trash2 className="h-4 w-4" />
                                       </button>
                                     </div>
                                   ))}
