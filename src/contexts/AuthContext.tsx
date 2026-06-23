@@ -19,6 +19,7 @@ interface UserData {
   credits?: number;
   freeChats?: number;
   unlockedAgencies?: string[];
+  unlockedUsers?: string[];
   creditHistory?: Array<{
     id: string;
     type: string;
@@ -323,11 +324,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         approved: role === 'user', // Users are auto-approved
         wishlist: [], // Initialize empty wishlist for new users
         ...(proofUrl && { proofUrl }),
-        ...(role === 'user' && {
+        ...(role === 'agency' && {
           plan: 'free',
           credits: 0,
           freeChats: 2,
-          unlockedAgencies: [],
+          unlockedUsers: [],
           creditHistory: [
             {
               id: 'TX-INIT',

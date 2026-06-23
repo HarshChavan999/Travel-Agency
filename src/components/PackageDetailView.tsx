@@ -14,7 +14,7 @@ import {
 
   ChevronRight,
   Home,
-  
+
   Camera,
   Video,
   Check,
@@ -686,12 +686,6 @@ export default function PackageDetailView({
                     {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
                   </p>
                   <p className="text-sm opacity-90">per person</p>
-                  <Button 
-                    className="w-full mt-4 bg-white text-orange-600 hover:bg-gray-100"
-                    onClick={() => onBook(listing)}
-                  >
-                    Book Now
-                  </Button>
                 </CardContent>
               </Card>
 
