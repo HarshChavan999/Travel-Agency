@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -209,6 +209,9 @@ export default function Home() {
   const [agencyChatInput, setAgencyChatInput] = useState('');
   const [agencyConversations, setAgencyConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
+  const hasManuallyClosedChatRef = useRef(false);
+  const [agencyChatSearchQuery, setAgencyChatSearchQuery] = useState<string>('');
+  const [showAgencyEmojiPicker, setShowAgencyEmojiPicker] = useState<boolean>(false);
   const [showListingForm, setShowListingForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingListing, setEditingListing] = useState<any>(null);
@@ -1327,8 +1330,8 @@ export default function Home() {
           const conversations = Array.from(conversationsMap.values());
           setAgencyConversations(conversations);
 
-          // Auto-select first conversation if none selected
-          if (!selectedConversation && conversations.length > 0) {
+          // Auto-select first conversation if none selected (only on initial load, not after manual close)
+          if (!selectedConversation && conversations.length > 0 && !hasManuallyClosedChatRef.current) {
             setSelectedConversation(conversations[0]);
           }
         };
@@ -1388,7 +1391,7 @@ export default function Home() {
         unsubscribeMobileMessages();
       };
     }
-  }, [user, userData, selectedConversation]);
+  }, [user, userData]);
 
   useEffect(() => {
     // Fetch listings for users - only when user is authenticated
@@ -5104,7 +5107,7 @@ export default function Home() {
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  💳 Plan & Credits
+                   Plan & Credits
                 </button>}
                 {<button
                   onClick={() => setAgencyActiveSection('settings')}
@@ -5113,14 +5116,16 @@ export default function Home() {
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  ⚙️ Settings
+                   Settings
                 </button>}
               </div>
             </nav>
           </div>
 
-          <div className="flex-1 dashboard-scroll mr-4 mt-4">
-            <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated">
+          <div className={`flex-1 dashboard-scroll mr-4 mt-4 ${
+            agencyActiveSection === 'chat' ? 'overflow-hidden flex flex-col h-[calc(100vh-32px)]' : ''
+          }`}>
+            <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated shrink-0">
               <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                   {agencyActiveSection === 'overview' && 'Agency Overview'}
@@ -5151,7 +5156,7 @@ export default function Home() {
               </div>
             </header>
 
-            <main className="p-6">
+            <main className={`p-6 ${agencyActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0' : ''}`}>
               {userData.approved ? (
                 <>
                   {agencyActiveSection === 'overview' && (
@@ -5904,141 +5909,246 @@ export default function Home() {
                   )}
 
                   {agencyActiveSection === 'chat' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Conversations List */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center">
-                            <span className="mr-2">👥</span>
-                            Conversations
-                          </CardTitle>
-                          <CardDescription>
-                            Customers who contacted you
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-2 max-h-96 overflow-y-auto">
-                            {agencyConversations.length === 0 ? (
-                              <p className="text-gray-500 text-center py-4">No conversations yet</p>
-                            ) : (
-                              agencyConversations.map((conversation) => (
-                                <div
-                                  key={conversation.userId}
-                                  onClick={() => selectConversation(conversation)}
-                                  className={`p-3 rounded-lg cursor-pointer border ${selectedConversation?.userId === conversation.userId
-                                      ? 'bg-blue-50 border-blue-200'
-                                      : 'bg-gray-50 hover:bg-gray-100'
+                    <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 w-full mb-6 -mx-2 md:-mx-4">
+                      {/* Left Column: Conversations List */}
+                      <div className="w-full md:w-80 flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full">
+                        {/* Sidebar Header */}
+                        <div className="p-4 border-b border-gray-150 bg-white shrink-0">
+                          <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                            <span>👥</span> Conversations
+                          </h3>
+                          <p className="text-[10px] text-gray-450 mt-0.5">Customers who contacted you</p>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div className="px-4 pb-3 bg-white border-b border-gray-150 shrink-0">
+                          <div className="relative">
+                            <Input
+                              type="text"
+                              placeholder="Search conversations..."
+                              className="w-full pl-8 pr-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white h-8"
+                              value={agencyChatSearchQuery}
+                              onChange={(e) => setAgencyChatSearchQuery(e.target.value)}
+                            />
+                            <span className="absolute left-3 top-2 text-[10px] text-gray-400">🔍</span>
+                          </div>
+                        </div>
+
+                        {/* Scrollable Customers List */}
+                        <div className="flex-1 p-3 space-y-2 sidebar-scroll">
+                          {agencyConversations.filter(c => c.userName.toLowerCase().includes(agencyChatSearchQuery.toLowerCase())).length === 0 ? (
+                            <div className="text-center py-12">
+                              <span className="text-3xl text-gray-305 block mb-2">👤</span>
+                              <p className="text-xs text-gray-400 font-semibold">No conversations found</p>
+                              <p className="text-[10px] text-gray-400 mt-1 px-4">Conversations will appear here once customers contact you.</p>
+                            </div>
+                          ) : (
+                            agencyConversations
+                              .filter(c => c.userName.toLowerCase().includes(agencyChatSearchQuery.toLowerCase()))
+                              .map((conversation) => {
+                                const isActive = selectedConversation?.userId === conversation.userId;
+                                const initials = conversation.userName ? conversation.userName.slice(0, 2).toUpperCase() : 'US';
+                                return (
+                                  <div
+                                    key={conversation.userId}
+                                    onClick={() => {
+                                      hasManuallyClosedChatRef.current = false;
+                                      selectConversation(conversation);
+                                    }}
+                                    className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 border border-l-4 ${
+                                      isActive
+                                        ? 'bg-orange-50/45 border-orange-500 border-l-orange-600 shadow-sm ring-1 ring-orange-500/10'
+                                        : 'bg-white/60 hover:bg-white border-transparent border-l-transparent hover:shadow-sm'
                                     }`}
-                                >
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                      <span className="text-sm">👤</span>
+                                  >
+                                    {/* Avatar */}
+                                    <div className="w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm bg-slate-900 relative">
+                                      {initials}
                                     </div>
-                                    <div className="flex-1">
-                                      <p className="font-medium text-sm">{conversation.userName}</p>
-                                      <p className="text-xs text-gray-600 truncate">{conversation.lastMessage}</p>
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between mb-0.5">
+                                        <span className="font-semibold text-xs text-gray-900 truncate pr-2">
+                                          {conversation.userName}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-gray-500 truncate">
+                                        {conversation.lastMessage || "No messages yet"}
+                                      </p>
                                     </div>
                                   </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
+                                );
+                              })
+                          )}
+                        </div>
+                      </div>
 
-                      {/* Chat Messages */}
-                      <div className="md:col-span-2">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <span className="mr-2">💬</span>
-                              {selectedConversation ? `Chat with Customer ${selectedConversation.userId.slice(0, 8)}` : 'Select a conversation'}
-                            </CardTitle>
-                            <CardDescription>
-                              {selectedConversation ? 'Respond to customer inquiries' : 'Choose a conversation from the list'}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {selectedConversation ? (
-                              <div className="h-96 bg-gray-50 rounded-lg p-4 flex flex-col">
-                                <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-                                  {[...agencyChatMessages]
-                                    .filter(msg => msg.chatId === selectedConversation.chatId)
-                                    .sort((a, b) => a.timestamp - b.timestamp)
-                                    .map((msg, index) => (
-                                      <div key={msg.id || index} className={`flex ${msg.sender === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-xs px-3 py-2 rounded-lg ${msg.sender === user?.uid ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
-                                          <p className="text-sm">
-                                            {renderMessageText(msg.text, userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan))}
-                                          </p>
-                                          <p className="text-xs opacity-75">{new Date(msg.timestamp).toLocaleTimeString()}</p>
-                                        </div>
-                                      </div>
-                                    ))}
+                      {/* Right Column: Chat Content */}
+                      <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px]">
+                        {selectedConversation ? (
+                          <div className="flex flex-col h-full relative">
+                            {/* Conversation Header */}
+                            <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
+                                  {selectedConversation.userName ? selectedConversation.userName.slice(0, 2).toUpperCase() : 'US'}
                                 </div>
-                                {(() => {
-                                  const isUnlocked = (userData?.unlockedUsers || []).includes(selectedConversation.userId);
-                                  const isFreePlan = userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan);
-                                  const hasPhoneInInput = isFreePlan && agencyChatInput.replace(/\D/g, '').length >= 10;
-                                  return isUnlocked ? (
-                                    <div className="flex flex-col w-full relative">
-                                      {hasPhoneInInput && (
-                                        <div className="absolute -top-8 left-4 text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-md border border-red-200 shadow-sm animate-pulse z-20">
-                                          ⚠️ Phone numbers cannot be sent on the Free Plan. Upgrade to Starter/Premium.
-                                        </div>
-                                      )}
-                                      <div className="flex space-x-2">
-                                        <Input
-                                          value={agencyChatInput}
-                                          onChange={(e) => setAgencyChatInput(e.target.value)}
-                                          placeholder="Type your reply..."
-                                          onKeyPress={(e) => e.key === 'Enter' && !hasPhoneInInput && sendAgencyMessage()}
-                                        />
-                                        <Button 
-                                          onClick={sendAgencyMessage} 
-                                          disabled={!agencyChatInput.trim() || hasPhoneInInput}
-                                        >
-                                          Send
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-                                      <div className="space-y-1 text-center sm:text-left">
-                                        <h4 className="text-sm font-bold text-gray-805 flex items-center gap-1.5 justify-center sm:justify-start">
-                                          <span>🔒</span> Conversation Locked
-                                        </h4>
-                                        <p className="text-xs text-gray-500">
-                                          To reply to this traveler, you need to unlock the conversation. Cost: {
-                                            userData?.plan === 'starter' ? '200 Credits' : '1 Free Reply'
-                                          }.
+                                <div>
+                                  <h4 className="font-bold text-xs text-gray-900">{selectedConversation.userName}</h4>
+                                  <span className="text-[9px] text-gray-500 font-medium flex items-center gap-1">
+                                    Customer ID: {selectedConversation.userId.slice(0, 8)}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              {/* Close/Back Button */}
+                              <button 
+                                onClick={() => {
+                                  hasManuallyClosedChatRef.current = true;
+                                  setSelectedConversation(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-650 p-1.5 hover:bg-gray-100 rounded-xl transition-all"
+                                title="Close Chat"
+                              >
+                                ✕
+                              </button>
+                            </div>
+
+                            {/* Messages Area */}
+                            <div className="flex-1 p-6 space-y-4 chat-scroll">
+                              {[...agencyChatMessages]
+                                .filter(msg => msg.chatId === selectedConversation.chatId)
+                                .sort((a, b) => a.timestamp - b.timestamp)
+                                .map((msg, index) => {
+                                  const isSelf = msg.sender === user?.uid;
+                                  return (
+                                    <div key={msg.id || index} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                                      <div 
+                                        className={`max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm leading-relaxed text-sm border-r-4 ${
+                                          isSelf 
+                                            ? 'bg-[#1C1F26] text-white rounded-tr-none border-r-orange-500 shadow-md shadow-slate-900/10' 
+                                            : 'bg-white text-gray-900 border border-gray-150 rounded-tl-none border-r-transparent'
+                                        }`}
+                                      >
+                                        <p className="break-words">
+                                          {renderMessageText(msg.text, userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan))}
                                         </p>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <div className="text-right hidden md:block">
-                                          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Your Balance</p>
-                                          <p className="text-xs font-black text-gray-700">
-                                            {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` : `${userData?.freeChats ?? 0} Free Replies`}
-                                          </p>
-                                        </div>
-                                        <Button
-                                          onClick={() => unlockCustomerChat(selectedConversation.userId, selectedConversation.userName)}
-                                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 border-none"
-                                        >
-                                          <span>✨</span> Unlock to Reply
-                                        </Button>
+                                        <span className={`text-[9px] mt-1.5 block text-right font-semibold ${isSelf ? 'text-orange-300' : 'text-gray-450'}`}>
+                                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
                                       </div>
                                     </div>
                                   );
-                                })()}
-                              </div>
-                            ) : (
-                              <div className="h-96 bg-gray-50 rounded-lg p-4 flex items-center justify-center">
-                                <p className="text-gray-500">Select a conversation to start chatting</p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
+                                })}
+                            </div>
+
+                            {/* Message Input / Unlock Box */}
+                            {(() => {
+                              const isUnlocked = (userData?.unlockedUsers || []).includes(selectedConversation.userId);
+                              const isFreePlan = userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan);
+                              const hasPhoneInInput = isFreePlan && agencyChatInput.replace(/\D/g, '').length >= 10;
+                              return isUnlocked ? (
+                                <div className="p-4 bg-white border-t border-gray-150 flex items-center gap-3 relative shrink-0">
+                                  {hasPhoneInInput && (
+                                    <div className="absolute -top-8 left-4 text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-md border border-red-200 shadow-sm animate-pulse z-20">
+                                      ⚠️ Phone numbers cannot be sent on the Free Plan. Upgrade to Starter/Premium.
+                                    </div>
+                                  )}
+                                  
+                                  {/* Emoji Visual Indicator */}
+                                  <div className="relative shrink-0">
+                                    <button 
+                                      onClick={() => setShowAgencyEmojiPicker(!showAgencyEmojiPicker)}
+                                      className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none" 
+                                      title="Add Emoji"
+                                    >
+                                      😊
+                                    </button>
+                                    
+                                    {showAgencyEmojiPicker && (
+                                      <div className="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-3xl p-3 shadow-xl z-30 w-56 animate-in slide-in-from-bottom-2 duration-150">
+                                        <div className="grid grid-cols-6 gap-1.5 max-h-32 overflow-y-auto">
+                                          {['😊', '😂', '🤣', '👍', '❤️', '🔥', '✈️', '🏝️', '🗺️', '🏨', '🚗', '👏', '😍', '🎉', '🙌', '🙏', '✨', '🌍', '🌅', '🎒', '💬', '🎫', '🏝', '⛰', '🌟', '🛶', '🏄', '🏔', '⛺', '🧭'].map((emoji) => (
+                                            <button
+                                              key={emoji}
+                                              onClick={() => {
+                                                setAgencyChatInput((prev) => prev + emoji);
+                                                setShowAgencyEmojiPicker(false);
+                                              }}
+                                              className="hover:bg-gray-100 p-1.5 rounded-lg text-lg transition-all active:scale-90 flex items-center justify-center"
+                                            >
+                                              {emoji}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <Input
+                                    value={agencyChatInput}
+                                    onChange={(e) => setAgencyChatInput(e.target.value)}
+                                    placeholder="Type your reply..."
+                                    onKeyPress={(e) => e.key === 'Enter' && !hasPhoneInInput && sendAgencyMessage()}
+                                    className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-xs h-10"
+                                  />
+                                  
+                                  <button 
+                                    onClick={sendAgencyMessage} 
+                                    disabled={!agencyChatInput.trim() || hasPhoneInInput}
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md shrink-0 ${
+                                      agencyChatInput.trim() && !hasPhoneInInput
+                                        ? 'bg-[#1C1F26] hover:bg-black text-white active:scale-95' 
+                                        : 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none'
+                                    }`}
+                                    title="Send Message"
+                                  >
+                                    <span className="text-xs font-bold leading-none transform translate-x-px -translate-y-px">➤</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="p-4 bg-white border-t border-gray-150 shrink-0">
+                                  <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                                    <div className="space-y-1 text-center sm:text-left">
+                                      <h4 className="text-sm font-bold text-gray-805 flex items-center gap-1.5 justify-center sm:justify-start">
+                                        <span>🔒</span> Conversation Locked
+                                      </h4>
+                                      <p className="text-xs text-gray-500">
+                                        To reply to this traveler, you need to unlock the conversation. Cost: {
+                                          userData?.plan === 'starter' ? '200 Credits' : '1 Free Reply'
+                                        }.
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <div className="text-right hidden md:block">
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Your Balance</p>
+                                        <p className="text-xs font-black text-gray-700">
+                                          {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` : `${userData?.freeChats ?? 0} Free Replies`}
+                                        </p>
+                                      </div>
+                                      <Button
+                                        onClick={() => unlockCustomerChat(selectedConversation.userId, selectedConversation.userName)}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 border-none"
+                                      >
+                                        <span>✨</span> Unlock to Reply
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-55/30">
+                            <div className="w-16 h-16 bg-white border border-gray-150 rounded-2xl flex items-center justify-center shadow-md mb-6">
+                              <span className="text-3xl">✈️</span>
+                            </div>
+                            <h4 className="font-extrabold text-gray-900 text-sm mb-2">Your Inbox</h4>
+                            <p className="text-xs text-gray-500 max-w-sm leading-relaxed">
+                              Select a customer from the sidebar list to discuss itineraries, pricing details, or answer questions.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
