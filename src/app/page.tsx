@@ -40,13 +40,37 @@ import {
   Compass,
   CheckCircle2,
   Clock,
-  XCircle
+  XCircle,
+  ChevronLeft,
+  Calendar,
+  DollarSign,
+  Check,
+  X,
+  Building2,
+  Tag,
+  Utensils,
+  TrendingUp,
+  Info
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
 import { getFirestore } from 'firebase/firestore';
 import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
+
+const BUYER_QUICK_REPLIES = [
+  "Is this package still available?",
+  "Can you provide more details?",
+  "Are dates flexible?",
+  "Do you offer group discounts?"
+];
+
+const SELLER_QUICK_REPLIES = [
+  "Yes, it's available. When are you planning to travel?",
+  "Would you like me to send the complete itinerary?",
+  "How many people are travelling?",
+  "We have a special offer going on, would you like to hear about it?"
+];
 
 const getTabIcon = (id: string, className?: string) => {
   switch (id) {
@@ -252,6 +276,7 @@ export default function Home() {
   const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [selectedJourneyBooking, setSelectedJourneyBooking] = useState<any>(null);
   const [viewingAgency, setViewingAgency] = useState<any>(null);
+  const [viewingAdminListing, setViewingAdminListing] = useState<any>(null);
   // User Experience Enhancements
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -1893,6 +1918,13 @@ export default function Home() {
 
   if (user && userData) {
     if (userData.role === 'admin') {
+      const allListingImages = viewingAdminListing
+        ? [
+            ...(viewingAdminListing.photos || []),
+            ...(viewingAdminListing.placesCovered || []).flatMap((p: any) => p.imageUrls || [])
+          ].filter(Boolean)
+        : [];
+
       return (
         <div className="flex h-screen bg-gray-100">
           {/* Sidebar */}
@@ -2359,7 +2391,7 @@ export default function Home() {
                 </Card>
               )}
 
-              {activeSection === 'listings' && (
+              {activeSection === 'listings' && !viewingAdminListing && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -2403,11 +2435,7 @@ export default function Home() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => {
-                                  // For now, show listing details in alert since modal has CSS issues
-                                  const details = `Title: ${listing.title}\nPackage Type: ${listing.packageType === 'international' ? 'International' : 'Domestic'}\nPlaces: ${listing.placesCovered?.map((place: any) => place.name).join(', ') || 'Not specified'}\nDuration: ${listing.itinerary?.length || 0} days\nCost: ${listing.cost || listing.price || 'N/A'}\nDescription: ${listing.description || 'Not provided'}`;
-                                  alert(`Listing Details:\n\n${details}`);
-                                }}
+                                onClick={() => setViewingAdminListing(listing)}
                               >
                                 View Details
                               </Button>
@@ -2425,6 +2453,513 @@ export default function Home() {
                   </CardContent>
                 </Card>
               )}
+
+              {activeSection === 'listings' && viewingAdminListing && (() => {
+                const allListingImages = [
+                  ...(viewingAdminListing.photos || []),
+                  ...(viewingAdminListing.placesCovered || []).flatMap((p: any) => p.imageUrls || [])
+                ].filter(Boolean);
+                return (
+                  <div className="space-y-6 animate-in fade-in duration-300">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setViewingAdminListing(null)}
+                          className="flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all border border-slate-200 bg-white shadow-sm"
+                          title="Back to Listings"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Listing Details</span>
+                            <span className="text-slate-300">•</span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                              viewingAdminListing.approved
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              <span className={`h-1 w-1 rounded-full ${viewingAdminListing.approved ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                              {viewingAdminListing.approved ? 'Approved' : 'Pending Review'}
+                            </span>
+                          </div>
+                          <h2 className="text-xl font-bold text-slate-900 mt-0.5">{viewingAdminListing.title || 'Untitled Package'}</h2>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <Button
+                          variant="outline"
+                          onClick={() => setViewingAdminListing(null)}
+                          className="rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 text-sm transition-all"
+                        >
+                          Back
+                        </Button>
+                        {!viewingAdminListing.approved && (
+                          <Button
+                            onClick={() => {
+                              approveListing(viewingAdminListing.id);
+                              setViewingAdminListing(null);
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl px-5 py-2 text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+                          >
+                            <Check className="h-4 w-4" />
+                            Approve Package
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                      <div className="lg:col-span-8 space-y-6">
+                        {allListingImages.length > 0 ? (
+                          <Card className="border-slate-200 shadow-sm overflow-hidden rounded-3xl bg-white">
+                            <div className="relative h-64 md:h-80 w-full overflow-hidden bg-slate-950">
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/30 to-transparent z-10" />
+                              <img
+                                src={allListingImages[0]}
+                                alt={viewingAdminListing.title}
+                                className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              <div className="absolute bottom-6 left-6 z-20 text-white">
+                                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest bg-indigo-950/80 px-2.5 py-1 rounded-md border border-indigo-500/20">
+                                  Primary Package Gallery
+                                </span>
+                                <h3 className="text-xl md:text-2xl font-black mt-3 text-white tracking-tight">
+                                  {viewingAdminListing.title}
+                                </h3>
+                                <p className="text-xs text-slate-300 mt-1 font-medium flex items-center gap-1">
+                                  <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                                  {viewingAdminListing.packageType === 'international' 
+                                    ? (viewingAdminListing.countryName || 'Global') 
+                                    : (viewingAdminListing.stateName || 'India')}
+                                </p>
+                              </div>
+                              
+                              {allListingImages.length > 1 && (
+                                <div className="absolute bottom-6 right-6 z-20 bg-slate-950/80 backdrop-blur-md text-[10px] font-bold text-white px-3 py-1.5 rounded-xl border border-slate-800">
+                                  {allListingImages.length} Package Images
+                                </div>
+                              )}
+                            </div>
+                            
+                            {allListingImages.length > 1 && (
+                              <div className="p-4 bg-slate-50 border-t border-slate-100 overflow-hidden">
+                                <div className="flex gap-3 overflow-x-auto py-1 scrollbar-none">
+                                  {allListingImages.map((img, idx) => (
+                                    <div 
+                                      key={idx} 
+                                      className="h-16 w-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm shrink-0 cursor-pointer hover:border-indigo-500 hover:scale-105 transition-all duration-300"
+                                    >
+                                      <img src={img} alt="Package Thumb" className="h-full w-full object-cover" />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </Card>
+                        ) : (
+                          <Card className="border-slate-200 shadow-sm overflow-hidden rounded-3xl bg-white">
+                            <div className="relative h-48 w-full bg-gradient-to-r from-indigo-950 via-slate-950 to-slate-900 flex flex-col justify-end p-6 text-white overflow-hidden">
+                              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-indigo-500/10 blur-xl" />
+                              <div className="z-10">
+                                <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest bg-indigo-900/40 px-2 py-0.5 rounded border border-indigo-500/20">
+                                  Administrative Review
+                                </span>
+                                <h3 className="text-lg md:text-xl font-bold mt-2 text-white">
+                                  {viewingAdminListing.title}
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  Review details, timeline itineraries, and specifications for this tour proposal.
+                                </p>
+                              </div>
+                            </div>
+                          </Card>
+                        )}
+                      
+                      <Card className="border-slate-200 shadow-sm overflow-hidden rounded-2xl bg-white">
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                              <Camera className="h-4 w-4 text-indigo-500" />
+                              Destinations Gallery
+                            </CardTitle>
+                            <span className="text-xs text-slate-500 font-medium">
+                              {viewingAdminListing.placesCovered?.length || 0} Places Covered
+                            </span>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                          {viewingAdminListing.placesCovered && viewingAdminListing.placesCovered.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {viewingAdminListing.placesCovered.map((place: any, idx: number) => {
+                                const placeImageUrl = (place.imageUrls && place.imageUrls.length > 0)
+                                  ? place.imageUrls[0]
+                                  : (viewingAdminListing.photos && viewingAdminListing.photos.length > 0)
+                                    ? viewingAdminListing.photos[0]
+                                    : null;
+
+                                return (
+                                  <div key={idx} className="group relative border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-slate-50 hover:shadow-md transition-all duration-300">
+                                    <div className="h-44 overflow-hidden relative bg-slate-200 flex items-center justify-center">
+                                      {placeImageUrl ? (
+                                        <img
+                                          src={placeImageUrl}
+                                          alt={place.name}
+                                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                                        />
+                                      ) : (
+                                        <div className="flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-50 to-slate-100 text-slate-400 w-full h-full">
+                                          <MapPin className="h-7 w-7 stroke-[1.5]" />
+                                          <span className="text-[11px] font-medium">No photos</span>
+                                        </div>
+                                      )}
+                                      <div className="absolute top-2 left-2 bg-slate-900/75 backdrop-blur-sm text-[10px] text-white px-2 py-0.5 rounded-md font-semibold tracking-wider uppercase">
+                                        Location {idx + 1}
+                                      </div>
+                                    </div>
+                                    <div className="p-3 bg-white border-t border-slate-100">
+                                      <p className="font-semibold text-sm text-slate-900 truncate">{place.name || `Unnamed Place`}</p>
+                                      {place.imageUrls && place.imageUrls.length > 1 && (
+                                        <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-400 font-medium">
+                                          <Camera className="h-3 w-3" />
+                                          <span>{place.imageUrls.length} photos available</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 bg-slate-50/50">
+                              <MapPin className="h-10 w-10 stroke-[1.5] mb-2 text-slate-300" />
+                              <p className="text-sm font-medium">No places specified for this package</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-slate-200 shadow-sm rounded-2xl bg-white">
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6">
+                          <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <ClipboardList className="h-4 w-4 text-indigo-500" />
+                            Detailed Tour Itinerary
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                          {viewingAdminListing.itinerary && viewingAdminListing.itinerary.length > 0 ? (
+                            <div className="relative pl-6 sm:pl-8 space-y-8 before:absolute before:top-2 before:bottom-2 before:left-[18px] sm:before:left-[22px] before:w-[2px] before:bg-indigo-100">
+                              {viewingAdminListing.itinerary.map((day: any, idx: number) => (
+                                <div key={idx} className="relative group">
+                                  <div className="absolute -left-[30px] sm:-left-[34px] top-1.5 w-6 h-6 rounded-full bg-white border-2 border-indigo-500 shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                    <span className="text-[10px] font-extrabold text-indigo-600">{day.day || idx + 1}</span>
+                                  </div>
+                                  
+                                  <div className="bg-slate-50 hover:bg-slate-100/70 border border-slate-200/60 rounded-xl p-4 transition-all duration-300">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 mb-2">
+                                      <h4 className="font-bold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                        Day {day.day || idx + 1}: {day.placeName || 'Destination Spot'}
+                                      </h4>
+                                    </div>
+                                    <p className="text-xs text-slate-600 leading-relaxed font-normal">
+                                      {day.description || 'No descriptive guide provided for this day of the tour.'}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 bg-slate-50/50">
+                              <Calendar className="h-10 w-10 stroke-[1.5] mb-2 text-slate-300" />
+                              <p className="text-sm font-medium">No day-by-day itinerary detailed</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
+                          <div className="border-b border-emerald-100 bg-emerald-50/40 py-3.5 px-5 flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                              <Check className="h-4 w-4 stroke-[2.5]" />
+                            </div>
+                            <h3 className="font-bold text-sm text-slate-900">Inclusions</h3>
+                          </div>
+                          <CardContent className="p-5">
+                            {viewingAdminListing.inclusions ? (
+                              <ul className="space-y-3">
+                                {viewingAdminListing.inclusions.split('\n').map((line: string, idx: number) => {
+                                  if (!line.trim()) return null;
+                                  return (
+                                    <li key={idx} className="flex items-start gap-2.5">
+                                      <span className="h-4 w-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-[10px] font-bold mt-0.5 border border-emerald-100 shrink-0">
+                                        ✓
+                                      </span>
+                                      <p className="text-xs text-slate-600 leading-normal">{line.trim()}</p>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-slate-400 italic">No package inclusions specified</p>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
+                          <div className="border-b border-rose-100 bg-rose-50/40 py-3.5 px-5 flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-lg bg-rose-100 flex items-center justify-center text-rose-600">
+                              <X className="h-4 w-4 stroke-[2.5]" />
+                            </div>
+                            <h3 className="font-bold text-sm text-slate-900">Exclusions</h3>
+                          </div>
+                          <CardContent className="p-5">
+                            {viewingAdminListing.exclusions ? (
+                              <ul className="space-y-3">
+                                {viewingAdminListing.exclusions.split('\n').map((line: string, idx: number) => {
+                                  if (!line.trim()) return null;
+                                  return (
+                                    <li key={idx} className="flex items-start gap-2.5">
+                                      <span className="h-4 w-4 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-[9px] font-bold mt-0.5 border border-rose-100 shrink-0">
+                                        ✕
+                                      </span>
+                                      <p className="text-xs text-slate-600 leading-normal">{line.trim()}</p>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-slate-400 italic">No package exclusions specified</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-4 space-y-6">
+                      <Card className="border-slate-200 shadow-md rounded-2xl bg-[#0F172A] text-white overflow-hidden">
+                        <div className="p-6 space-y-6">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Price</span>
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${
+                                viewingAdminListing.packageType === 'international'
+                                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              }`}>
+                                {viewingAdminListing.packageType === 'international' ? 'International' : 'Domestic'}
+                              </span>
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-3xl font-extrabold tracking-tight" style={{ color: '#ffffff' }}>
+                                {viewingAdminListing.packageType === 'international' ? '$' : '₹'}
+                                {viewingAdminListing.cost || viewingAdminListing.price || 'N/A'}
+                              </span>
+                              <span className="text-slate-400 text-xs font-medium">/ person</span>
+                            </div>
+                          </div>
+
+                          <div className="h-px bg-slate-800" />
+
+                          <div className="space-y-3.5">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400 flex items-center gap-1.5">
+                                <Clock className="h-4 w-4 text-slate-400" />
+                                Duration
+                              </span>
+                              <span className="font-bold text-white">
+                                {viewingAdminListing.itinerary?.length || 0} Days / {Math.max(0, (viewingAdminListing.itinerary?.length || 1) - 1)} Nights
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400 flex items-center gap-1.5">
+                                <MapPin className="h-4 w-4 text-slate-400" />
+                                Location
+                              </span>
+                              <span className="font-bold text-white font-sans">
+                                {viewingAdminListing.packageType === 'international' 
+                                  ? (viewingAdminListing.countryName || 'Global') 
+                                  : (viewingAdminListing.stateName || 'India')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400 flex items-center gap-1.5">
+                                <TrendingUp className="h-4 w-4 text-slate-400" />
+                                Trending status
+                              </span>
+                              <span className={`font-bold flex items-center gap-1 ${viewingAdminListing.isTrending ? 'text-amber-400' : 'text-slate-400'}`}>
+                                {viewingAdminListing.isTrending ? 'High Demand' : 'Standard'}
+                              </span>
+                            </div>
+
+                            {viewingAdminListing.discountCategory && viewingAdminListing.discountCategory !== 'none' && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-400 flex items-center gap-1.5">
+                                  <Tag className="h-4 w-4 text-slate-400" />
+                                  Active Promotion
+                                </span>
+                                <span className="font-bold text-rose-400 uppercase">
+                                  {viewingAdminListing.discountCategory === '10-off' ? '10% Discount' :
+                                    viewingAdminListing.discountCategory === '50-off' ? '50% Super Saver' :
+                                      viewingAdminListing.discountCategory === 'flash-deals' ? 'Flash Deal' : viewingAdminListing.discountCategory}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="h-px bg-slate-800" />
+
+                          <div className="space-y-2.5">
+                            {!viewingAdminListing.approved ? (
+                              <>
+                                <Button
+                                  onClick={() => {
+                                    approveListing(viewingAdminListing.id);
+                                    setViewingAdminListing(null);
+                                  }}
+                                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 border-0"
+                                >
+                                  <Check className="h-4 w-4 stroke-[2.5]" />
+                                  Approve & Go Live
+                                </Button>
+                                <p className="text-[10px] text-center text-slate-400 font-sans">
+                                  Approving will make this package active on the user portal.
+                                </p>
+                              </>
+                            ) : (
+                              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold">
+                                <Check className="h-4 w-4 stroke-[2.5]" />
+                                Package Approved & Active
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card className="border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6">
+                          <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <Info className="h-4 w-4 text-indigo-500" />
+                            Specifications
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-5 space-y-4">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Tour Categories</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {viewingAdminListing.tourCategories && viewingAdminListing.tourCategories.length > 0 ? (
+                                viewingAdminListing.tourCategories.map((cat: string, idx: number) => (
+                                  <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                    {cat}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-400 italic">None specified</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Hotel Accommodations</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {viewingAdminListing.hotelTypes && viewingAdminListing.hotelTypes.length > 0 ? (
+                                viewingAdminListing.hotelTypes.map((type: string, idx: number) => (
+                                  <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 capitalize">
+                                    {type}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-400 italic">None specified</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {viewingAdminListing.mealPlan && viewingAdminListing.mealPlan !== 'no-meal' && (
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Meal Plan</span>
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 capitalize">
+                                <Utensils className="h-3 w-3" />
+                                {viewingAdminListing.mealPlan === 'breakfast' ? 'Breakfast Included' :
+                                  viewingAdminListing.mealPlan === 'breakfast-dinner' ? 'Breakfast & Dinner' :
+                                    viewingAdminListing.mealPlan === 'all-meals' ? 'All Meals' : viewingAdminListing.mealPlan}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Recommended Season</span>
+                              <span className="text-xs font-bold text-slate-700 capitalize">
+                                {viewingAdminListing.season ? `${viewingAdminListing.season} season` : 'Any season'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Activity Genre</span>
+                              <span className="text-xs font-bold text-slate-700 capitalize">
+                                {viewingAdminListing.experienceType || 'Standard tour'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {viewingAdminListing.eventType && viewingAdminListing.eventType !== '' && (
+                            <div className="pt-2.5 border-t border-slate-100">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Seasonal Event / Festival</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-100 capitalize">
+                                {viewingAdminListing.eventType === 'new-year' ? 'New Year / Christmas' :
+                                  viewingAdminListing.eventType === 'diwali' ? 'Diwali Specials' :
+                                    viewingAdminListing.eventType === 'summer-vacation' ? 'Summer Vacation' :
+                                      viewingAdminListing.eventType === 'weekend' ? 'Long Weekend Special' : viewingAdminListing.eventType}
+                              </span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6">
+                          <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-indigo-500" />
+                            Agency Profile
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-5 space-y-3.5 text-xs">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-sm border border-slate-200">
+                              {viewingAdminListing.agencyName ? viewingAdminListing.agencyName.charAt(0).toUpperCase() : 'A'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-900 text-sm">{viewingAdminListing.agencyName || 'Unknown Agency'}</p>
+                              <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {viewingAdminListing.agencyId || 'N/A'}</p>
+                            </div>
+                          </div>
+
+                          <div className="h-px bg-slate-100" />
+
+                          <div className="grid grid-cols-2 gap-2 text-slate-500 font-medium">
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Submission Date</p>
+                              <p className="text-slate-800 font-bold mt-0.5">
+                                {viewingAdminListing.createdAt
+                                  ? new Date(viewingAdminListing.createdAt?.toDate?.() || viewingAdminListing.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                                  : 'N/A'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Listing Reference</p>
+                              <p className="text-slate-800 font-mono font-bold mt-0.5 truncate" title={viewingAdminListing.id}>
+                                {viewingAdminListing.id ? viewingAdminListing.id.substring(0, 8) : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
               {activeSection === 'settings' && (
                 <Card>
@@ -3960,9 +4495,49 @@ export default function Home() {
                             })}
                         </div>
 
-                        {/* Message Input Box */}
-                        <div className="p-4 bg-white border-t border-gray-150 flex items-center gap-3 relative shrink-0">
-                          {/* Emoji Visual Indicator */}
+                        {/* Message Input Box & Quick Replies */}
+                        <div className="bg-white border-t border-gray-150 flex flex-col shrink-0">
+                          {/* Quick Replies */}
+                          {(() => {
+                            const currentChatMsgs = chatMessages.filter(msg => msg.chatId === [user?.uid, currentChatAgency].sort().join('_'));
+                            const mySentTexts = new Set(currentChatMsgs.filter(msg => msg.sender === user?.uid).map(msg => msg.text));
+                            const baseBuyerReplies = [...BUYER_QUICK_REPLIES];
+                            if (profilePhone) {
+                              baseBuyerReplies.push(`Here is my contact number: ${profilePhone}`);
+                            } else if (profileEmail) {
+                              baseBuyerReplies.push(`Please contact me at ${profileEmail}`);
+                            }
+                            const availableBuyerReplies = baseBuyerReplies.filter(reply => !mySentTexts.has(reply));
+                            
+                            if (availableBuyerReplies.length === 0) return null;
+                            return (
+                              <div className="px-4 pt-3 pb-1 flex overflow-x-auto gap-2 scrollbar-hide snap-x">
+                                {availableBuyerReplies.map((reply, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={async () => {
+                                      if (!user) return;
+                                      const messageData = {
+                                        from_user_id: user.uid,
+                                        to_user_id: currentChatAgency,
+                                        content: reply,
+                                        timestamp: Date.now(),
+                                        status: 'sent'
+                                      };
+                                      const dbInstance = getDbInstance();
+                                      if (dbInstance) await addDoc(collection(dbInstance, 'chat_messages'), messageData);
+                                    }}
+                                    className="snap-start shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
+                                  >
+                                    {reply}
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
+
+                          <div className="p-4 flex items-center gap-3 relative">
+                            {/* Emoji Visual Indicator */}
                           <div className="relative shrink-0">
                             <button 
                               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -3996,7 +4571,7 @@ export default function Home() {
                             onChange={(e) => setChatInput(e.target.value)}
                             placeholder="Type your message..."
                             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                            className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-xs h-10"
+                            className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-gray-900 text-xs h-10"
                           />
                           
                           <button 
@@ -4011,6 +4586,7 @@ export default function Home() {
                           >
                             <span className="text-xs font-bold leading-none transform translate-x-px -translate-y-px">➤</span>
                           </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -5054,7 +5630,7 @@ export default function Home() {
                 >
                   Listings
                 </button>
-                {<button
+                {/* {<button
                   onClick={() => setAgencyActiveSection('overview')}
                   className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'overview'
                       ? 'bg-blue-50 text-blue-700'
@@ -5062,7 +5638,7 @@ export default function Home() {
                     }`}
                 >
                   Overview
-                </button>}
+                </button>} */}
                 {<button
                   onClick={() => setAgencyActiveSection('analytics')}
                   className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'analytics'
@@ -5366,13 +5942,13 @@ export default function Home() {
                                       </div>
                                     </div>
                                     <div className="flex space-x-2">
-                                      <Button
+                                      {/* <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleViewListing(listing)}
                                       >
                                         View
-                                      </Button>
+                                      </Button> */}
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -6048,14 +6624,48 @@ export default function Home() {
                               const isFreePlan = userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan);
                               const hasPhoneInInput = isFreePlan && agencyChatInput.replace(/\D/g, '').length >= 10;
                               return isUnlocked ? (
-                                <div className="p-4 bg-white border-t border-gray-150 flex items-center gap-3 relative shrink-0">
+                                <div className="bg-white border-t border-gray-150 flex flex-col shrink-0 relative">
                                   {hasPhoneInInput && (
                                     <div className="absolute -top-8 left-4 text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-md border border-red-200 shadow-sm animate-pulse z-20">
                                       ⚠️ Phone numbers cannot be sent on the Free Plan. Upgrade to Starter/Premium.
                                     </div>
                                   )}
+
+                                  {/* Quick Replies */}
+                                  {(() => {
+                                    const currentAgencyMsgs = agencyChatMessages.filter(msg => msg.chatId === [user?.uid, selectedConversation?.userId].sort().join('_'));
+                                    const mySentAgencyTexts = new Set(currentAgencyMsgs.filter(msg => msg.sender === user?.uid).map(msg => msg.text));
+                                    const availableSellerReplies = SELLER_QUICK_REPLIES.filter(reply => !mySentAgencyTexts.has(reply));
+                                    
+                                    if (availableSellerReplies.length === 0) return null;
+                                    return (
+                                      <div className="px-4 pt-3 pb-1 flex overflow-x-auto gap-2 scrollbar-hide snap-x">
+                                        {availableSellerReplies.map((reply, idx) => (
+                                          <button
+                                            key={idx}
+                                            onClick={async () => {
+                                              if (!user || !selectedConversation) return;
+                                              const messageData = {
+                                                from_user_id: user.uid,
+                                                to_user_id: selectedConversation.userId,
+                                                content: reply,
+                                                timestamp: Date.now(),
+                                                status: 'sent'
+                                              };
+                                              const dbInstance = getDbInstance();
+                                              if (dbInstance) await addDoc(collection(dbInstance, 'chat_messages'), messageData);
+                                            }}
+                                            className="snap-start shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
+                                          >
+                                            {reply}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
                                   
-                                  {/* Emoji Visual Indicator */}
+                                  <div className="p-4 flex items-center gap-3 relative">
+                                    {/* Emoji Visual Indicator */}
                                   <div className="relative shrink-0">
                                     <button 
                                       onClick={() => setShowAgencyEmojiPicker(!showAgencyEmojiPicker)}
@@ -6090,7 +6700,7 @@ export default function Home() {
                                     onChange={(e) => setAgencyChatInput(e.target.value)}
                                     placeholder="Type your reply..."
                                     onKeyPress={(e) => e.key === 'Enter' && !hasPhoneInInput && sendAgencyMessage()}
-                                    className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-xs h-10"
+                                    className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-gray-900 text-xs h-10"
                                   />
                                   
                                   <button 
@@ -6105,6 +6715,7 @@ export default function Home() {
                                   >
                                     <span className="text-xs font-bold leading-none transform translate-x-px -translate-y-px">➤</span>
                                   </button>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="p-4 bg-white border-t border-gray-150 shrink-0">
