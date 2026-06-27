@@ -52,7 +52,7 @@ import {
   TrendingUp,
   Info
 } from 'lucide-react';
-import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
 import { getFirestore } from 'firebase/firestore';
@@ -236,6 +236,10 @@ export default function Home() {
   const hasManuallyClosedChatRef = useRef(false);
   const [agencyChatSearchQuery, setAgencyChatSearchQuery] = useState<string>('');
   const [showAgencyEmojiPicker, setShowAgencyEmojiPicker] = useState<boolean>(false);
+  const [adminBuyerReplies, setAdminBuyerReplies] = useState<string[]>([]);
+  const [adminSellerReplies, setAdminSellerReplies] = useState<string[]>([]);
+  const [newBuyerReplyInput, setNewBuyerReplyInput] = useState('');
+  const [newSellerReplyInput, setNewSellerReplyInput] = useState('');
   const [showListingForm, setShowListingForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingListing, setEditingListing] = useState<any>(null);
@@ -938,6 +942,63 @@ export default function Home() {
 
   // Comparison functionality
   const { comparisonList, clearComparison } = useComparison();
+
+  // Fetch admin custom quick replies
+  useEffect(() => {
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+    const unsubscribe = onSnapshot(doc(dbInstance, 'settings', 'quick_replies'), (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        setAdminBuyerReplies(Array.isArray(data.buyerReplies) ? data.buyerReplies : []);
+        setAdminSellerReplies(Array.isArray(data.sellerReplies) ? data.sellerReplies : []);
+      } else {
+        setAdminBuyerReplies([]);
+        setAdminSellerReplies([]);
+      }
+    }, (error) => {
+      console.error('Error fetching custom quick replies:', error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddQuickReply = async (type: 'buyer' | 'seller') => {
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+    const inputVal = type === 'buyer' ? newBuyerReplyInput.trim() : newSellerReplyInput.trim();
+    if (!inputVal) return;
+
+    try {
+      const currentList = type === 'buyer' ? [...adminBuyerReplies, inputVal] : [...adminSellerReplies, inputVal];
+      await setDoc(doc(dbInstance, 'settings', 'quick_replies'), {
+        [type === 'buyer' ? 'buyerReplies' : 'sellerReplies']: currentList
+      }, { merge: true });
+
+      if (type === 'buyer') setNewBuyerReplyInput('');
+      else setNewSellerReplyInput('');
+      alert('Quick reply added successfully!');
+    } catch (error) {
+      console.error('Error adding quick reply:', error);
+      alert('Failed to add quick reply.');
+    }
+  };
+
+  const handleRemoveQuickReply = async (type: 'buyer' | 'seller', index: number) => {
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+
+    try {
+      const currentList = type === 'buyer' ? [...adminBuyerReplies] : [...adminSellerReplies];
+      currentList.splice(index, 1);
+      await setDoc(doc(dbInstance, 'settings', 'quick_replies'), {
+        [type === 'buyer' ? 'buyerReplies' : 'sellerReplies']: currentList
+      }, { merge: true });
+      alert('Quick reply removed successfully!');
+    } catch (error) {
+      console.error('Error removing quick reply:', error);
+      alert('Failed to remove quick reply.');
+    }
+  };
 
   // Fetch user's wishlist from Firestore with real-time listener
   useEffect(() => {
@@ -2968,52 +3029,123 @@ export default function Home() {
             })()}
 
               {activeSection === 'settings' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <span className="mr-2">⚙️</span>
-                      Admin Settings
-                    </CardTitle>
-                    <CardDescription>
-                      Configure system settings and preferences
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <Label htmlFor="adminEmail">Admin Email</Label>
-                        <Input id="adminEmail" value={process.env.NEXT_PUBLIC_ADMIN_EMAIL} disabled />
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <span className="mr-2">⚙️</span>
+                        Admin Settings
+                      </CardTitle>
+                      <CardDescription>
+                        Configure system settings and preferences
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Label htmlFor="adminEmail">Admin Email</Label>
+                          <Input id="adminEmail" value={process.env.NEXT_PUBLIC_ADMIN_EMAIL} disabled />
+                        </div>
+                        <div>
+                          <Label htmlFor="notifications">Email Notifications</Label>
+                          <select className="w-full p-2 border rounded-lg" defaultValue="enabled">
+                            <option value="enabled">Enabled</option>
+                            <option value="disabled">Disabled</option>
+                          </select>
+                        </div>
                       </div>
-                      <div>
-                        <Label htmlFor="notifications">Email Notifications</Label>
-                        <select className="w-full p-2 border rounded-lg" defaultValue="enabled">
-                          <option value="enabled">Enabled</option>
-                          <option value="disabled">Disabled</option>
-                        </select>
-                      </div>
-                    </div>
 
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Security Settings</h3>
-                      <div className="space-y-3">
-                        <label className="flex items-center">
-                          <input type="checkbox" className="mr-2" defaultChecked />
-                          <span className="text-sm">Require document verification for agencies</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input type="checkbox" className="mr-2" defaultChecked />
-                          <span className="text-sm">Enable two-factor authentication</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input type="checkbox" className="mr-2" defaultChecked />
-                          <span className="text-sm">Auto-approve agencies from trusted domains</span>
-                        </label>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4">Security Settings</h3>
+                        <div className="space-y-3">
+                          <label className="flex items-center">
+                            <input type="checkbox" className="mr-2" defaultChecked />
+                            <span className="text-sm">Require document verification for agencies</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input type="checkbox" className="mr-2" defaultChecked />
+                            <span className="text-sm">Enable two-factor authentication</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input type="checkbox" className="mr-2" defaultChecked />
+                            <span className="text-sm">Auto-approve agencies from trusted domains</span>
+                          </label>
+                        </div>
                       </div>
-                    </div>
 
-                    <Button>Save Settings</Button>
-                  </CardContent>
-                </Card>
+                      <Button>Save Settings</Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <span className="mr-2">💬</span>
+                        Chat Quick Replies Management
+                      </CardTitle>
+                      <CardDescription>
+                        Add or remove custom quick replies for travelers and agencies
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Traveler (User) Quick Replies</h3>
+                        <div className="flex gap-2 mb-4">
+                          <Input
+                            value={newBuyerReplyInput}
+                            onChange={(e) => setNewBuyerReplyInput(e.target.value)}
+                            placeholder="Type a new traveler quick reply..."
+                            className="flex-1"
+                          />
+                          <Button onClick={() => handleAddQuickReply('buyer')}>Add</Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {BUYER_QUICK_REPLIES.map((reply, idx) => (
+                            <span key={`default-buyer-${idx}`} className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-full flex items-center gap-1 border border-gray-200">
+                              {reply}
+                              <span className="text-[10px] text-gray-400 italic ml-1">(Default)</span>
+                            </span>
+                          ))}
+                          {adminBuyerReplies.map((reply, idx) => (
+                            <span key={`admin-buyer-${idx}`} className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs rounded-full flex items-center gap-2 border border-blue-200">
+                              {reply}
+                              <button onClick={() => handleRemoveQuickReply('buyer', idx)} className="hover:bg-blue-200 rounded-full w-4 h-4 flex items-center justify-center font-bold text-blue-800">×</button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <hr className="border-gray-200" />
+
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Travel Agency (Seller) Quick Replies</h3>
+                        <div className="flex gap-2 mb-4">
+                          <Input
+                            value={newSellerReplyInput}
+                            onChange={(e) => setNewSellerReplyInput(e.target.value)}
+                            placeholder="Type a new agency quick reply..."
+                            className="flex-1"
+                          />
+                          <Button onClick={() => handleAddQuickReply('seller')}>Add</Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {SELLER_QUICK_REPLIES.map((reply, idx) => (
+                            <span key={`default-seller-${idx}`} className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-full flex items-center gap-1 border border-gray-200">
+                              {reply}
+                              <span className="text-[10px] text-gray-400 italic ml-1">(Default)</span>
+                            </span>
+                          ))}
+                          {adminSellerReplies.map((reply, idx) => (
+                            <span key={`admin-seller-${idx}`} className="px-3 py-1.5 bg-orange-50 text-orange-700 text-xs rounded-full flex items-center gap-2 border border-orange-200">
+                              {reply}
+                              <button onClick={() => handleRemoveQuickReply('seller', idx)} className="hover:bg-orange-200 rounded-full w-4 h-4 flex items-center justify-center font-bold text-orange-800">×</button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
             </main>
           </div>
@@ -4507,7 +4639,7 @@ export default function Home() {
                           {(() => {
                             const currentChatMsgs = chatMessages.filter(msg => msg.chatId === [user?.uid, currentChatAgency].sort().join('_'));
                             const mySentTexts = new Set(currentChatMsgs.filter(msg => msg.sender === user?.uid).map(msg => msg.text));
-                            const baseBuyerReplies = [...BUYER_QUICK_REPLIES];
+                            const baseBuyerReplies = [...BUYER_QUICK_REPLIES, ...adminBuyerReplies];
                             if (profilePhone) {
                               baseBuyerReplies.push(`Here is my contact number: ${profilePhone}`);
                             } else if (profileEmail) {
@@ -6641,7 +6773,7 @@ export default function Home() {
                                   {(() => {
                                     const currentAgencyMsgs = agencyChatMessages.filter(msg => msg.chatId === [user?.uid, selectedConversation?.userId].sort().join('_'));
                                     const mySentAgencyTexts = new Set(currentAgencyMsgs.filter(msg => msg.sender === user?.uid).map(msg => msg.text));
-                                    const availableSellerReplies = SELLER_QUICK_REPLIES.filter(reply => !mySentAgencyTexts.has(reply));
+                                    const availableSellerReplies = [...SELLER_QUICK_REPLIES, ...adminSellerReplies].filter(reply => !mySentAgencyTexts.has(reply));
                                     
                                     if (availableSellerReplies.length === 0) return null;
                                     return (
