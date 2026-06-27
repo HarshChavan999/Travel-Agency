@@ -15,7 +15,7 @@ interface UserData {
   contactNumber?: string;
   avatarUrl?: string;
   coTravellers?: any[];
-  plan?: 'free' | 'starter' | 'premium';
+  plan?: 'free' | 'starter' | 'premium' | 'vip';
   credits?: number;
   freeChats?: number;
   unlockedAgencies?: string[];

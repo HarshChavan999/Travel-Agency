@@ -768,19 +768,21 @@ export default function Home() {
       costAmount = 200;
       costType = 'deduction';
     } else if (currentPlan === 'premium') {
-      if (currentFreeChats > 0) {
-        updatedFreeChats = currentFreeChats - 1;
-        costAmount = 1;
-        costType = 'deduction';
-      } else {
-        if (currentCredits < 150) {
-          alert('Insufficient credits. Please purchase a top-up pack.');
-          return;
-        }
-        updatedCredits = currentCredits - 150;
-        costAmount = 150;
-        costType = 'deduction';
+      if (currentCredits < 175) {
+        alert('Insufficient credits. Please purchase a top-up pack.');
+        return;
       }
+      updatedCredits = currentCredits - 175;
+      costAmount = 175;
+      costType = 'deduction';
+    } else if (currentPlan === 'vip') {
+      if (currentCredits < 150) {
+        alert('Insufficient credits. Please purchase a top-up pack.');
+        return;
+      }
+      updatedCredits = currentCredits - 150;
+      costAmount = 150;
+      costType = 'deduction';
     }
 
     const txId = 'TX-CH-' + Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -808,7 +810,7 @@ export default function Home() {
   };
 
   // Simulate client-side plans upgrade/downgrade
-  const upgradePlan = async (targetPlan: 'free' | 'starter' | 'premium') => {
+  const upgradePlan = async (targetPlan: 'free' | 'starter' | 'premium' | 'vip') => {
     if (!user || !userData) return;
     const dbInstance = getDbInstance();
     if (!dbInstance) return;
@@ -824,11 +826,15 @@ export default function Home() {
     } else if (targetPlan === 'starter') {
       initCredits = 2000;
       cost = 2000;
-      desc = 'Upgraded to Starter Plan (2,000 credits / month, ₹2,000/yr)';
+      desc = 'Upgraded to Standard Plan (2,000 credits / month, ₹2,000/yr)';
     } else if (targetPlan === 'premium') {
-      initFreeChats = 20;
+      initCredits = 5000;
       cost = 5000;
-      desc = 'Upgraded to Premium Plan (20 Free Chats / month, ₹5,000/yr)';
+      desc = 'Upgraded to Premium Plan (5,000 credits / month, ₹5,000/yr)';
+    } else if (targetPlan === 'vip') {
+      initCredits = 10000;
+      cost = 10000;
+      desc = 'Upgraded to VIP Plan (10,000 credits / month, ₹10,000/yr)';
     }
 
     const txId = 'TX-PL-' + Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -6980,7 +6986,7 @@ export default function Home() {
                           <p className="text-[11px] text-gray-505">Select the perfect tier to unlock and respond to traveler inquiries. Upgrade or downgrade anytime.</p>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                           {/* Free Plan */}
                           <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-blue-500' : 'border-gray-200'
                             }`}>
@@ -6997,19 +7003,11 @@ export default function Home() {
                               <ul className="space-y-2 text-[10px] text-gray-600 border-t pt-3 mb-4">
                                 <li className="flex items-center gap-1.5">
                                   <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>2 Free replies</strong> monthly</span>
+                                  <span><strong>2 Listings</strong></span>
                                 </li>
                                 <li className="flex items-center gap-1.5">
                                   <span className="text-green-500 font-bold">✓</span>
-                                  <span>Standard speeds</span>
-                                </li>
-                                <li className="flex items-center gap-1.5 text-red-500/80 font-medium">
-                                  <span className="text-red-400 font-bold">✗</span>
-                                  <span>Send/receive phone numbers</span>
-                                </li>
-                                <li className="flex items-center gap-1.5 text-gray-400">
-                                  <span className="text-gray-300 font-bold">✗</span>
-                                  <span>Add-on top-ups</span>
+                                  <span><strong>2 Leads</strong></span>
                                 </li>
                               </ul>
                             </div>
@@ -7025,14 +7023,14 @@ export default function Home() {
                             </Button>
                           </Card>
 
-                          {/* Starter Plan */}
+                          {/* Standard Plan */}
                           <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-starter ${userData?.plan === 'starter' ? 'ring-2 ring-amber-500' : 'border-gray-200'
                             }`}>
                             <div>
                               <div className="mb-2 flex justify-between items-center">
                                 <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-full">Most Popular</span>
                               </div>
-                              <h3 className="text-sm font-bold text-gray-900 mb-0.5">Starter Plan</h3>
+                              <h3 className="text-sm font-bold text-gray-900 mb-0.5">Standard Plan</h3>
                               <div className="flex items-baseline gap-1 my-1.5">
                                 <span className="text-lg font-extrabold text-gray-900">₹2,000</span>
                                 <span className="text-[9px] text-gray-500 font-medium">/ year</span>
@@ -7041,19 +7039,11 @@ export default function Home() {
                               <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
                                 <li className="flex items-center gap-1.5">
                                   <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>2,000 Credits</strong> monthly</span>
+                                  <span><strong>10 Listings</strong></span>
                                 </li>
                                 <li className="flex items-center gap-1.5">
                                   <span className="text-green-500 font-bold">✓</span>
-                                  <span>Starter cost: <strong>200 cr / reply</strong></span>
-                                </li>
-                                <li className="flex items-center gap-1.5 text-green-600 font-medium">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span>Send & view phone numbers</span>
-                                </li>
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span>Buy credit top-up packs</span>
+                                  <span><strong>200 credit</strong> per lead</span>
                                 </li>
                               </ul>
                             </div>
@@ -7065,7 +7055,7 @@ export default function Home() {
                                   : 'bg-amber-500 hover:bg-amber-600 text-white'
                                 }`}
                             >
-                              {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Starter'}
+                              {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Standard'}
                             </Button>
                           </Card>
 
@@ -7085,19 +7075,11 @@ export default function Home() {
                               <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
                                 <li className="flex items-center gap-1.5">
                                   <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>20 Free replies</strong> monthly</span>
+                                  <span><strong>50 Listings</strong></span>
                                 </li>
                                 <li className="flex items-center gap-1.5">
                                   <span className="text-green-500 font-bold">✓</span>
-                                  <span>Thereafter: <strong>150 cr / reply</strong></span>
-                                </li>
-                                <li className="flex items-center gap-1.5 text-green-600 font-medium">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span>Send & view phone numbers</span>
-                                </li>
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span>Mediation agent dispute help</span>
+                                  <span><strong>175 credit</strong> per lead</span>
                                 </li>
                               </ul>
                             </div>
@@ -7110,6 +7092,42 @@ export default function Home() {
                                 }`}
                             >
                               {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
+                            </Button>
+                          </Card>
+                          
+                          {/* VIP Plan */}
+                          <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'vip' ? 'ring-2 ring-rose-500' : 'border-gray-200'
+                            }`}>
+                            <div>
+                              <div className="mb-2">
+                                <span className="text-[8px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-2.5 py-0.5 rounded-full">Elite Tier</span>
+                              </div>
+                              <h3 className="text-sm font-bold text-gray-900 mb-0.5">VIP Plan</h3>
+                              <div className="flex items-baseline gap-1 my-1.5">
+                                <span className="text-lg font-extrabold text-gray-900">₹10,000</span>
+                                <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                              </div>
+                              <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Ultimate package for top agencies wanting maximum visibility.</p>
+                              <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
+                                <li className="flex items-center gap-1.5">
+                                  <span className="text-green-500 font-bold">✓</span>
+                                  <span><strong>Unlimited Listings</strong></span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className="text-green-500 font-bold">✓</span>
+                                  <span><strong>150 credit</strong> per lead</span>
+                                </li>
+                              </ul>
+                            </div>
+                            <Button
+                              onClick={() => upgradePlan('vip')}
+                              disabled={userData?.plan === 'vip'}
+                              className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'vip'
+                                  ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
+                                  : 'bg-rose-600 hover:bg-rose-700 text-white'
+                                }`}
+                            >
+                              {userData?.plan === 'vip' ? 'Current Plan' : 'Upgrade to VIP'}
                             </Button>
                           </Card>
                         </div>
