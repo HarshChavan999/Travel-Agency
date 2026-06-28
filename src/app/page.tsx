@@ -7200,425 +7200,431 @@ export default function Home() {
                   )}
 
                   {agencyActiveSection === 'credits' && (
-                    <div id="plans-and-credits-card" className="space-y-6">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h2 className="text-xl font-bold text-gray-900">Plan & Message Credits</h2>
-                          <p className="text-xs text-gray-500 mt-0.5">Manage subscription plans, buy add-on credits, and track transaction history</p>
-                        </div>
-                      </div>
-
-                      {/* Hero Header */}
-                      <div className="bg-gradient-to-r from-[#1E293B] to-[#0F172A] text-white rounded-3xl p-6 shadow-lg relative overflow-hidden">
-                        <div className="absolute right-10 bottom-0 opacity-10 pointer-events-none select-none"><CreditCard className="w-32 h-32 text-white" /></div>
-                        <div className="relative z-10 max-w-3xl">
-                          <div className="inline-flex items-center gap-1.5 bg-[#3B82F6]/20 backdrop-blur-sm text-[#93C5FD] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 border border-[#3B82F6]/30">
-                            <CreditCard className="w-3.5 h-3.5 mr-1" /> Billing & Subscription Control Panel
+                    <Card id="plans-and-credits-card" className="bg-white border border-gray-200 shadow-md rounded-3xl overflow-hidden">
+                      <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-6 md:p-8">
+                        <CardTitle className="flex items-center text-xl font-bold text-gray-900">
+                          <CreditCard className="mr-2.5 h-6 w-6 text-gray-700" />
+                          Plan & Message Credits
+                        </CardTitle>
+                        <CardDescription className="text-xs text-gray-500 mt-1">
+                          Manage subscription plans, buy add-on credits, and track transaction history
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-6 md:p-8 space-y-8">
+                        {/* Hero Header */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
+                          <div className="w-24 h-24 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                            <CreditCard className="h-8 w-8 text-slate-400" />
                           </div>
-                          <h1 className="text-2xl font-extrabold mb-1 tracking-tight">
-                            Premium Reply Credits
-                          </h1>
-                          <p className="text-slate-300 text-xs leading-relaxed opacity-90 max-w-2xl">
-                            Select subscription plans or purchase add-on credit packages to reply to traveler inquiries.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Current Plan Summary Card & Stats */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <Card className="md:col-span-1 bg-white border border-gray-200 shadow-md rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
-                          <div>
-                            <div className="flex justify-between items-center mb-4">
-                              <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Plan</h3>
-                              <Badge className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${userData?.plan === 'premium' ? 'bg-purple-100 text-purple-700 border-purple-200' :
-                                  userData?.plan === 'starter' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                    'bg-blue-100 text-blue-700 border-blue-200'
-                                }`}>
-                                {userData?.plan || 'Free'} Plan
-                              </Badge>
+                          <div className="flex-1 text-center md:text-left">
+                            <div className="inline-flex items-center gap-1.5 bg-white text-slate-800 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-xl border border-gray-200 shadow-sm mb-3">
+                              <CreditCard className="w-3.5 h-3.5 mr-1 text-blue-600" /> Billing & Subscription Control Panel
                             </div>
-                            <div className="space-y-3">
-                              <div>
-                                <p className="text-2xl font-extrabold text-gray-900">
-                                  {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` :
-                                    userData?.plan === 'premium' ? `${userData?.freeChats ?? 0} Free Replies` :
-                                      `${userData?.freeChats ?? 0} Free Replies`}
+                            <h3 className="text-sm font-bold text-gray-900">
+                              Premium Reply Credits
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-1 max-w-lg leading-relaxed">
+                              Select subscription plans or purchase add-on credit packages to reply to traveler inquiries.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Current Plan Summary Card & Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="md:col-span-1 bg-white border border-gray-200 shadow-sm rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+                            <div>
+                              <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Plan</h3>
+                                <Badge className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${userData?.plan === 'premium' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                    userData?.plan === 'starter' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                      'bg-blue-100 text-blue-700 border-blue-200'
+                                  }`}>
+                                  {userData?.plan || 'Free'} Plan
+                                </Badge>
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <p className="text-2xl font-extrabold text-gray-900">
+                                    {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` :
+                                      userData?.plan === 'premium' ? `${userData?.freeChats ?? 0} Free Replies` :
+                                        `${userData?.freeChats ?? 0} Free Replies`}
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">Cycle balance remaining</p>
+                                </div>
+                                <div className="border-t pt-3 space-y-1.5 text-[11px]">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500">Cycle Ends</span>
+                                    <span className="font-semibold text-gray-800">July 16, 2026</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500">Unlocked Travelers</span>
+                                    <span className="font-semibold text-gray-800">{(userData?.unlockedUsers || []).length} Travelers</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Stats Grid */}
+                          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-center justify-between">
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Per Reply Cost</p>
+                                <h4 className="text-sm font-bold text-gray-900">
+                                  {userData?.plan === 'free' && '1 Free Reply'}
+                                  {userData?.plan === 'starter' && '200 Credits'}
+                                  {userData?.plan === 'premium' && '1 Free Reply'}
+                                </h4>
+                                <p className="text-[10px] text-gray-500 leading-snug">
+                                  {userData?.plan === 'premium' && '150 cr after free replies deplete'}
+                                  {userData?.plan === 'free' && 'Unlock uses 1 free reply'}
+                                  {userData?.plan === 'starter' && 'Deducted per unlock'}
                                 </p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">Cycle balance remaining</p>
                               </div>
-                              <div className="border-t pt-3 space-y-1.5 text-[11px]">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500">Cycle Ends</span>
-                                  <span className="font-semibold text-gray-800">July 16, 2026</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500">Unlocked Travelers</span>
-                                  <span className="font-semibold text-gray-800">{(userData?.unlockedUsers || []).length} Travelers</span>
-                                </div>
+                              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
+                                <MessageSquare className="w-5 h-5" />
+                              </div>
+                            </div>
+
+                            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-center justify-between">
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Transactions</p>
+                                <h4 className="text-sm font-bold text-gray-900">
+                                  {(userData?.creditHistory || []).length} Operations
+                                </h4>
+                                <p className="text-[10px] text-gray-500 leading-snug">Logs of top-ups & usage</p>
+                              </div>
+                              <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-lg">
+                                <ClipboardList className="w-5 h-5" />
                               </div>
                             </div>
                           </div>
-                        </Card>
-
-                        {/* Quick Stats Grid */}
-                        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Per Reply Cost</p>
-                              <h4 className="text-sm font-bold text-gray-900">
-                                {userData?.plan === 'free' && '1 Free Reply'}
-                                {userData?.plan === 'starter' && '200 Credits'}
-                                {userData?.plan === 'premium' && '1 Free Reply'}
-                              </h4>
-                              <p className="text-[10px] text-gray-500 leading-snug">
-                                {userData?.plan === 'premium' && '150 cr after free replies deplete'}
-                                {userData?.plan === 'free' && 'Unlock uses 1 free reply'}
-                                {userData?.plan === 'starter' && 'Deducted per unlock'}
-                              </p>
-                            </div>
-                            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
-                              <MessageSquare className="w-5 h-5" />
-                            </div>
-                          </Card>
-
-                          <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-4 flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Transactions</p>
-                              <h4 className="text-sm font-bold text-gray-900">
-                                {(userData?.creditHistory || []).length} Operations
-                              </h4>
-                              <p className="text-[10px] text-gray-500 leading-snug">Logs of top-ups & usage</p>
-                            </div>
-                            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-lg">
-                              <ClipboardList className="w-5 h-5" />
-                            </div>
-                          </Card>
                         </div>
-                      </div>
 
-                      {/* Developer Testing Panel inside Dashboard */}
-                      <Card className="bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
-                        <h4 className="text-xs font-bold text-orange-850 flex items-center gap-1.5 mb-1.5">
-                          <Wrench className="w-4 h-4 mr-1.5 text-orange-600" /> Developer Billing & Credits Simulator
-                        </h4>
-                        <p className="text-[10px] text-orange-700 mb-3 leading-relaxed">
-                          Use these controls to simulate plan resets, add credits, and verify unlock behavior. Changes reflect in Firebase Firestore immediately.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            onClick={() => simulateResetCredits('free')}
-                            variant="outline"
+                        {/* Developer Testing Panel inside Dashboard */}
+                        <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
+                          <h4 className="text-xs font-bold text-orange-850 flex items-center gap-1.5 mb-1.5">
+                            <Wrench className="w-4 h-4 mr-1.5 text-orange-600" /> Developer Billing & Credits Simulator
+                          </h4>
+                          <p className="text-[10px] text-orange-700 mb-3 leading-relaxed">
+                            Use these controls to simulate plan resets, add credits, and verify unlock behavior. Changes reflect in Firebase Firestore immediately.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              onClick={() => simulateResetCredits('free')}
+                              variant="outline"
                             className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-blue-700 py-1.5 h-auto"
-                          >
-                            Reset to Free
-                          </Button>
-                          <Button
-                            onClick={() => simulateResetCredits('starter')}
-                            variant="outline"
+                            >
+                              Reset to Free
+                            </Button>
+                            <Button
+                              onClick={() => simulateResetCredits('starter')}
+                              variant="outline"
                             className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-amber-700 py-1.5 h-auto"
-                          >
-                            Reset to Starter
-                          </Button>
-                          <Button
-                            onClick={() => simulateResetCredits('premium')}
-                            variant="outline"
+                            >
+                              Reset to Starter
+                            </Button>
+                            <Button
+                              onClick={() => simulateResetCredits('premium')}
+                              variant="outline"
                             className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-purple-705 py-1.5 h-auto"
-                          >
-                            Reset to Premium
-                          </Button>
-                          <Button
-                            onClick={async () => {
-                              if (!user || !userData) return;
-                              const currentCredits = userData.credits || 0;
-                              const txId = 'TX-SIM-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-                              const newTransaction = {
-                                id: txId,
-                                type: 'top-up',
-                                amount: 500,
-                                description: 'Simulated Developer top-up',
-                                timestamp: Date.now()
-                              };
-                              await updateDoc(doc(getDbInstance()!, 'users', user.uid), {
-                                credits: currentCredits + 500,
-                                creditHistory: [newTransaction, ...(userData.creditHistory || [])]
-                              });
-                              alert('Simulated: Added 500 Credits');
-                            }}
-                            variant="outline"
+                            >
+                              Reset to Premium
+                            </Button>
+                            <Button
+                              onClick={async () => {
+                                if (!user || !userData) return;
+                                const currentCredits = userData.credits || 0;
+                                const txId = 'TX-SIM-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+                                const newTransaction = {
+                                  id: txId,
+                                  type: 'top-up',
+                                  amount: 500,
+                                  description: 'Simulated Developer top-up',
+                                  timestamp: Date.now()
+                                };
+                                await updateDoc(doc(getDbInstance()!, 'users', user.uid), {
+                                  credits: currentCredits + 500,
+                                  creditHistory: [newTransaction, ...(userData.creditHistory || [])]
+                                });
+                                alert('Simulated: Added 500 Credits');
+                              }}
+                              variant="outline"
                             className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-green-750 py-1.5 h-auto"
-                          >
-                            +500 Credits
-                          </Button>
-                        </div>
-                      </Card>
-
-                      {/* Plan Grid */}
-                      <div id="plans-comparison-grid" className="pt-2">
-                        <div className="mb-4">
-                          <h2 className="text-base font-bold text-gray-900 mb-0.5">Subscription Plans</h2>
-                          <p className="text-[11px] text-gray-505">Select the perfect tier to unlock and respond to traveler inquiries. Upgrade or downgrade anytime.</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                          {/* Free Plan */}
-                          <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-blue-500' : 'border-gray-200'
-                            }`}>
-                            <div>
-                              <div className="mb-2">
-                                <span className="text-[8px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-full">Basic Tier</span>
-                              </div>
-                              <h3 className="text-sm font-bold text-gray-900 mb-0.5">Free Plan</h3>
-                              <div className="flex items-baseline gap-1 my-1.5">
-                                <span className="text-lg font-extrabold text-gray-900">₹0</span>
-                                <span className="text-[9px] text-gray-500 font-medium">/ year</span>
-                              </div>
-                              <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Perfect for simple search and quick traveler responses.</p>
-                              <ul className="space-y-2 text-[10px] text-gray-600 border-t pt-3 mb-4">
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>2 Listings</strong></span>
-                                </li>
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>2 Leads</strong></span>
-                                </li>
-                              </ul>
-                            </div>
-                            <Button
-                              onClick={() => upgradePlan('free')}
-                              disabled={userData?.plan === 'free' || !userData?.plan}
-                              className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'free' || !userData?.plan
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                }`}
                             >
-                              {userData?.plan === 'free' || !userData?.plan ? 'Current Plan' : 'Select Free Plan'}
+                              +500 Credits
                             </Button>
-                          </Card>
-
-                          {/* Standard Plan */}
-                          <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-starter ${userData?.plan === 'starter' ? 'ring-2 ring-amber-500' : 'border-gray-200'
-                            }`}>
-                            <div>
-                              <div className="mb-2 flex justify-between items-center">
-                                <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-full">Most Popular</span>
-                              </div>
-                              <h3 className="text-sm font-bold text-gray-900 mb-0.5">Standard Plan</h3>
-                              <div className="flex items-baseline gap-1 my-1.5">
-                                <span className="text-lg font-extrabold text-gray-900">₹2,000</span>
-                                <span className="text-[9px] text-gray-500 font-medium">/ year</span>
-                              </div>
-                              <p className="text-[10px] text-gray-650 mb-4 leading-relaxed">Best for active agencies replying to holiday inquiries.</p>
-                              <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>10 Listings</strong></span>
-                                </li>
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>200 credit</strong> per lead</span>
-                                </li>
-                              </ul>
-                            </div>
-                            <Button
-                              onClick={() => upgradePlan('starter')}
-                              disabled={userData?.plan === 'starter'}
-                              className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'starter'
-                                  ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                  : 'bg-amber-500 hover:bg-amber-600 text-white'
-                                }`}
-                            >
-                              {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Standard'}
-                            </Button>
-                          </Card>
-
-                          {/* Premium Plan */}
-                          <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'premium' ? 'ring-2 ring-purple-500' : 'border-gray-200'
-                            }`}>
-                            <div>
-                              <div className="mb-2">
-                                <span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest bg-purple-50 px-2.5 py-0.5 rounded-full">Power User</span>
-                              </div>
-                              <h3 className="text-sm font-bold text-gray-900 mb-0.5">Premium Plan</h3>
-                              <div className="flex items-baseline gap-1 my-1.5">
-                                <span className="text-lg font-extrabold text-gray-900">₹5,000</span>
-                                <span className="text-[9px] text-gray-500 font-medium">/ year</span>
-                              </div>
-                              <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">For frequent high-volume agency messaging needs.</p>
-                              <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>50 Listings</strong></span>
-                                </li>
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>175 credit</strong> per lead</span>
-                                </li>
-                              </ul>
-                            </div>
-                            <Button
-                              onClick={() => upgradePlan('premium')}
-                              disabled={userData?.plan === 'premium'}
-                              className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'premium'
-                                  ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-                                }`}
-                            >
-                              {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
-                            </Button>
-                          </Card>
-                          
-                          {/* VIP Plan */}
-                          <Card className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'vip' ? 'ring-2 ring-rose-500' : 'border-gray-200'
-                            }`}>
-                            <div>
-                              <div className="mb-2">
-                                <span className="text-[8px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-2.5 py-0.5 rounded-full">Elite Tier</span>
-                              </div>
-                              <h3 className="text-sm font-bold text-gray-900 mb-0.5">VIP Plan</h3>
-                              <div className="flex items-baseline gap-1 my-1.5">
-                                <span className="text-lg font-extrabold text-gray-900">₹10,000</span>
-                                <span className="text-[9px] text-gray-500 font-medium">/ year</span>
-                              </div>
-                              <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Ultimate package for top agencies wanting maximum visibility.</p>
-                              <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>Unlimited Listings</strong></span>
-                                </li>
-                                <li className="flex items-center gap-1.5">
-                                  <span className="text-green-500 font-bold">✓</span>
-                                  <span><strong>150 credit</strong> per lead</span>
-                                </li>
-                              </ul>
-                            </div>
-                            <Button
-                              onClick={() => upgradePlan('vip')}
-                              disabled={userData?.plan === 'vip'}
-                              className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'vip'
-                                  ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                  : 'bg-rose-600 hover:bg-rose-700 text-white'
-                                }`}
-                            >
-                              {userData?.plan === 'vip' ? 'Current Plan' : 'Upgrade to VIP'}
-                            </Button>
-                          </Card>
-                        </div>
-                      </div>
-
-                      {/* Add-on Credit Packages */}
-                      <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                          <div>
-                            <h3 className="text-sm font-bold text-gray-900">Buy Add-on Credits</h3>
-                            <p className="text-[10px] text-gray-550">Need more credits? Buy extra packs instantly (Requires Starter or Premium plan).</p>
                           </div>
-                          <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-555 mt-2 sm:mt-0 font-medium">
-                            Plan: {userData?.plan || 'free'}
-                          </Badge>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          {[
-                            { name: 'Starter Pack', credits: 500, price: 100, desc: 'Ideal for 2 extra replies' },
-                            { name: 'Growth Pack', credits: 1000, price: 180, desc: 'Best Value! 5 replies (Starter)', recommended: true },
-                            { name: 'Pro Pack', credits: 2500, price: 400, desc: 'For heavy messaging needs' }
-                          ].map((pack) => (
-                            <div
-                              key={pack.name}
-                              className={`border rounded-2xl p-4 flex flex-col justify-between relative bg-slate-50/50 hover:bg-slate-50 transition-all ${pack.recommended ? 'border-amber-400 ring-1 ring-amber-400' : 'border-gray-200'
-                                }`}
-                            >
-                              {pack.recommended && (
-                                <span className="absolute -top-2 right-3 bg-amber-400 text-amber-950 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
-                                  Best Value
-                                </span>
-                              )}
-                              <div className="mb-3">
-                                <h4 className="font-bold text-xs text-gray-900">{pack.name}</h4>
-                                <p className="text-base font-extrabold text-blue-600 my-1">+{pack.credits} Credits</p>
-                                <p className="text-[10px] text-gray-500 leading-snug">{pack.desc}</p>
-                              </div>
-                              <div className="pt-3 border-t flex items-center justify-between gap-2">
-                                <span className="font-extrabold text-xs text-gray-800">₹{pack.price}</span>
-                                <Button
-                                  onClick={() => buyCredits(pack.credits, pack.price)}
-                                  disabled={!userData?.plan || userData.plan === 'free'}
-                                  className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
-                                >
-                                  Buy Pack
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Transaction History Logs */}
-                      <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6">
-                        <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1.5">
-                          <ClipboardList className="w-4 h-4 mr-1.5 text-gray-600" /> Credit Transaction History
-                        </h3>
-
-                        {(!userData?.creditHistory || userData.creditHistory.length === 0) ? (
-                          <div className="text-center py-10 text-gray-400 text-xs italic bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                            No transactions recorded.
+                        {/* Plan Grid */}
+                        <div id="plans-comparison-grid" className="pt-2">
+                          <div className="mb-4">
+                            <h2 className="text-base font-bold text-gray-900 mb-0.5">Subscription Plans</h2>
+                            <p className="text-[11px] text-gray-505">Select the perfect tier to unlock and respond to traveler inquiries. Upgrade or downgrade anytime.</p>
                           </div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-[10px]">
-                              <thead>
-                                <tr className="border-b text-gray-400 font-bold uppercase tracking-wider">
-                                  <th className="pb-3 pr-4">Transaction ID</th>
-                                  <th className="pb-3 pr-4">Type</th>
-                                  <th className="pb-3 pr-4">Description</th>
-                                  <th className="pb-3 pr-4 text-right">Amount</th>
-                                  <th className="pb-3 text-right">Date</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                                {userData.creditHistory.map((tx) => (
-                                  <tr key={tx.id} className="transaction-row">
-                                    <td className="py-3 font-mono text-gray-400">{tx.id}</td>
-                                    <td className="py-3 pr-4">
-                                      <Badge className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${tx.type === 'top-up' ? 'bg-green-50 text-green-700 border-green-200' :
-                                          tx.type === 'plan-change' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                            tx.type === 'reset' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                              'bg-red-50 text-red-700 border-red-200'
-                                        }`}>
-                                        {tx.type}
-                                      </Badge>
-                                    </td>
-                                    <td className="py-3 pr-4">{tx.description}</td>
-                                    <td className={`py-3 pr-4 text-right font-extrabold text-xs ${tx.type === 'top-up' ? 'text-green-600' :
-                                        tx.type === 'plan-change' ? 'text-purple-600' :
-                                          tx.type === 'reset' ? 'text-blue-600' :
-                                            'text-red-600'
-                                      }`}>
-                                      {tx.type === 'top-up' && '+'}
-                                      {tx.type === 'deduction' && '-'}
-                                      {tx.amount}
-                                      {userData.plan === 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' cr' : ''}
-                                      {userData.plan !== 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' replies' : ''}
-                                      {tx.type === 'plan-change' && ' ₹'}
-                                    </td>
-                                    <td className="py-3 text-right text-gray-400">
-                                      {new Date(tx.timestamp).toLocaleString('en-IN', {
-                                        day: 'numeric',
-                                        month: 'short',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })}
-                                    </td>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Free Plan */}
+                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-blue-500' : 'border-gray-200'
+                              }`}>
+                              <div>
+                                <div className="mb-2">
+                                  <span className="text-[8px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-full">Basic Tier</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Free Plan</h3>
+                                <div className="flex items-baseline gap-1 my-1.5">
+                                  <span className="text-lg font-extrabold text-gray-900">₹0</span>
+                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                </div>
+                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Perfect for simple search and quick traveler responses.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-600 border-t pt-3 mb-4">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>2 Listings</strong></span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>2 Leads</strong></span>
+                                  </li>
+                                </ul>
+                              </div>
+                              <Button
+                                onClick={() => upgradePlan('free')}
+                                disabled={userData?.plan === 'free' || !userData?.plan}
+                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'free' || !userData?.plan
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  }`}
+                              >
+                                {userData?.plan === 'free' || !userData?.plan ? 'Current Plan' : 'Select Free Plan'}
+                              </Button>
+                            </div>
+
+                            {/* Standard Plan */}
+                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-starter ${userData?.plan === 'starter' ? 'ring-2 ring-amber-500' : 'border-gray-200'
+                              }`}>
+                              <div>
+                                <div className="mb-2 flex justify-between items-center">
+                                  <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-full">Most Popular</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Standard Plan</h3>
+                                <div className="flex items-baseline gap-1 my-1.5">
+                                  <span className="text-lg font-extrabold text-gray-900">₹2,000</span>
+                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                </div>
+                                <p className="text-[10px] text-gray-650 mb-4 leading-relaxed">Best for active agencies replying to holiday inquiries.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>10 Listings</strong></span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>200 credit</strong> per lead</span>
+                                  </li>
+                                </ul>
+                              </div>
+                              <Button
+                                onClick={() => upgradePlan('starter')}
+                                disabled={userData?.plan === 'starter'}
+                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'starter'
+                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  }`}
+                              >
+                                {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Standard'}
+                              </Button>
+                            </div>
+
+                            {/* Premium Plan */}
+                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'premium' ? 'ring-2 ring-purple-500' : 'border-gray-200'
+                              }`}>
+                              <div>
+                                <div className="mb-2">
+                                  <span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest bg-purple-50 px-2.5 py-0.5 rounded-full">Power User</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">Premium Plan</h3>
+                                <div className="flex items-baseline gap-1 my-1.5">
+                                  <span className="text-lg font-extrabold text-gray-900">₹5,000</span>
+                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                </div>
+                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">For frequent high-volume agency messaging needs.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>50 Listings</strong></span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>175 credit</strong> per lead</span>
+                                  </li>
+                                </ul>
+                              </div>
+                              <Button
+                                onClick={() => upgradePlan('premium')}
+                                disabled={userData?.plan === 'premium'}
+                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'premium'
+                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  }`}
+                              >
+                                {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
+                              </Button>
+                            </div>
+                            
+                            {/* VIP Plan */}
+                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'vip' ? 'ring-2 ring-rose-500' : 'border-gray-200'
+                              }`}>
+                              <div>
+                                <div className="mb-2">
+                                  <span className="text-[8px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-2.5 py-0.5 rounded-full">Elite Tier</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-0.5">VIP Plan</h3>
+                                <div className="flex items-baseline gap-1 my-1.5">
+                                  <span className="text-lg font-extrabold text-gray-900">₹10,000</span>
+                                  <span className="text-[9px] text-gray-500 font-medium">/ year</span>
+                                </div>
+                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Ultimate package for top agencies wanting maximum visibility.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>Unlimited Listings</strong></span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="text-green-500 font-bold">✓</span>
+                                    <span><strong>150 credit</strong> per lead</span>
+                                  </li>
+                                </ul>
+                              </div>
+                              <Button
+                                onClick={() => upgradePlan('vip')}
+                                disabled={userData?.plan === 'vip'}
+                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'vip'
+                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  }`}
+                              >
+                                {userData?.plan === 'vip' ? 'Current Plan' : 'Upgrade to VIP'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Add-on Credit Packages */}
+                        <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                            <div>
+                              <h3 className="text-sm font-bold text-gray-900">Buy Add-on Credits</h3>
+                              <p className="text-[10px] text-gray-550">Need more credits? Buy extra packs instantly (Requires Starter or Premium plan).</p>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-555 mt-2 sm:mt-0 font-medium">
+                              Plan: {userData?.plan || 'free'}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {[
+                              { name: 'Starter Pack', credits: 500, price: 100, desc: 'Ideal for 2 extra replies' },
+                              { name: 'Growth Pack', credits: 1000, price: 180, desc: 'Best Value! 5 replies (Starter)', recommended: true },
+                              { name: 'Pro Pack', credits: 2500, price: 400, desc: 'For heavy messaging needs' }
+                            ].map((pack) => (
+                              <div
+                                key={pack.name}
+                                className={`border rounded-2xl p-4 flex flex-col justify-between relative bg-slate-50/50 hover:bg-slate-50 transition-all ${pack.recommended ? 'border-amber-400 ring-1 ring-amber-400' : 'border-gray-200'
+                                  }`}
+                              >
+                                {pack.recommended && (
+                                  <span className="absolute -top-2 right-3 bg-amber-400 text-amber-950 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                                    Best Value
+                                  </span>
+                                )}
+                                <div className="mb-3">
+                                  <h4 className="font-bold text-xs text-gray-900">{pack.name}</h4>
+                                  <p className="text-base font-extrabold text-blue-600 my-1">+{pack.credits} Credits</p>
+                                  <p className="text-[10px] text-gray-500 leading-snug">{pack.desc}</p>
+                                </div>
+                                <div className="pt-3 border-t flex items-center justify-between gap-2">
+                                  <span className="font-extrabold text-xs text-gray-800">₹{pack.price}</span>
+                                  <Button
+                                    onClick={() => buyCredits(pack.credits, pack.price)}
+                                    disabled={!userData?.plan || userData.plan === 'free'}
+                                    className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
+                                  >
+                                    Buy Pack
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Transaction History Logs */}
+                        <div className="bg-white border border-gray-200 shadow-sm rounded-3xl p-6">
+                          <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1.5">
+                            <ClipboardList className="w-4 h-4 mr-1.5 text-gray-600" /> Credit Transaction History
+                          </h3>
+
+                          {(!userData?.creditHistory || userData.creditHistory.length === 0) ? (
+                            <div className="text-center py-10 text-gray-400 text-xs italic bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                              No transactions recorded.
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse text-[10px]">
+                                <thead>
+                                  <tr className="border-b text-gray-400 font-bold uppercase tracking-wider">
+                                    <th className="pb-3 pr-4">Transaction ID</th>
+                                    <th className="pb-3 pr-4">Type</th>
+                                    <th className="pb-3 pr-4">Description</th>
+                                    <th className="pb-3 pr-4 text-right">Amount</th>
+                                    <th className="pb-3 text-right">Date</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </Card>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                  {userData.creditHistory.map((tx) => (
+                                    <tr key={tx.id} className="transaction-row">
+                                      <td className="py-3 font-mono text-gray-400">{tx.id}</td>
+                                      <td className="py-3 pr-4">
+                                        <Badge className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${tx.type === 'top-up' ? 'bg-green-50 text-green-700 border-green-200' :
+                                            tx.type === 'plan-change' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                              tx.type === 'reset' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                'bg-red-50 text-red-700 border-red-200'
+                                          }`}>
+                                          {tx.type}
+                                        </Badge>
+                                      </td>
+                                      <td className="py-3 pr-4">{tx.description}</td>
+                                      <td className={`py-3 pr-4 text-right font-extrabold text-xs ${tx.type === 'top-up' ? 'text-green-600' :
+                                          tx.type === 'plan-change' ? 'text-purple-600' :
+                                            tx.type === 'reset' ? 'text-blue-600' :
+                                              'text-red-600'
+                                        }`}>
+                                        {tx.type === 'top-up' && '+'}
+                                        {tx.type === 'deduction' && '-'}
+                                        {tx.amount}
+                                        {userData.plan === 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' cr' : ''}
+                                        {userData.plan !== 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' replies' : ''}
+                                        {tx.type === 'plan-change' && ' ₹'}
+                                      </td>
+                                      <td className="py-3 text-right text-gray-400">
+                                        {new Date(tx.timestamp).toLocaleString('en-IN', {
+                                          day: 'numeric',
+                                          month: 'short',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
                 </>
               ) : (
