@@ -6,19 +6,26 @@ service firebase.storage {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow authenticated users to read/write listing photos
+    // Allow public read for listing photos, logos, and avatars so all travelers can see them
     match /listings/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow all authenticated users to read listing photos (for viewing)
-    match /listings/{userId}/{allPaths=**} {
-      allow read: if request.auth != null;
+    match /logos/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow admin users full access to everything
+    match /avatars/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Allow admin users full access to everything, and allow public fallback read
     match /{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.token.email == 'phitanshu962@gmail.com';
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == 'phitanshu962@gmail.com';
     }
   }
 }

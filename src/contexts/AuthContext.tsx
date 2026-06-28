@@ -13,7 +13,12 @@ interface UserData {
   companyName?: string;
   phone?: string;
   contactNumber?: string;
+  contactEmail?: string;
+  description?: string;
+  agencyDescription?: string;
   avatarUrl?: string;
+  logoUrl?: string;
+  agencyLogo?: string;
   coTravellers?: any[];
   plan?: 'free' | 'starter' | 'premium' | 'vip';
   credits?: number;

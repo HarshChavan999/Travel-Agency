@@ -50,7 +50,32 @@ import {
   Tag,
   Utensils,
   TrendingUp,
-  Info
+  Info,
+  Users, 
+  BarChart2, 
+  Building, 
+  Settings, 
+  Plane, 
+  Map as MapIcon, 
+  Sparkles, 
+  AlertCircle, 
+  Send, 
+  Star, 
+  Phone, 
+  Mail, 
+  Lock, 
+  Laptop, 
+  HelpCircle, 
+  CheckCircle, 
+  Package,
+  Smile,
+  Printer,
+  Share2,
+  FileText,
+  Zap,
+  Home as HomeIcon,
+  Upload,
+  BarChart3
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -233,6 +258,8 @@ export default function Home() {
   const [agencyChatInput, setAgencyChatInput] = useState('');
   const [agencyConversations, setAgencyConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
+  const selectedConversationRef = useRef<any>(null);
+  selectedConversationRef.current = selectedConversation;
   const hasManuallyClosedChatRef = useRef(false);
   const [agencyChatSearchQuery, setAgencyChatSearchQuery] = useState<string>('');
   const [showAgencyEmojiPicker, setShowAgencyEmojiPicker] = useState<boolean>(false);
@@ -663,7 +690,8 @@ export default function Home() {
       const compressedFiles = await compressMultipleImages([selectedFile]);
       const fileToUpload = compressedFiles[0];
 
-      const storageRef = ref(storageInstance, `avatars/${user.uid}/${Date.now()}_${fileToUpload.name}`);
+      // Store under listings path to align with existing active storage security rules
+      const storageRef = ref(storageInstance, `listings/${user.uid}/avatars/${Date.now()}_${fileToUpload.name}`);
       await uploadBytes(storageRef, fileToUpload);
       const downloadUrl = await getDownloadURL(storageRef);
 
@@ -677,6 +705,83 @@ export default function Home() {
     } catch (error) {
       console.error('Error uploading profile photo:', error);
       alert('Failed to upload profile picture.');
+    }
+  };
+
+  // Agency Settings States (agencyDescription is defined at line 196)
+  const [agencyCompanyName, setAgencyCompanyName] = useState('');
+  const [agencyContactEmail, setAgencyContactEmail] = useState('');
+  const [agencyLogoUrl, setAgencyLogoUrl] = useState('');
+  const [agencyLogoError, setAgencyLogoError] = useState(false);
+  const [savingAgencySettings, setSavingAgencySettings] = useState(false);
+
+  // Load Agency States from userData & user
+  useEffect(() => {
+    if (user && userData && userData.role === 'agency') {
+      setAgencyCompanyName(userData.companyName || userData.name || '');
+      setAgencyContactEmail(userData.contactEmail || user.email || '');
+      setAgencyDescription(userData.description || userData.agencyDescription || '');
+      setAgencyLogoUrl(userData.logoUrl || userData.agencyLogo || userData.avatarUrl || '');
+      setAgencyLogoError(false);
+    }
+  }, [user, userData]);
+
+  // Upload Agency Logo to Firebase Storage and update user document
+  const handleAgencyLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user) return;
+    const selectedFile = e.target.files[0];
+
+    if (!isValidImageFile(selectedFile)) {
+      alert('Please select a valid image file (PNG, JPG, WEBP, JPEG).');
+      return;
+    }
+
+    const storageInstance = getStorageInstance();
+    const dbInstance = getDbInstance();
+    if (!storageInstance || !dbInstance) return;
+
+    try {
+      const compressedFiles = await compressMultipleImages([selectedFile]);
+      const fileToUpload = compressedFiles[0];
+
+      // Store under listings path to align with existing active storage security rules
+      const storageRef = ref(storageInstance, `listings/${user.uid}/logos/${Date.now()}_${fileToUpload.name}`);
+      await uploadBytes(storageRef, fileToUpload);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      await updateDoc(doc(dbInstance, 'users', user.uid), {
+        logoUrl: downloadUrl
+      });
+
+      setAgencyLogoUrl(downloadUrl);
+      setAgencyLogoError(false);
+      alert('Agency logo updated successfully!');
+    } catch (error) {
+      console.error('Error uploading agency logo:', error);
+      alert('Failed to upload agency logo. Please try again.');
+    }
+  };
+
+  // Save Agency Settings to Firestore
+  const handleSaveAgencySettings = async () => {
+    if (!user) return;
+    const dbInstance = getDbInstance();
+    if (!dbInstance) return;
+
+    setSavingAgencySettings(true);
+    try {
+      await updateDoc(doc(dbInstance, 'users', user.uid), {
+        companyName: agencyCompanyName,
+        contactEmail: agencyContactEmail,
+        description: agencyDescription,
+        agencyDescription: agencyDescription
+      });
+      alert('Agency settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving agency settings:', error);
+      alert('Failed to save agency settings. Please try again.');
+    } finally {
+      setSavingAgencySettings(false);
     }
   };
 
@@ -1423,7 +1528,7 @@ export default function Home() {
           setAgencyConversations(conversations);
 
           // Auto-select first conversation if none selected (only on initial load, not after manual close)
-          if (!selectedConversation && conversations.length > 0 && !hasManuallyClosedChatRef.current) {
+          if (!selectedConversationRef.current && conversations.length > 0 && !hasManuallyClosedChatRef.current) {
             setSelectedConversation(conversations[0]);
           }
         };
@@ -2089,7 +2194,7 @@ export default function Home() {
                       <CardContent className="p-6">
                         <div className="flex items-center">
                           <div className="p-2 bg-blue-100 rounded-lg">
-                            <span className="text-2xl">👥</span>
+                            <Users className="h-6 w-6 text-blue-600" />
                           </div>
                           <div className="ml-4">
                             <p className="text-sm font-medium text-gray-600">Total Agencies</p>
@@ -2103,7 +2208,7 @@ export default function Home() {
                       <CardContent className="p-6">
                         <div className="flex items-center">
                           <div className="p-2 bg-green-100 rounded-lg">
-                            <span className="text-2xl">✅</span>
+                            <CheckCircle className="h-6 w-6 text-green-600" />
                           </div>
                           <div className="ml-4">
                             <p className="text-sm font-medium text-gray-600">Approved</p>
@@ -2117,7 +2222,7 @@ export default function Home() {
                       <CardContent className="p-6">
                         <div className="flex items-center">
                           <div className="p-2 bg-yellow-100 rounded-lg">
-                            <span className="text-2xl">⏳</span>
+                            <Clock className="h-6 w-6 text-yellow-600" />
                           </div>
                           <div className="ml-4">
                             <p className="text-sm font-medium text-gray-600">Pending</p>
@@ -2131,7 +2236,7 @@ export default function Home() {
                       <CardContent className="p-6">
                         <div className="flex items-center">
                           <div className="p-2 bg-purple-100 rounded-lg">
-                            <span className="text-2xl">📈</span>
+                            <TrendingUp className="h-6 w-6 text-purple-600" />
                           </div>
                           <div className="ml-4">
                             <p className="text-sm font-medium text-gray-600">Total Listings</p>
@@ -2146,7 +2251,7 @@ export default function Home() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center">
-                        <span className="mr-2">📊</span>
+                        <BarChart2 className="mr-2 h-5 w-5 text-blue-600" />
                         System Overview
                       </CardTitle>
                     </CardHeader>
@@ -2171,7 +2276,7 @@ export default function Home() {
                             <p className="text-sm font-medium">System Status</p>
                             <p className="text-xs text-gray-500">All services operational</p>
                           </div>
-                          <span className="text-sm font-semibold text-green-600">✅ Online</span>
+                          <span className="flex items-center gap-1 text-sm font-semibold text-green-600"><CheckCircle className="h-4 w-4 text-green-600" /> Online</span>
                         </div>
                       </div>
                     </CardContent>
@@ -2183,7 +2288,7 @@ export default function Home() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <span className="mr-2">⏳</span>
+                      <Clock className="mr-2 h-5 w-5 text-yellow-600" />
                       Pending Agency Approvals
                     </CardTitle>
                     <CardDescription>
@@ -2199,7 +2304,7 @@ export default function Home() {
                           <div key={agency.id} className="flex items-center justify-between p-4 border rounded-lg">
                             <div className="flex items-center space-x-4">
                               <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                                <span className="text-lg">🏢</span>
+                                <Building className="h-6 w-6 text-gray-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold">{agency.companyName}</h3>
@@ -2249,7 +2354,7 @@ export default function Home() {
                       </CardHeader>
                       <CardContent>
                         <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <p className="text-gray-500">📈 Growth Chart Coming Soon</p>
+                          <p className="text-gray-500 flex items-center gap-2"><TrendingUp className="h-5 w-5 text-gray-400" /> Growth Chart Coming Soon</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -2268,7 +2373,7 @@ export default function Home() {
                             <div key={agency.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                               <div className="flex items-center space-x-3">
                                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <span className="text-sm">🏢</span>
+                                  <Building className="h-4 w-4 text-blue-600" />
                                 </div>
                                 <div>
                                   <p className="font-medium">{agency.companyName}</p>
@@ -2292,7 +2397,7 @@ export default function Home() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <span className="mr-2">👥</span>
+                      <Users className="mr-2 h-5 w-5 text-blue-600" />
                       All Agencies
                     </CardTitle>
                     <CardDescription>
@@ -2305,14 +2410,14 @@ export default function Home() {
                         <div key={agency.id} className="flex items-center justify-between p-4 border rounded-lg">
                           <div className="flex items-center space-x-4">
                             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                              <span className="text-lg">🏢</span>
+                              <Building className="h-6 w-6 text-gray-600" />
                             </div>
                             <div>
                               <h3 className="font-semibold">{agency.companyName}</h3>
                               <p className="text-sm text-gray-600">{agency.name} • {agency.email || 'No email'}</p>
-                              <p className="text-xs text-gray-500">
-                                Status: {agency.approved ? '✅ Approved' : '⏳ Pending'}
-                              </p>
+                              <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                Status: {agency.approved ? <span className="flex items-center gap-1 text-green-600 font-semibold"><CheckCircle className="h-3.5 w-3.5" /> Approved</span> : <span className="flex items-center gap-1 text-yellow-600 font-semibold"><Clock className="h-3.5 w-3.5" /> Pending</span>}
+                              </div>
                             </div>
                           </div>
                           <div className="flex space-x-2">
@@ -2340,7 +2445,7 @@ export default function Home() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center">
-                        <span className="mr-2">🏢</span>
+                        <Building className="mr-2 h-6 w-6 text-blue-600" />
                         {viewingAgency.companyName} - Details
                       </CardTitle>
                       <Button variant="outline" size="sm" onClick={() => setViewingAgency(null)}>
@@ -2379,9 +2484,9 @@ export default function Home() {
                           </div>
                           <div>
                             <p className="text-sm text-gray-600">Status</p>
-                            <p className={`font-medium ${viewingAgency.approved ? 'text-green-600' : 'text-yellow-600'}`}>
-                              {viewingAgency.approved ? '✅ Approved' : '⏳ Pending'}
-                            </p>
+                            <div className={`font-medium mt-1 flex items-center gap-1 ${viewingAgency.approved ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {viewingAgency.approved ? <><CheckCircle className="h-4 w-4" /> Approved</> : <><Clock className="h-4 w-4" /> Pending</>}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2462,7 +2567,7 @@ export default function Home() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <span className="mr-2">🏖️</span>
+                      <Palmtree className="mr-2 h-5 w-5 text-blue-600" />
                       Pending Listing Approvals
                     </CardTitle>
                     <CardDescription>
@@ -2478,7 +2583,7 @@ export default function Home() {
                           <div key={listing.id} className="flex items-center justify-between p-4 border rounded-lg">
                             <div className="flex items-center space-x-4">
                               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <span className="text-lg">🏖️</span>
+                                <Palmtree className="h-6 w-6 text-blue-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold">{listing.title}</h3>
@@ -3033,7 +3138,7 @@ export default function Home() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center">
-                        <span className="mr-2">⚙️</span>
+                        <Settings className="mr-2 h-5 w-5 text-gray-700" />
                         Admin Settings
                       </CardTitle>
                       <CardDescription>
@@ -3080,7 +3185,7 @@ export default function Home() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center">
-                        <span className="mr-2">💬</span>
+                        <MessageSquare className="mr-2 h-5 w-5 text-blue-600" />
                         Chat Quick Replies Management
                       </CardTitle>
                       <CardDescription>
@@ -3317,12 +3422,12 @@ export default function Home() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#14161C] via-slate-900/35 to-transparent"></div>
                 
                 {/* Floating decor particles */}
-                <div className="absolute top-10 left-10 text-white/5 text-9xl leading-none select-none pointer-events-none">✈️</div>
-                <div className="absolute bottom-10 right-10 text-white/5 text-9xl leading-none select-none pointer-events-none">🗺️</div>
+                <div className="absolute top-10 left-10 text-white/5 pointer-events-none select-none"><Plane className="w-40 h-40" /></div>
+                <div className="absolute bottom-10 right-10 text-white/5 pointer-events-none select-none"><MapIcon className="w-40 h-40" /></div>
 
                 <div className="max-w-5xl mx-auto w-full text-center relative z-10 text-white mt-4 flex flex-col items-center">
                   <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-1.5 font-bold text-xs mb-5 rounded-full shadow-lg tracking-wide uppercase">
-                    <span className="animate-pulse">✨</span> Premium Travel Partners
+                    <Sparkles className="h-4 w-4 text-yellow-400 animate-pulse" /> Premium Travel Partners
                   </div>
                   <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tight drop-shadow-2xl leading-none">
                     Discover Your Next <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300 drop-shadow-sm">Adventure</span>
@@ -3368,7 +3473,7 @@ export default function Home() {
                             onChange={(e) => setHeroSearchInput(e.target.value)}
                             className="w-full pl-9 pr-3 rounded-xl border-none text-black bg-white focus-visible:ring-2 focus-visible:ring-orange-500 h-11 text-xs"
                           />
-                          <span className="absolute left-3 top-3.5 text-xs text-gray-400">🔍</span>
+                          <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                         </div>
                       </div>
 
@@ -3385,10 +3490,10 @@ export default function Home() {
                           }}
                           className="w-full rounded-xl border-none text-black bg-white px-3 h-11 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-orange-500 outline-none"
                         >
-                          <option value="all">💰 Any Budget</option>
-                          <option value="budget">💰 Budget (Under 3,000)</option>
-                          <option value="mid">💰 Mid-Range (3,000 - 6,000)</option>
-                          <option value="luxury">💰 Luxury (Above 6,000)</option>
+                          <option value="all">Any Budget</option>
+                          <option value="budget">Budget (Under 3,000)</option>
+                          <option value="mid">Mid-Range (3,000 - 6,000)</option>
+                          <option value="luxury">Luxury (Above 6,000)</option>
                         </select>
                       </div>
 
@@ -3415,7 +3520,7 @@ export default function Home() {
                         }}
                         className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl h-11 text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-950/20 active:scale-[0.98] transition-all hover:scale-[1.01]"
                       >
-                        Search Holidays ✈️
+                        <span className="flex items-center justify-center gap-2">Search Holidays <Plane className="h-4 w-4" /></span>
                       </button>
                     </div>
                   </div>
@@ -3455,7 +3560,7 @@ export default function Home() {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-lg">⚖️</span>
+                              <Scale className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-gray-900">
@@ -3655,7 +3760,7 @@ export default function Home() {
                       {listings.length === 0 ? (
                         <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border border-gray-100 border-dashed">
                           <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner relative overflow-hidden">
-                            <span className="text-4xl animate-bounce">🏖️</span>
+                            <Palmtree className="h-10 w-10 text-blue-600 animate-bounce" />
                           </div>
                           <h3 className="text-xl font-bold text-gray-800 mb-2">Fetching Best Deals</h3>
                           <p className="text-gray-500 font-medium text-center max-w-md">
@@ -3839,7 +3944,7 @@ export default function Home() {
                         if (filtered.length === 0) {
                           return (
                             <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border border-gray-100 border-dashed">
-                              <span className="text-4xl mb-4">🔍</span>
+                              <Search className="h-10 w-10 text-gray-400 mb-4" />
                               <h3 className="text-lg font-bold text-gray-800 mb-1">No packages match this filter</h3>
                               <p className="text-gray-500 text-sm text-center max-w-sm">
                                 Try adjusting your filter category or searching for another destination!
@@ -3871,7 +3976,7 @@ export default function Home() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <span className="mr-2">📅</span>
+                      <Calendar className="mr-2 h-5 w-5 text-blue-600" />
                       Book Your Trip - Step {bookingStep} of 4
                     </CardTitle>
                     <CardDescription>
@@ -4221,8 +4326,8 @@ export default function Home() {
                 <div className="min-h-screen bg-gray-50 -mx-6">
                   {/* Hero Banner for Bookings */}
                   <div className="w-full bg-gradient-to-r from-[#1C1F26] to-[#2B2F3A] py-12 px-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 opacity-5 text-[200px] leading-none pointer-events-none select-none">✈️</div>
-                    <div className="absolute bottom-0 left-20 opacity-5 text-[150px] leading-none pointer-events-none select-none">🗺️</div>
+                    <div className="absolute top-0 right-0 opacity-5 pointer-events-none select-none"><Plane className="w-64 h-64" /></div>
+                    <div className="absolute bottom-0 left-20 opacity-5 pointer-events-none select-none"><MapIcon className="w-52 h-52" /></div>
                     <div className="max-w-5xl mx-auto relative z-10">
                       <div className="inline-block bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded mb-4 tracking-widest uppercase">My Travel History</div>
                       <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-3 tracking-tight">My Tours & Cancellations</h1>
@@ -4252,7 +4357,7 @@ export default function Home() {
                         <div className="bg-gradient-to-r from-[#2B58C4] to-[#407BFF] h-2 w-full" />
                         <div className="p-16 text-center">
                           <div className="w-28 h-28 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
-                            <span className="text-6xl">✈️</span>
+                            <Plane className="h-16 w-16 text-white" />
                           </div>
                           <h3 className="text-3xl font-extrabold text-gray-900 mb-3">No Trips Booked Yet</h3>
                           <p className="text-gray-500 text-lg max-w-md mx-auto mb-8 leading-relaxed">
@@ -4262,7 +4367,7 @@ export default function Home() {
                             onClick={() => setUserActiveSection('listings')}
                             className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full px-10 py-4 text-lg font-bold shadow-xl hover:shadow-orange-300/50 transition-all duration-300 hover:-translate-y-1"
                           >
-                            🌍 Explore Packages
+                            <span className="flex items-center justify-center gap-2"><Globe className="h-5 w-5" /> Explore Packages</span>
                           </button>
                         </div>
                       </div>
@@ -4295,7 +4400,7 @@ export default function Home() {
 
                                 <div className="flex items-center gap-4">
                                   <div className="w-14 h-14 rounded-xl bg-white/15 flex items-center justify-center text-3xl shadow-inner shrink-0">
-                                    {isIntl ? '🌍' : '🏔️'}
+                                    {isIntl ? <Globe className="h-7 w-7 text-white" /> : <Mountain className="h-7 w-7 text-white" />}
                                   </div>
                                   <div>
                                     <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-0.5">{isIntl ? 'International Tour' : 'Domestic Tour'}</p>
@@ -4330,10 +4435,10 @@ export default function Home() {
                                 {/* Key Details Row */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
                                   {[
-                                    { label: 'DEPARTURE DATE', value: booking.travelDate || 'TBD', icon: '📅' },
-                                    { label: 'PASSENGERS', value: `${booking.travelers} ${booking.travelers === 1 ? 'Person' : 'People'}`, icon: '👤' },
-                                    { label: 'TOTAL FARE', value: `${currency}${totalAmt}`, icon: '💳', green: true },
-                                    { label: 'BOOKED ON', value: booking.createdAtFormatted || '—', icon: '🗓️' },
+                                    { label: 'DEPARTURE DATE', value: booking.travelDate || 'TBD', icon: <Calendar className="h-3.5 w-3.5" /> },
+                                    { label: 'PASSENGERS', value: `${booking.travelers} ${booking.travelers === 1 ? 'Person' : 'People'}`, icon: <User className="h-3.5 w-3.5" /> },
+                                    { label: 'TOTAL FARE', value: `${currency}${totalAmt}`, icon: <CreditCard className="h-3.5 w-3.5" />, green: true },
+                                    { label: 'BOOKED ON', value: booking.createdAtFormatted || '—', icon: <Calendar className="h-3.5 w-3.5" /> },
                                   ].map((item, i) => (
                                     <div key={i} className="px-5 py-4">
                                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -4349,7 +4454,7 @@ export default function Home() {
                                   {/* Passenger Info */}
                                   <div className="px-6 py-5">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                                      <span>👤</span> Passenger Info
+                                      <User className="h-3.5 w-3.5" /> Passenger Info
                                     </p>
                                     <div className="space-y-2.5">
                                       {[
@@ -4419,24 +4524,24 @@ export default function Home() {
                                 {isConfirmed && booking.journeyDetails && (
                                   <div className="border-b border-gray-100 bg-slate-50 px-6 py-4">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                                      <span>🗺️</span> Journey Preview
+                                      <MapIcon className="h-3.5 w-3.5" /> Journey Preview
                                     </p>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                       {booking.journeyDetails.flight && (
                                         <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                          <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1">✈️ Flight</p>
+                                          <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><Plane className="h-3 w-3" /> Flight</p>
                                           <p className="text-sm text-gray-700 font-medium">{booking.journeyDetails.flight}</p>
                                         </div>
                                       )}
                                       {booking.journeyDetails.hotel && (
                                         <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                          <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mb-1">🏨 Hotel</p>
+                                          <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><Building className="h-3 w-3" /> Hotel</p>
                                           <p className="text-sm text-gray-700 font-medium">{booking.journeyDetails.hotel}</p>
                                         </div>
                                       )}
                                       {booking.journeyDetails.itinerary && (
                                         <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                          <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wider mb-1">📋 Itinerary</p>
+                                          <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Itinerary</p>
                                           <p className="text-sm text-gray-700 font-medium line-clamp-2">{booking.journeyDetails.itinerary}</p>
                                         </div>
                                       )}
@@ -4458,7 +4563,7 @@ export default function Home() {
                                           setShowJourneyModal(true);
                                         }}
                                       >
-                                        <span>📄</span> View Details
+                                        <ClipboardList className="h-4 w-4" /> View Details
                                       </button>
                                     )}
                                     {isConfirmed && (
@@ -4466,7 +4571,7 @@ export default function Home() {
                                         className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-gray-705 rounded-xl px-5 py-2.5 font-semibold text-sm transition-all"
                                         onClick={() => window.print()}
                                       >
-                                        <span>🖨️</span> Print
+                                        <Info className="h-4 w-4" /> Print
                                       </button>
                                     )}
                                   </div>
@@ -4488,7 +4593,7 @@ export default function Home() {
                     {/* Sidebar Header */}
                     <div className="p-4 border-b border-gray-150 bg-white shrink-0">
                       <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                        <span>💬</span> Messages
+                        <MessageSquare className="h-5 w-5 text-blue-600" /> Messages
                       </h3>
                       <p className="text-[10px] text-gray-450 mt-0.5">Agencies you've contacted</p>
                     </div>
@@ -4503,7 +4608,7 @@ export default function Home() {
                           value={chatSearchQuery}
                           onChange={(e) => setChatSearchQuery(e.target.value)}
                         />
-                        <span className="absolute left-3 top-2 text-[10px] text-gray-400">🔍</span>
+                        <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
                       </div>
                     </div>
 
@@ -4511,7 +4616,7 @@ export default function Home() {
                     <div className="flex-1 p-3 space-y-2 sidebar-scroll">
                       {userConversations.filter(c => c.agencyName.toLowerCase().includes(chatSearchQuery.toLowerCase())).length === 0 ? (
                         <div className="text-center py-12">
-                          <span className="text-3xl text-gray-305 block mb-2">🏢</span>
+                          <Building className="h-10 w-10 text-gray-300 mx-auto mb-2" />
                           <p className="text-xs text-gray-400 font-semibold">No conversations found</p>
                           <p className="text-[10px] text-gray-400 mt-1 px-4">Contact an agency from a listing card to start chatting.</p>
                         </div>
@@ -4679,10 +4784,10 @@ export default function Home() {
                           <div className="relative shrink-0">
                             <button 
                               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                              className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none" 
+                              className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none flex items-center justify-center" 
                               title="Add Emoji"
                             >
-                              😊
+                              <Smile className="h-5 w-5 text-gray-500" />
                             </button>
                             
                             {showEmojiPicker && (
@@ -4730,7 +4835,7 @@ export default function Home() {
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-55/30">
                         <div className="w-16 h-16 bg-white border border-gray-150 rounded-2xl flex items-center justify-center shadow-md mb-6">
-                          <span className="text-3xl">✈️</span>
+                          <Plane className="h-8 w-8 text-blue-600" />
                         </div>
                         <h4 className="font-extrabold text-gray-900 text-sm mb-2">Your Inbox</h4>
                         <p className="text-xs text-gray-500 max-w-sm leading-relaxed">
@@ -4754,7 +4859,7 @@ export default function Home() {
                           : 'border-transparent text-gray-500 hover:text-gray-900'
                       }`}
                     >
-                      ❤️ Wishlist ({wishlist.length})
+                      <span className="flex items-center gap-2"><Heart className="h-4 w-4 text-red-500" /> Wishlist ({wishlist.length})</span>
                     </button>
                     <button
                       onClick={() => setWishlistSubTab('compare')}
@@ -4764,7 +4869,7 @@ export default function Home() {
                           : 'border-transparent text-gray-500 hover:text-gray-900'
                       }`}
                     >
-                      ⚖️ Compare Packages ({comparisonList.length})
+                      <span className="flex items-center gap-2"><Scale className="h-4 w-4 text-blue-500" /> Compare Packages ({comparisonList.length})</span>
                     </button>
                   </div>
 
@@ -4778,7 +4883,7 @@ export default function Home() {
                       {wishlist.length === 0 ? (
                         <Card className="text-center py-12">
                           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="text-3xl">❤️</span>
+                            <Heart className="h-8 w-8 text-red-500" />
                           </div>
                           <h3 className="text-lg font-semibold mb-2">Your wishlist is empty</h3>
                           <p className="text-gray-600 mb-6">
@@ -4846,93 +4951,72 @@ export default function Home() {
               )}
 
               {userActiveSection === 'profile' && (
-                <div className="py-6 animate-in fade-in duration-200">
-                  {/* FULL-WIDTH PREMIUM PROFILE HEADER CARD */}
-                  <div className="bg-[#1C1F26] text-white rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 flex flex-col md:flex-row items-center justify-between gap-6 border border-gray-800">
-                    {/* Decorative overlay */}
-                    <div className="absolute right-0 top-0 opacity-[0.03] text-[150px] pointer-events-none select-none">👤</div>
-
-                    <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 text-center md:text-left w-full md:w-auto">
-                      {/* Avatar Display */}
-                      <div className="relative w-24 h-24 group shrink-0">
-                        {profilePhotoUrl && !profileImageError ? (
-                          <img
-                            src={profilePhotoUrl}
-                            alt={profileName}
-                            onError={() => setProfileImageError(true)}
-                            className="w-full h-full rounded-full object-cover border-4 border-white/10 shadow-lg"
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center text-white text-3xl font-extrabold shadow-lg border-4 border-white/10">
-                            {profileName ? profileName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
-                          </div>
-                        )}
-                        {/* Camera Icon Overlay */}
-                        <label className="absolute bottom-0 right-0 bg-orange-500 hover:bg-orange-600 text-white rounded-full p-2 shadow-md cursor-pointer transition-all duration-200 group-hover:scale-105 border-2 border-[#1C1F26] flex items-center justify-center w-8 h-8">
-                          <span className="text-[11px] font-black">📷</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleProfilePhotoChange}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-
-                      {/* Quick Details */}
-                      <div>
-                        <div className="flex flex-col md:flex-row items-center gap-2.5">
-                          <h2 className="text-2xl font-bold text-white leading-snug">{profileName || 'User'}</h2>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
-                            userData?.plan === 'premium' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
-                            userData?.plan === 'starter' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-                            'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                          }`}>
-                            {userData?.plan || 'Free'} Plan
-                          </span>
-                        </div>
-                        
-                        <div className="mt-2 flex flex-col md:flex-row md:items-center gap-3 text-sm text-gray-300 font-medium">
-                          <div className="flex items-center justify-center md:justify-start gap-1.5">
-                            <span>📧 {profileEmail}</span>
-                            {user?.emailVerified ? (
-                              <span className="text-emerald-400 text-xs font-black" title="Verified email">✓ Verified</span>
-                            ) : (
-                              <span className="text-orange-400 hover:underline text-xs font-bold cursor-pointer" onClick={() => alert('Verification email sent!')} title="Click to verify">Verify</span>
-                            )}
-                          </div>
-                          {profilePhone && (
-                            <div className="flex items-center justify-center md:justify-start gap-1.5">
-                              <span>📞 {profilePhone}</span>
-                            </div>
+                <div className="py-6 animate-in fade-in duration-200 space-y-6">
+                  {/* MAIN PROFILE & SETTINGS HEADER (Matching Agency Dashboard Design & Color Combination) */}
+                  <Card className="bg-white border border-gray-200 shadow-md rounded-3xl overflow-hidden mb-6">
+                    <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-6 md:p-8">
+                      <CardTitle className="flex items-center text-xl font-bold text-gray-900">
+                        <User className="mr-2.5 h-6 w-6 text-gray-700" />
+                        User Profile & Settings
+                      </CardTitle>
+                      <CardDescription className="text-xs text-gray-500 mt-1">
+                        Manage your personal details, traveler preferences, and account security
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 md:p-8">
+                      {/* Avatar Upload Section (Matching Agency Logo Upload Section) */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
+                        <div className="w-24 h-24 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                          {profilePhotoUrl && !profileImageError ? (
+                            <img
+                              src={profilePhotoUrl}
+                              alt={profileName}
+                              onError={() => setProfileImageError(true)}
+                              className="w-full h-full object-cover p-1 rounded-2xl"
+                            />
+                          ) : (
+                            <User className="h-8 w-8 text-slate-400" />
                           )}
                         </div>
+                        <div className="flex-1 text-center md:text-left">
+                          <h3 className="text-sm font-bold text-gray-900">User Profile Avatar</h3>
+                          <p className="text-xs text-gray-500 mt-1 max-w-lg leading-relaxed">
+                            Upload a clean, professional profile photo to personalize your traveler account and booking chats. We recommend a high-resolution PNG or JPG.
+                          </p>
+                          <label className="mt-4 inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl border border-gray-200 shadow-sm cursor-pointer transition-all">
+                            <span className="flex items-center gap-1.5"><Package className="h-4 w-4" /> Upload New Avatar</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleProfilePhotoChange}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        <div className="flex gap-4 border-t border-gray-200 md:border-none pt-4 md:pt-0">
+                          <div className="text-center bg-white border border-gray-200 px-5 py-3 rounded-2xl min-w-[110px] shadow-sm">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bookings</p>
+                            <p className="text-xl font-black text-gray-900 mt-0.5">{userBookings.length}</p>
+                          </div>
+                          <div className="text-center bg-white border border-gray-200 px-5 py-3 rounded-2xl min-w-[110px] shadow-sm">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Wishlist</p>
+                            <p className="text-xl font-black text-blue-600 mt-0.5">{wishlist.length}</p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Stats overview on right */}
-                    <div className="flex gap-4 relative z-10 w-full md:w-auto justify-around md:justify-end border-t border-white/10 md:border-none pt-4 md:pt-0">
-                      <div className="text-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl min-w-[100px] shadow-sm">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bookings</p>
-                        <p className="text-lg font-black text-white mt-0.5">{userBookings.length}</p>
-                      </div>
-                      <div className="text-center bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl min-w-[100px] shadow-sm">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Wishlist</p>
-                        <p className="text-lg font-black text-orange-400 mt-0.5">{wishlist.length}</p>
-                      </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
                   {/* GRID LAYOUT FOR NAVIGATION & CONTENT */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* LEFT SIDEBAR: NAVIGATION MENU */}
-                    <div className="md:col-span-1">
+                    <div className="md:col-span-1 space-y-4">
                       <Card className="bg-white border border-gray-200 shadow-sm rounded-3xl p-4 space-y-1">
                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 mb-2">Settings Menu</h4>
                         <button
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-205 border-l-4 ${profileTab === 'account'
-                              ? 'font-bold text-orange-600 bg-orange-50/50 border-orange-500'
-                              : 'font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 border-transparent'
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-2xl transition-all duration-200 ${profileTab === 'account'
+                              ? 'font-bold text-blue-600 bg-blue-50 border border-blue-200/60 shadow-sm'
+                              : 'font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 border border-transparent'
                             }`}
                           onClick={() => {
                             setProfileTab('account');
@@ -4944,7 +5028,7 @@ export default function Home() {
                         </button>
 
                         <button
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-xl transition-all duration-205 border-l-4 border-transparent"
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-2xl transition-all duration-200 border border-transparent"
                           onClick={() => {
                             setFromSection('profile');
                             setWishlistSubTab('compare');
@@ -4955,7 +5039,7 @@ export default function Home() {
                           <span>My Holiday Cart</span>
                         </button>
                         <button
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-xl transition-all duration-205 border-l-4 border-transparent"
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-2xl transition-all duration-200 border border-transparent"
                           onClick={() => {
                             setFromSection('profile');
                             setWishlistSubTab('wishlist');
@@ -4966,6 +5050,20 @@ export default function Home() {
                           <span>Wishlist</span>
                         </button>
                       </Card>
+
+                      {/* Quick Support & Documentation Widget */}
+                      {/* <Card className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white border-none shadow-md rounded-3xl p-5 relative overflow-hidden">
+                        <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none select-none translate-y-6 translate-x-4"><Shield className="w-32 h-32" /></div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1">Assistance</h4>
+                        <p className="text-sm font-bold mb-2">Need help with bookings?</p>
+                        <p className="text-xs text-blue-100 mb-4 leading-relaxed">Access our 24/7 dedicated dispute resolution center for real-time support.</p>
+                        <Button
+                          onClick={() => setUserActiveSection('support')}
+                          className="w-full bg-white text-slate-900 hover:bg-gray-100 text-xs font-bold py-2.5 rounded-xl shadow transition-all"
+                        >
+                          Contact Support
+                        </Button>
+                      </Card> */}
                     </div>
 
                     {/* RIGHT COLUMN: MAIN CONTENT PANEL */}
@@ -4973,14 +5071,17 @@ export default function Home() {
                       {profileTab === 'account' && (
                         <>
                           {/* Personal Details Card */}
-                          <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
+                          <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
                             <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
-                              <h2 className="text-lg font-bold text-gray-955">Your Personal Details</h2>
+                              <div>
+                                <h2 className="text-lg font-bold text-gray-900">Your Personal Details</h2>
+                                <p className="text-xs text-gray-400 mt-0.5">Manage your identity and contact credentials</p>
+                              </div>
                               {!isEditingProfile ? (
                                 <Button
                                   onClick={() => setIsEditingProfile(true)}
                                   variant="outline"
-                                  className="border-orange-500 text-orange-600 hover:bg-orange-50/50 hover:text-orange-700 text-xs font-semibold rounded-xl px-4 py-2 h-auto transition-all flex items-center gap-1.5"
+                                  className="border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 text-xs font-semibold rounded-xl px-4 py-2 h-auto transition-all flex items-center gap-1.5"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                   Edit Profile
@@ -4990,7 +5091,7 @@ export default function Home() {
                                   <Button
                                     onClick={handleSaveProfile}
                                     disabled={savingProfile}
-                                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs font-semibold rounded-xl px-4 py-2 h-auto border-none transition-all shadow-sm flex items-center gap-1.5"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-6 py-2.5 rounded-2xl shadow-md transition-all h-auto flex items-center gap-1.5"
                                   >
                                     {savingProfile ? 'Saving...' : (
                                       <>
@@ -5001,13 +5102,12 @@ export default function Home() {
                                   </Button>
                                   <Button
                                     onClick={() => {
-                                      // Restore old states
                                       setProfileName(userData?.name || '');
                                       setProfilePhone(userData?.phone || userData?.contactNumber || '');
                                       setIsEditingProfile(false);
                                     }}
                                     variant="outline"
-                                    className="border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl px-4 py-2 h-auto transition-all"
+                                    className="border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-2xl px-6 py-2.5 h-auto transition-all"
                                   >
                                     Cancel
                                   </Button>
@@ -5016,59 +5116,65 @@ export default function Home() {
                             </div>
 
                             {/* Details Panel */}
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                               {!isEditingProfile ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Name</p>
-                                    <p className="text-sm font-semibold text-gray-800 mt-1">{profileName || '—'}</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div className="bg-gray-50/70 border border-gray-150 rounded-2xl p-4">
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Full Name</p>
+                                    <p className="text-sm font-bold text-gray-800 mt-1">{profileName || '—'}</p>
                                   </div>
-                                  <div>
-                                    <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Contact</p>
-                                    <p className="text-sm font-semibold text-gray-800 mt-1">{profilePhone || '—'}</p>
+                                  <div className="bg-gray-50/70 border border-gray-150 rounded-2xl p-4">
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Contact Number</p>
+                                    <p className="text-sm font-bold text-gray-800 mt-1">{profilePhone || '—'}</p>
                                   </div>
-                                  <div className="md:col-span-2">
-                                    <p className="text-xs text-gray-405 font-semibold uppercase tracking-wider">Email ID</p>
-                                    <p className="text-sm font-semibold text-gray-800 mt-1 flex items-center gap-2">
-                                      {profileEmail}
-                                      {user?.emailVerified && (
-                                        <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 rounded-full w-4 h-4 text-[10px] font-bold">✓</span>
+                                  <div className="md:col-span-2 bg-gray-50/70 border border-gray-150 rounded-2xl p-4">
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Email Address</p>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <p className="text-sm font-bold text-gray-800">{profileEmail}</p>
+                                      {user?.emailVerified ? (
+                                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 rounded-full px-2.5 py-0.5 text-[10px] font-bold border border-emerald-200">
+                                          ✓ Verified
+                                        </span>
+                                      ) : (
+                                        <button onClick={() => alert('Verification email sent!')} className="text-xs font-bold text-blue-600 hover:underline">
+                                          Verify Email
+                                        </button>
                                       )}
-                                    </p>
+                                    </div>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="space-y-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-5">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
-                                      <Label htmlFor="editName" className="text-xs font-semibold text-gray-500">Name</Label>
+                                      <Label htmlFor="editName" className="text-xs font-semibold text-gray-600 mb-1.5 block">Full Name</Label>
                                       <Input
                                         id="editName"
                                         type="text"
                                         value={profileName}
                                         onChange={(e) => setProfileName(e.target.value)}
-                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl focus-visible:ring-orange-500"
+                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-blue-500 p-3.5 text-sm shadow-sm"
                                       />
                                     </div>
                                     <div>
-                                      <Label htmlFor="editPhone" className="text-xs font-semibold text-gray-500">Contact</Label>
+                                      <Label htmlFor="editPhone" className="text-xs font-semibold text-gray-600 mb-1.5 block">Contact Number</Label>
                                       <Input
                                         id="editPhone"
                                         type="text"
                                         value={profilePhone}
                                         onChange={(e) => setProfilePhone(e.target.value)}
-                                        placeholder="e.g. +91 932 329 4525"
-                                        className="mt-1 bg-white border-gray-200 text-gray-800 rounded-xl focus-visible:ring-orange-500"
+                                        placeholder="e.g. +91 9876543210"
+                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-blue-500 p-3.5 text-sm shadow-sm"
                                       />
                                     </div>
                                   </div>
                                   <div>
-                                    <Label className="text-xs font-semibold text-gray-500">Email ID (Cannot be changed)</Label>
+                                    <Label className="text-xs font-semibold text-gray-600 mb-1.5 block">Email Address (Primary Credential)</Label>
                                     <Input
                                       type="text"
                                       value={profileEmail}
                                       disabled
-                                      className="mt-1 bg-gray-50 border-gray-200 text-gray-500 rounded-xl cursor-not-allowed"
+                                      className="bg-gray-50 border-gray-200 text-gray-500 rounded-2xl cursor-not-allowed p-3.5 text-sm shadow-sm"
                                     />
                                   </div>
                                 </div>
@@ -5076,17 +5182,54 @@ export default function Home() {
                             </div>
                           </Card>
 
+                          {/* Traveler Preferences & Document Management Card */}
+                          {/* <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
+                            <div className="pb-4 border-b border-gray-100 mb-6">
+                              <h3 className="text-lg font-bold text-gray-900">Traveler Preferences & Documents</h3>
+                              <p className="text-xs text-gray-400 mt-0.5">Standard corporate flight, seating, and meal preferences</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                              <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm hover:border-blue-200 transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Plane className="h-5 w-5" /></span>
+                                  <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Preferred</span>
+                                </div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Seat Preference</h4>
+                                <p className="text-sm font-bold text-gray-800 mt-1">Window / Aisle</p>
+                              </div>
+
+                              <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm hover:border-blue-200 transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Utensils className="h-5 w-5" /></span>
+                                  <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Verified</span>
+                                </div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Meal Preference</h4>
+                                <p className="text-sm font-bold text-gray-800 mt-1">Vegetarian / Vegan</p>
+                              </div>
+
+                              <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm hover:border-blue-200 transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Tag className="h-5 w-5" /></span>
+                                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-200">Active</span>
+                                </div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Frequent Flyer Tier</h4>
+                                <p className="text-sm font-bold text-gray-800 mt-1">Gold Executive</p>
+                              </div>
+                            </div>
+                          </Card> */}
+
                           {/* Co-traveller details Section */}
-                          <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
+                          <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
                             <div>
-                              <div className="flex justify-between items-center mb-4">
+                              <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
                                 <div>
-                                  <h3 className="text-base font-bold text-gray-900">Co-traveller details</h3>
+                                  <h3 className="text-lg font-bold text-gray-900">Co-traveller Details</h3>
                                   <p className="text-xs text-gray-400 mt-0.5">Manage details of passengers traveling with you</p>
                                 </div>
                                 <button
                                   onClick={() => setShowAddCoTraveller(true)}
-                                  className="w-10 h-10 bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center rounded-full shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
+                                  className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center rounded-2xl shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
                                   title="Add Co-traveller"
                                 >
                                   <Plus className="h-5 w-5" />
@@ -5095,36 +5238,36 @@ export default function Home() {
 
                               {/* Inline Add Co-traveller Form */}
                               {showAddCoTraveller && (
-                                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
-                                  <h4 className="text-sm font-bold text-gray-800">Add New Co-traveller</h4>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="bg-blue-50/30 border border-blue-200 rounded-3xl p-6 mb-6 space-y-5 animate-in slide-in-from-top-4 duration-200 shadow-sm">
+                                  <h4 className="text-base font-bold text-gray-900">Add New Co-traveller</h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div>
-                                      <Label htmlFor="coName" className="text-xs text-gray-500">Name</Label>
+                                      <Label htmlFor="coName" className="text-xs font-semibold text-gray-600 mb-1 block">Full Name</Label>
                                       <Input
                                         id="coName"
                                         placeholder="Full Name"
                                         value={newCoTraveller.name}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, name: e.target.value })}
-                                        className="mt-1 bg-white rounded-xl text-xs focus-visible:ring-orange-500"
+                                        className="bg-white rounded-2xl text-xs focus-visible:ring-blue-500 p-3 border-gray-200 shadow-sm"
                                       />
                                     </div>
                                     <div>
-                                      <Label htmlFor="coContact" className="text-xs text-gray-500">Contact Number</Label>
+                                      <Label htmlFor="coContact" className="text-xs font-semibold text-gray-600 mb-1 block">Contact Number</Label>
                                       <Input
                                         id="coContact"
                                         placeholder="Phone"
                                         value={newCoTraveller.contact}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, contact: e.target.value })}
-                                        className="mt-1 bg-white rounded-xl text-xs focus-visible:ring-orange-500"
+                                        className="bg-white rounded-2xl text-xs focus-visible:ring-blue-500 p-3 border-gray-200 shadow-sm"
                                       />
                                     </div>
                                     <div>
-                                      <Label htmlFor="coRelation" className="text-xs text-gray-500">Relationship</Label>
+                                      <Label htmlFor="coRelation" className="text-xs font-semibold text-gray-600 mb-1 block">Relationship</Label>
                                       <select
                                         id="coRelation"
                                         value={newCoTraveller.relationship}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, relationship: e.target.value })}
-                                        className="mt-1 block w-full rounded-xl border-gray-200 bg-white p-2.5 text-xs text-gray-800 shadow-sm focus:border-orange-500 focus:ring-orange-500 focus-visible:ring-orange-500"
+                                        className="block w-full rounded-2xl border-gray-200 bg-white p-3 text-xs text-gray-800 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus-visible:ring-blue-500"
                                       >
                                         <option>Spouse</option>
                                         <option>Child</option>
@@ -5135,7 +5278,7 @@ export default function Home() {
                                       </select>
                                     </div>
                                   </div>
-                                  <div className="flex gap-2 justify-end">
+                                  <div className="flex gap-2 justify-end pt-2">
                                     <Button
                                       onClick={async () => {
                                         if (!newCoTraveller.name.trim() || !newCoTraveller.contact.trim()) {
@@ -5163,14 +5306,14 @@ export default function Home() {
                                         setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
                                         setShowAddCoTraveller(false);
                                       }}
-                                      className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs px-4 py-2 h-auto rounded-xl border-none transition-all shadow-sm"
+                                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-6 py-2.5 h-auto rounded-2xl border-none transition-all shadow-md font-bold"
                                     >
                                       Add Traveler
                                     </Button>
                                     <Button
                                       variant="outline"
                                       onClick={() => setShowAddCoTraveller(false)}
-                                      className="border-gray-200 text-gray-700 text-xs px-4 py-2 h-auto rounded-xl transition-all"
+                                      className="border-gray-200 text-gray-700 text-xs px-6 py-2.5 h-auto rounded-2xl transition-all font-semibold"
                                     >
                                       Cancel
                                     </Button>
@@ -5180,26 +5323,30 @@ export default function Home() {
 
                               {/* List of Co-travellers */}
                               {coTravellers.length === 0 ? (
-                                <p className="text-xs text-gray-500 italic text-center py-6 bg-orange-50/20 rounded-2xl border border-dashed border-orange-200/50">
-                                  No co-travellers added yet. Click the + icon to add your travel companions.
-                                </p>
+                                <div className="py-12 px-4 bg-gray-50 border border-dashed border-gray-200 rounded-3xl text-center space-y-3">
+                                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+                                    <Users className="h-6 w-6 text-blue-600" />
+                                  </div>
+                                  <p className="text-sm font-bold text-gray-700">No co-travellers added yet</p>
+                                  <p className="text-xs text-gray-400 max-w-sm mx-auto">Add your family members or frequent travel companions for instant booking autofill.</p>
+                                </div>
                               ) : (
-                                <div className="space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   {coTravellers.map((traveller) => (
                                     <div
                                       key={traveller.id}
-                                      className="flex justify-between items-center p-4 bg-gray-50 border border-gray-150 rounded-2xl hover:bg-gray-100/70 transition-all duration-150 shadow-sm animate-in fade-in"
+                                      className="flex justify-between items-center p-5 bg-white border border-gray-200 rounded-3xl hover:border-blue-200 transition-all duration-200 shadow-sm group animate-in fade-in"
                                     >
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
-                                          <User className="h-5 w-5" />
+                                      <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-105 transition-all">
+                                          <User className="h-6 w-6" />
                                         </div>
                                         <div>
-                                          <p className="text-sm font-semibold text-gray-850">{traveller.name}</p>
-                                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                                            <span>📞 {traveller.contact}</span>
+                                          <p className="text-sm font-bold text-gray-900">{traveller.name}</p>
+                                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                            <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {traveller.contact}</span>
                                             <span>•</span>
-                                            <span className="bg-orange-50 text-orange-600 border border-orange-100/50 px-2 py-0.5 rounded-full font-bold text-[10px]">{traveller.relationship}</span>
+                                            <span className="bg-blue-50 text-blue-600 border border-blue-100 px-2.5 py-0.5 rounded-full font-bold text-[10px]">{traveller.relationship}</span>
                                           </div>
                                         </div>
                                       </div>
@@ -5220,7 +5367,7 @@ export default function Home() {
 
                                           setCoTravellers(updatedList);
                                         }}
-                                        className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-all duration-150"
+                                        className="text-gray-400 hover:text-red-500 p-2.5 hover:bg-red-50 rounded-xl transition-all duration-150"
                                         title="Remove Traveler"
                                       >
                                         ✕
@@ -5231,8 +5378,39 @@ export default function Home() {
                               )}
                             </div>
                           </Card>
-                          </>
-                        )}
+
+                          {/* Account Security & Sessions Card */}
+                          {/* <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
+                            <div className="pb-4 border-b border-gray-100 mb-6">
+                              <h3 className="text-lg font-bold text-gray-900">Account Security & Sessions</h3>
+                              <p className="text-xs text-gray-400 mt-0.5">Enterprise security overview and active authentication status</p>
+                            </div>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-150 rounded-2xl">
+                                <div className="flex items-center gap-3">
+                                  <span className="p-2 bg-gray-100 rounded-xl"><Lock className="h-5 w-5 text-gray-700" /></span>
+                                  <div>
+                                    <p className="text-sm font-bold text-gray-800">Password Authentication</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">Protected with 256-bit secure login credentials</p>
+                                  </div>
+                                </div>
+                                <span className="bg-emerald-100 text-emerald-800 font-bold text-[10px] px-3 py-1 rounded-full border border-emerald-200">Enabled</span>
+                              </div>
+
+                              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-150 rounded-2xl">
+                                <div className="flex items-center gap-3">
+                                  <span className="p-2 bg-gray-100 rounded-xl"><Laptop className="h-5 w-5 text-gray-700" /></span>
+                                  <div>
+                                    <p className="text-sm font-bold text-gray-800">Current Session</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">Windows • Active Browser Session</p>
+                                  </div>
+                                </div>
+                                <span className="bg-blue-100 text-blue-800 font-bold text-[10px] px-3 py-1 rounded-full border border-blue-200">Active Now</span>
+                              </div>
+                            </div>
+                          </Card> */}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -5242,10 +5420,10 @@ export default function Home() {
                 <div className="py-6 animate-in fade-in duration-200">
                   {/* HERO HEADER */}
                   <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white rounded-3xl p-8 mb-8 shadow-lg relative overflow-hidden">
-                    <div className="absolute right-10 bottom-0 opacity-10 text-[180px] pointer-events-none select-none">🛡️</div>
+                    <div className="absolute right-10 bottom-0 opacity-10 pointer-events-none select-none"><Shield className="w-56 h-56" /></div>
                     <div className="relative z-10 max-w-2xl">
                       <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-4">
-                        🛡️ Platform Dispute Resolution Center
+                        <Shield className="h-4 w-4 text-white" /> Platform Dispute Resolution Center
                       </div>
                       <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight">
                         Safe Travel Guarantee
@@ -5261,7 +5439,7 @@ export default function Home() {
                     <div className="lg:col-span-2">
                       <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-6">
                         <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                          <span>📝</span> Submit a Dispute / Help Ticket
+                          <Pencil className="h-5 w-5 text-blue-600" /> Submit a Dispute / Help Ticket
                         </h2>
 
                         <form onSubmit={submitSupportTicket} className="space-y-5">
@@ -5358,7 +5536,7 @@ export default function Home() {
                       {/* PLATFORM PROTECTION CARD */}
                       <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-5">
                         <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-1.5">
-                          <span className="text-blue-500 text-lg">🛡️</span> Platform Protection Policy
+                          <Shield className="h-5 w-5 text-blue-500" /> Platform Protection Policy
                         </h3>
                         <ul className="space-y-4 text-xs text-gray-600">
                           <li className="flex gap-2">
@@ -5388,7 +5566,7 @@ export default function Home() {
                       {/* MY TICKETS LIST */}
                       <Card className="bg-white border border-gray-200 shadow-md rounded-2xl p-5">
                         <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-1.5">
-                          <span>📋</span> Dispute Tickets History ({supportTickets.length})
+                          <ClipboardList className="h-5 w-5 text-blue-600" /> Dispute Tickets History ({supportTickets.length})
                         </h3>
 
                         {supportTickets.length === 0 ? (
@@ -5450,7 +5628,7 @@ export default function Home() {
               <Card className="w-full max-w-2xl mx-4">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <span className="mr-2">⭐</span>
+                    <Star className="mr-2 h-6 w-6 text-yellow-500 fill-yellow-500" />
                     Write a Review for {reviewListing.title}
                   </CardTitle>
                   <CardDescription>
@@ -5466,9 +5644,9 @@ export default function Home() {
                         <button
                           key={star}
                           onClick={() => setNewReview({ ...newReview, rating: star })}
-                          className={`text-2xl ${newReview.rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
+                          className={`p-1 ${newReview.rating >= star ? 'text-yellow-500' : 'text-gray-300'}`}
                         >
-                          ⭐
+                          <Star className={`h-8 w-8 ${newReview.rating >= star ? 'fill-yellow-500 text-yellow-500' : 'text-gray-300'}`} />
                         </button>
                       ))}
                     </div>
@@ -5554,8 +5732,8 @@ export default function Home() {
                     Verified Agent
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-white text-blue-700 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-md">
-                      🏢
+                    <div className="w-16 h-16 bg-white text-blue-700 rounded-2xl flex items-center justify-center shadow-md">
+                      <Building className="h-8 w-8 text-blue-700" />
                     </div>
                     <div>
                       <h3 className="text-xl font-extrabold tracking-tight">{chatUnlockTarget.agencyName}</h3>
@@ -5572,28 +5750,28 @@ export default function Home() {
                     </p>
                     <div className="grid grid-cols-2 gap-3 pt-1">
                       <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                        <span className="text-blue-500 font-bold text-sm">💬</span>
+                        <MessageSquare className="h-5 w-5 text-blue-500" />
                         <div>
                           <p className="font-bold text-gray-900 leading-tight">Direct Chat</p>
                           <p className="text-[9px] text-gray-505 mt-0.5">Unlimited messaging</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                        <span className="text-blue-500 font-bold text-sm">📄</span>
+                        <ClipboardList className="h-5 w-5 text-blue-500" />
                         <div>
                           <p className="font-bold text-gray-900 leading-tight">Custom Quotes</p>
                           <p className="text-[9px] text-gray-505 mt-0.5">Personalized plans</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                        <span className="text-blue-500 font-bold text-sm">📞</span>
+                        <Phone className="h-5 w-5 text-blue-500" />
                         <div>
                           <p className="font-bold text-gray-900 leading-tight">Direct Call</p>
                           <p className="text-[9px] text-gray-505 mt-0.5">Callbacks enabled</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                        <span className="text-blue-500 font-bold text-sm">⚡</span>
+                        <Sparkles className="h-5 w-5 text-blue-500" />
                         <div>
                           <p className="font-bold text-gray-900 leading-tight">Mediation Help</p>
                           <p className="text-[9px] text-gray-505 mt-0.5">100% Secure & safe</p>
@@ -5652,7 +5830,7 @@ export default function Home() {
                     ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
 
                     <div className="bg-red-50 text-red-800 border border-red-150 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
-                      <span className="text-xl leading-none">⚠️</span>
+                      <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
                       <div className="text-xs">
                         <p className="font-extrabold text-red-905">Insufficient Balance</p>
                         <p className="text-red-750 mt-1 leading-relaxed">
@@ -5692,7 +5870,7 @@ export default function Home() {
                       onClick={() => unlockCustomerChat(chatUnlockTarget.agencyId, chatUnlockTarget.agencyName)}
                       className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
                     >
-                      Confirm & Connect ⚡
+                      <span className="flex items-center justify-center gap-2">Confirm & Connect <Sparkles className="h-4 w-4" /></span>
                     </Button>
                   )}
                 </div>
@@ -5706,8 +5884,8 @@ export default function Home() {
               <Card className="max-w-xs w-full bg-white shadow-2xl rounded-3xl border border-gray-150 p-8 text-center animate-in zoom-in-95 duration-150">
                 <div className="relative w-16 h-16 mx-auto mb-6">
                   <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
-                  <div className="absolute inset-0 flex items-center justify-center text-xl">
-                    💳
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <CreditCard className="h-6 w-6 text-blue-600" />
                   </div>
                 </div>
                 <h4 className="font-extrabold text-gray-905 mb-2">Secure Checkout</h4>
@@ -5728,10 +5906,10 @@ export default function Home() {
                   toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
                     'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
                 }`}>
-                <span className="text-xl">
-                  {toast.type === 'success' && '✨'}
-                  {toast.type === 'error' && '⚠️'}
-                  {toast.type === 'info' && 'ℹ️'}
+                <span className="flex items-center justify-center">
+                  {toast.type === 'success' && <CheckCircle className="h-5 w-5 text-emerald-600" />}
+                  {toast.type === 'error' && <AlertCircle className="h-5 w-5 text-rose-600" />}
+                  {toast.type === 'info' && <Info className="h-5 w-5 text-sky-600" />}
                 </span>
                 <div className="text-xs font-bold tracking-wide">
                   {toast.message}
@@ -5752,12 +5930,24 @@ export default function Home() {
       // Agency Dashboard
       return (
         <div className="flex h-screen bg-gray-100">
-          <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll">
-            <div className="p-6 border-b">
-              <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
-              <p className="text-sm text-gray-600">{userData.companyName}</p>
+          <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll flex flex-col">
+            <div className="p-6 border-b bg-slate-50/50 flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden mb-3.5">
+                {(agencyLogoUrl || userData.logoUrl || userData.agencyLogo) ? (
+                  <img
+                    src={agencyLogoUrl || userData.logoUrl || userData.agencyLogo}
+                    alt={userData.companyName || 'Agency Logo'}
+                    className="w-full h-full object-contain p-1"
+                    onError={() => setAgencyLogoError(true)}
+                  />
+                ) : (
+                  <Building2 className="h-8 w-8 text-indigo-500" />
+                )}
+              </div>
+              <h2 className="text-lg font-bold text-gray-900 leading-tight">{userData.companyName || 'Travel Agency'}</h2>
+              <p className="text-xs text-gray-400 mt-1 font-medium">{userData.companyName ? 'Travel Agency Partner' : 'Registered Agency'}</p>
             </div>
-            <nav className="p-4">
+            <nav className="p-4 flex-1">
               <div className="space-y-2">
                 <button
                   onClick={() => setAgencyActiveSection('listings')}
@@ -5864,7 +6054,7 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-                  <span className="text-sm text-gray-600">Status: {userData.approved ? '✅ Approved' : '⏳ Pending'}</span>
+                  <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
                   <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
                 </div>
               </div>
@@ -5879,7 +6069,7 @@ export default function Home() {
                         <CardContent className="p-6">
                           <div className="flex items-center">
                             <div className="p-2 bg-blue-100 rounded-lg">
-                              <span className="text-2xl">👥</span>
+                              <Users className="h-6 w-6 text-blue-600" />
                             </div>
                             <div className="ml-4">
                               <p className="text-sm font-medium text-gray-600">Total Agencies</p>
@@ -5893,7 +6083,7 @@ export default function Home() {
                         <CardContent className="p-6">
                           <div className="flex items-center">
                             <div className="p-2 bg-green-100 rounded-lg">
-                              <span className="text-2xl">✅</span>
+                              <CheckCircle className="h-6 w-6 text-green-600" />
                             </div>
                             <div className="ml-4">
                               <p className="text-sm font-medium text-gray-600">Approved Agencies</p>
@@ -5907,7 +6097,7 @@ export default function Home() {
                         <CardContent className="p-6">
                           <div className="flex items-center">
                             <div className="p-2 bg-yellow-100 rounded-lg">
-                              <span className="text-2xl">⏳</span>
+                              <Clock className="h-6 w-6 text-yellow-600" />
                             </div>
                             <div className="ml-4">
                               <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
@@ -5933,7 +6123,7 @@ export default function Home() {
                           }}
                           className="flex items-center gap-2"
                         >
-                          📋 My Listings
+                          <ClipboardList className="h-4 w-4" /> My Listings
                         </Button>
                         <Button
                           variant={showListingForm ? 'default' : 'outline'}
@@ -5945,7 +6135,7 @@ export default function Home() {
                           }}
                           className="flex items-center gap-2"
                         >
-                          ➕ New Listing
+                          <Plus className="h-4 w-4" /> New Listing
                         </Button>
                         <Button
                           variant={showBulkUpload ? 'default' : 'outline'}
@@ -5957,14 +6147,14 @@ export default function Home() {
                           }}
                           className="flex items-center gap-2"
                         >
-                          📥 Bulk Import CSV
+                          <Upload className="h-4 w-4" /> Bulk Import CSV
                         </Button>
                         <Button
                           variant="outline"
                           onClick={() => setAgencyActiveSection('chat')}
                           className="flex items-center gap-2"
                         >
-                          💬 Chat
+                          <MessageSquare className="h-4 w-4" /> Chat
                         </Button>
                       </div>
 
@@ -6020,7 +6210,7 @@ export default function Home() {
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center">
-                              <span className="mr-2">🏖️</span>
+                              <Palmtree className="mr-2 h-6 w-6 text-blue-600" />
                               Your Travel Listings
                             </CardTitle>
                             <CardDescription>
@@ -6032,7 +6222,7 @@ export default function Home() {
                               {agencyListings.length === 0 ? (
                                 <div className="text-center py-8">
                                   <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <span className="text-2xl">📋</span>
+                                    <ClipboardList className="h-8 w-8 text-blue-600" />
                                   </div>
                                   <h3 className="text-lg font-semibold mb-2">No Listings Yet</h3>
                                   <p className="text-gray-600 mb-4">
@@ -6046,7 +6236,7 @@ export default function Home() {
                                     }}
                                     className="flex items-center gap-2"
                                   >
-                                    ➕ Create Your First Listing
+                                    <Plus className="h-4 w-4" /> Create Your First Listing
                                   </Button>
                                 </div>
                               ) : (
@@ -6054,7 +6244,7 @@ export default function Home() {
                                   <div key={listing.id} className="flex items-center justify-between p-4 border rounded-lg">
                                     <div className="flex items-center space-x-4">
                                       <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <span className="text-lg">🏖️</span>
+                                        <Palmtree className="h-6 w-6 text-blue-600" />
                                       </div>
                                       <div>
                                         <h3 className="font-semibold">{listing.title}</h3>
@@ -6123,7 +6313,7 @@ export default function Home() {
                           <CardContent className="p-6">
                             <div className="flex items-center">
                               <div className="p-2 bg-green-100 rounded-lg">
-                                <span className="text-2xl">💰</span>
+                                <DollarSign className="h-6 w-6 text-green-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
@@ -6139,7 +6329,7 @@ export default function Home() {
                           <CardContent className="p-6">
                             <div className="flex items-center">
                               <div className="p-2 bg-blue-100 rounded-lg">
-                                <span className="text-2xl">📊</span>
+                                <BarChart3 className="h-6 w-6 text-blue-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
@@ -6155,7 +6345,7 @@ export default function Home() {
                           <CardContent className="p-6">
                             <div className="flex items-center">
                               <div className="p-2 bg-purple-100 rounded-lg">
-                                <span className="text-2xl">⭐</span>
+                                <Star className="h-6 w-6 text-purple-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Avg Rating</p>
@@ -6173,7 +6363,7 @@ export default function Home() {
                           <CardContent className="p-6">
                             <div className="flex items-center">
                               <div className="p-2 bg-orange-100 rounded-lg">
-                                <span className="text-2xl">👥</span>
+                                <Users className="h-6 w-6 text-orange-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Total Customers</p>
@@ -6189,7 +6379,7 @@ export default function Home() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Card>
                           <CardHeader>
-                            <CardTitle>📍 Popular Destinations</CardTitle>
+                            <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-blue-600" /> Popular Destinations</CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
@@ -6219,7 +6409,7 @@ export default function Home() {
 
                         <Card>
                           <CardHeader>
-                            <CardTitle>📈 Performance Metrics</CardTitle>
+                            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-green-600" /> Performance Metrics</CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
@@ -6278,7 +6468,7 @@ export default function Home() {
                             ) : (
                               <div className="text-center py-8">
                                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                  <span className="text-3xl">📊</span>
+                                  <BarChart3 className="h-8 w-8 text-blue-600" />
                                 </div>
                                 <h3 className="text-lg font-semibold mb-2">No Activity Yet</h3>
                                 <p className="text-gray-600">
@@ -6299,7 +6489,7 @@ export default function Home() {
                           <CardContent className="p-6">
                             <div className="flex items-center">
                               <div className="p-2 bg-blue-100 rounded-lg">
-                                <span className="text-2xl">📅</span>
+                                <Calendar className="h-6 w-6 text-blue-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Total Bookings</p>
@@ -6313,7 +6503,7 @@ export default function Home() {
                           <CardContent className="p-6">
                             <div className="flex items-center">
                               <div className="p-2 bg-yellow-100 rounded-lg">
-                                <span className="text-2xl">⏳</span>
+                                <Clock className="h-6 w-6 text-yellow-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Pending</p>
@@ -6327,7 +6517,7 @@ export default function Home() {
                           <CardContent className="p-6">
                             <div className="flex items-center">
                               <div className="p-2 bg-green-100 rounded-lg">
-                                <span className="text-2xl">✅</span>
+                                <CheckCircle className="h-6 w-6 text-green-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Confirmed</p>
@@ -6341,7 +6531,7 @@ export default function Home() {
                       <Card>
                         <CardHeader>
                           <CardTitle className="flex items-center">
-                            <span className="mr-2">📅</span>
+                            <Calendar className="mr-2 h-6 w-6 text-blue-600" />
                             Recent Bookings
                           </CardTitle>
                           <CardDescription>
@@ -6352,7 +6542,7 @@ export default function Home() {
                           {agencyBookings.length === 0 ? (
                             <div className="text-center py-12">
                               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <span className="text-2xl">📅</span>
+                                <Calendar className="h-8 w-8 text-blue-600" />
                               </div>
                               <h3 className="text-lg font-semibold mb-2">No Bookings Yet</h3>
                               <p className="text-gray-600 mb-4">
@@ -6368,7 +6558,7 @@ export default function Home() {
                                 <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
                                   <div className="flex items-center space-x-4">
                                     <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                      <span className="text-lg">👤</span>
+                                      <User className="h-6 w-6 text-blue-600" />
                                     </div>
                                     <div>
                                       <h3 className="font-semibold">{booking.userName}</h3>
@@ -6510,7 +6700,7 @@ export default function Home() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Card>
                           <CardHeader>
-                            <CardTitle>💰 Revenue Breakdown</CardTitle>
+                            <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-green-600" /> Revenue Breakdown</CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
@@ -6553,7 +6743,7 @@ export default function Home() {
 
                         <Card>
                           <CardHeader>
-                            <CardTitle>📊 Monthly Performance</CardTitle>
+                            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-blue-600" /> Monthly Performance</CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
@@ -6603,7 +6793,7 @@ export default function Home() {
                                   <div className="text-right">
                                     <p className="font-semibold text-green-600">₹{parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                     <p className={`text-xs ${booking.status === 'confirmed' ? 'text-green-600' : 'text-yellow-600'}`}>
-                                      {booking.status === 'confirmed' ? '✅ Confirmed' : '⏳ Pending'}
+                                      {booking.status === 'confirmed' ? <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-green-600" /> Confirmed</span> : <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-yellow-600" /> Pending</span>}
                                     </p>
                                   </div>
                                 </div>
@@ -6611,7 +6801,7 @@ export default function Home() {
                             ) : (
                               <div className="text-center py-8">
                                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                  <span className="text-3xl">💰</span>
+                                  <DollarSign className="h-8 w-8 text-green-600" />
                                 </div>
                                 <p className="text-gray-500">No transactions yet</p>
                               </div>
@@ -6623,13 +6813,13 @@ export default function Home() {
                   )}
 
                   {agencyActiveSection === 'chat' && (
-                    <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 w-full mb-6 -mx-2 md:-mx-4">
+                    <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 min-w-0 w-full mb-6">
                       {/* Left Column: Conversations List */}
                       <div className="w-full md:w-80 flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full">
                         {/* Sidebar Header */}
                         <div className="p-4 border-b border-gray-150 bg-white shrink-0">
                           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                            <span>👥</span> Conversations
+                            <Users className="h-5 w-5 text-blue-600" /> Conversations
                           </h3>
                           <p className="text-[10px] text-gray-450 mt-0.5">Customers who contacted you</p>
                         </div>
@@ -6644,7 +6834,7 @@ export default function Home() {
                               value={agencyChatSearchQuery}
                               onChange={(e) => setAgencyChatSearchQuery(e.target.value)}
                             />
-                            <span className="absolute left-3 top-2 text-[10px] text-gray-400">🔍</span>
+                            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
                           </div>
                         </div>
 
@@ -6652,7 +6842,7 @@ export default function Home() {
                         <div className="flex-1 p-3 space-y-2 sidebar-scroll">
                           {agencyConversations.filter(c => c.userName.toLowerCase().includes(agencyChatSearchQuery.toLowerCase())).length === 0 ? (
                             <div className="text-center py-12">
-                              <span className="text-3xl text-gray-305 block mb-2">👤</span>
+                              <User className="h-10 w-10 text-gray-300 mx-auto mb-2" />
                               <p className="text-xs text-gray-400 font-semibold">No conversations found</p>
                               <p className="text-[10px] text-gray-400 mt-1 px-4">Conversations will appear here once customers contact you.</p>
                             </div>
@@ -6698,9 +6888,9 @@ export default function Home() {
                       </div>
 
                       {/* Right Column: Chat Content */}
-                      <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px]">
+                      <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px] min-w-0 overflow-hidden">
                         {selectedConversation ? (
-                          <div className="flex flex-col h-full relative">
+                          <div className="flex flex-col h-full relative min-w-0 overflow-hidden">
                             {/* Conversation Header */}
                             <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
                               <div className="flex items-center gap-3">
@@ -6729,7 +6919,7 @@ export default function Home() {
                             </div>
 
                             {/* Messages Area */}
-                            <div className="flex-1 p-6 space-y-4 chat-scroll">
+                            <div className="flex-1 p-6 space-y-4 chat-scroll overflow-y-auto overflow-x-hidden w-full min-w-0">
                               {[...agencyChatMessages]
                                 .filter(msg => msg.chatId === selectedConversation.chatId)
                                 .sort((a, b) => a.timestamp - b.timestamp)
@@ -6765,7 +6955,7 @@ export default function Home() {
                                 <div className="bg-white border-t border-gray-150 flex flex-col shrink-0 relative">
                                   {hasPhoneInInput && (
                                     <div className="absolute -top-8 left-4 text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-md border border-red-200 shadow-sm animate-pulse z-20">
-                                      ⚠️ Phone numbers cannot be sent on the Free Plan. Upgrade to Starter/Premium.
+                                      <span className="flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" /> Phone numbers cannot be sent on the Free Plan. Upgrade to Starter/Premium.</span>
                                     </div>
                                   )}
 
@@ -6807,10 +6997,10 @@ export default function Home() {
                                   <div className="relative shrink-0">
                                     <button 
                                       onClick={() => setShowAgencyEmojiPicker(!showAgencyEmojiPicker)}
-                                      className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none" 
+                                      className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none flex items-center justify-center" 
                                       title="Add Emoji"
                                     >
-                                      😊
+                                      <Smile className="h-5 w-5 text-gray-500" />
                                     </button>
                                     
                                     {showAgencyEmojiPicker && (
@@ -6851,7 +7041,7 @@ export default function Home() {
                                     }`}
                                     title="Send Message"
                                   >
-                                    <span className="text-xs font-bold leading-none transform translate-x-px -translate-y-px">➤</span>
+                                    <Send className="h-4 w-4" />
                                   </button>
                                   </div>
                                 </div>
@@ -6860,7 +7050,7 @@ export default function Home() {
                                   <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
                                     <div className="space-y-1 text-center sm:text-left">
                                       <h4 className="text-sm font-bold text-gray-805 flex items-center gap-1.5 justify-center sm:justify-start">
-                                        <span>🔒</span> Conversation Locked
+                                        <Lock className="h-4 w-4 text-gray-700" /> Conversation Locked
                                       </h4>
                                       <p className="text-xs text-gray-500">
                                         To reply to this traveler, you need to unlock the conversation. Cost: {
@@ -6879,7 +7069,7 @@ export default function Home() {
                                         onClick={() => unlockCustomerChat(selectedConversation.userId, selectedConversation.userName)}
                                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 border-none"
                                       >
-                                        <span>✨</span> Unlock to Reply
+                                        <Sparkles className="h-4 w-4" /> Unlock to Reply
                                       </Button>
                                     </div>
                                   </div>
@@ -6890,7 +7080,7 @@ export default function Home() {
                         ) : (
                           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-55/30">
                             <div className="w-16 h-16 bg-white border border-gray-150 rounded-2xl flex items-center justify-center shadow-md mb-6">
-                              <span className="text-3xl">✈️</span>
+                              <Plane className="h-8 w-8 text-blue-600" />
                             </div>
                             <h4 className="font-extrabold text-gray-900 text-sm mb-2">Your Inbox</h4>
                             <p className="text-xs text-gray-500 max-w-sm leading-relaxed">
@@ -6903,57 +7093,108 @@ export default function Home() {
                   )}
 
                   {agencyActiveSection === 'settings' && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          <span className="mr-2">⚙️</span>
-                          Agency Settings
+                    <Card className="bg-white border border-gray-200 shadow-md rounded-3xl overflow-hidden">
+                      <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-6 md:p-8">
+                        <CardTitle className="flex items-center text-xl font-bold text-gray-900">
+                          <Settings className="mr-2.5 h-6 w-6 text-gray-700" />
+                          Profile Branding & Contact Information
                         </CardTitle>
-                        <CardDescription>
-                          Manage your agency profile and preferences
+                        <CardDescription className="text-xs text-gray-500 mt-1">
+                          Manage your agency profile branding, contact info, and business description
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-6">
+                      <CardContent className="p-6 md:p-8 space-y-8">
+                        {/* Agency Logo Upload Section */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
+                          <div className="w-24 h-24 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                            {(agencyLogoUrl || userData.logoUrl || userData.agencyLogo) && !agencyLogoError ? (
+                              <img
+                                src={agencyLogoUrl || userData.logoUrl || userData.agencyLogo}
+                                alt="Agency Logo"
+                                className="w-full h-full object-contain p-1"
+                                onError={() => setAgencyLogoError(true)}
+                              />
+                            ) : (
+                              <Building2 className="h-8 w-8 text-slate-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 text-center md:text-left">
+                            <h3 className="text-sm font-bold text-gray-900">Agency Branding Logo</h3>
+                            <p className="text-xs text-gray-500 mt-1 max-w-lg leading-relaxed">
+                              Upload a clean, professional company logo to stand out in travel listings and customer chats. We recommend a high-resolution PNG or JPG.
+                            </p>
+                            <label className="mt-4 inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl border border-gray-200 shadow-sm cursor-pointer transition-all">
+                              <span className="flex items-center gap-1.5"><Upload className="h-4 w-4" /> Upload New Logo</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleAgencyLogoChange}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <Label htmlFor="agencyName">Agency Name</Label>
-                            <Input id="agencyName" defaultValue={userData.companyName} />
+                            <Label htmlFor="agencyName" className="text-xs font-semibold text-gray-600 mb-1.5 block">Agency Company Name</Label>
+                            <Input
+                              id="agencyName"
+                              value={agencyCompanyName}
+                              onChange={(e) => setAgencyCompanyName(e.target.value)}
+                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-blue-500 shadow-sm"
+                            />
                           </div>
                           <div>
-                            <Label htmlFor="contactEmail">Contact Email</Label>
-                            <Input id="contactEmail" defaultValue={user?.email || ''} />
+                            <Label htmlFor="contactEmail" className="text-xs font-semibold text-gray-600 mb-1.5 block">Contact Email</Label>
+                            <Input
+                              id="contactEmail"
+                              value={agencyContactEmail}
+                              onChange={(e) => setAgencyContactEmail(e.target.value)}
+                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-blue-500 shadow-sm"
+                            />
                           </div>
                         </div>
 
                         <div>
-                          <Label htmlFor="description">Agency Description</Label>
+                          <Label htmlFor="description" className="text-xs font-semibold text-gray-600 mb-1.5 block">Agency Description & Specialization</Label>
                           <textarea
                             id="description"
-                            className="w-full p-2 border rounded-lg"
+                            className="w-full p-4 border border-gray-200 rounded-2xl text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                             rows={4}
-                            placeholder="Tell travelers about your agency..."
+                            value={agencyDescription}
+                            onChange={(e) => setAgencyDescription(e.target.value)}
+                            placeholder="Tell travelers about your agency's expertise, popular tour packages, and premium services..."
                           />
                         </div>
 
                         <div>
-                          <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
-                          <div className="space-y-3">
-                            <label className="flex items-center">
-                              <input type="checkbox" className="mr-2" defaultChecked />
-                              <span className="text-sm">Email notifications for new bookings</span>
+                          <h3 className="text-sm font-bold text-gray-900 mb-3">Notification Preferences</h3>
+                          <div className="space-y-3 bg-gray-50/70 border border-gray-150 rounded-2xl p-5">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" defaultChecked />
+                              <span className="text-xs font-semibold text-gray-700">Email notifications for new user bookings & inquiries</span>
                             </label>
-                            <label className="flex items-center">
-                              <input type="checkbox" className="mr-2" defaultChecked />
-                              <span className="text-sm">SMS notifications for urgent updates</span>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" defaultChecked />
+                              <span className="text-xs font-semibold text-gray-700">SMS notifications for urgent customer chat messages</span>
                             </label>
-                            <label className="flex items-center">
-                              <input type="checkbox" className="mr-2" />
-                              <span className="text-sm">Marketing emails and promotions</span>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                              <span className="text-xs font-semibold text-gray-700">Marketing emails, seasonal promotions & platform updates</span>
                             </label>
                           </div>
                         </div>
 
-                        <Button>Save Settings</Button>
+                        <div className="pt-2 flex justify-end">
+                          <Button
+                            onClick={handleSaveAgencySettings}
+                            disabled={savingAgencySettings}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-6 py-3 rounded-2xl shadow-md transition-all h-auto"
+                          >
+                            {savingAgencySettings ? 'Saving Settings...' : 'Save All Settings'}
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   )}
@@ -6969,10 +7210,10 @@ export default function Home() {
 
                       {/* Hero Header */}
                       <div className="bg-gradient-to-r from-[#1E293B] to-[#0F172A] text-white rounded-3xl p-6 shadow-lg relative overflow-hidden">
-                        <div className="absolute right-10 bottom-0 opacity-10 text-[120px] pointer-events-none select-none">💳</div>
+                        <div className="absolute right-10 bottom-0 opacity-10 pointer-events-none select-none"><CreditCard className="w-32 h-32 text-white" /></div>
                         <div className="relative z-10 max-w-3xl">
                           <div className="inline-flex items-center gap-1.5 bg-[#3B82F6]/20 backdrop-blur-sm text-[#93C5FD] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-3 border border-[#3B82F6]/30">
-                            💳 Billing & Subscription Control Panel
+                            <CreditCard className="w-3.5 h-3.5 mr-1" /> Billing & Subscription Control Panel
                           </div>
                           <h1 className="text-2xl font-extrabold mb-1 tracking-tight">
                             Premium Reply Credits
@@ -7036,7 +7277,7 @@ export default function Home() {
                               </p>
                             </div>
                             <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
-                              💬
+                              <MessageSquare className="w-5 h-5" />
                             </div>
                           </Card>
 
@@ -7049,7 +7290,7 @@ export default function Home() {
                               <p className="text-[10px] text-gray-500 leading-snug">Logs of top-ups & usage</p>
                             </div>
                             <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-lg">
-                              📋
+                              <ClipboardList className="w-5 h-5" />
                             </div>
                           </Card>
                         </div>
@@ -7058,7 +7299,7 @@ export default function Home() {
                       {/* Developer Testing Panel inside Dashboard */}
                       <Card className="bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
                         <h4 className="text-xs font-bold text-orange-850 flex items-center gap-1.5 mb-1.5">
-                          🛠️ Developer Billing & Credits Simulator
+                          <Wrench className="w-4 h-4 mr-1.5 text-orange-600" /> Developer Billing & Credits Simulator
                         </h4>
                         <p className="text-[10px] text-orange-700 mb-3 leading-relaxed">
                           Use these controls to simulate plan resets, add credits, and verify unlock behavior. Changes reflect in Firebase Firestore immediately.
@@ -7316,7 +7557,7 @@ export default function Home() {
                       {/* Transaction History Logs */}
                       <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6">
                         <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1.5">
-                          <span>📋</span> Credit Transaction History
+                          <ClipboardList className="w-4 h-4 mr-1.5 text-gray-600" /> Credit Transaction History
                         </h3>
 
                         {(!userData?.creditHistory || userData.creditHistory.length === 0) ? (
@@ -7379,67 +7620,12 @@ export default function Home() {
                       </Card>
                     </div>
                   )}
-                  {agencyActiveSection === 'settings' && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          <span className="mr-2">⚙️</span>
-                          Agency Settings
-                        </CardTitle>
-                        <CardDescription>
-                          Manage your agency profile and preferences
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <Label htmlFor="agencyName">Agency Name</Label>
-                            <Input id="agencyName" defaultValue={userData.companyName} />
-                          </div>
-                          <div>
-                            <Label htmlFor="contactEmail">Contact Email</Label>
-                            <Input id="contactEmail" defaultValue={user?.email || ''} />
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="description">Agency Description</Label>
-                          <textarea
-                            id="description"
-                            className="w-full p-2 border rounded-lg"
-                            rows={4}
-                            placeholder="Tell travelers about your agency..."
-                          />
-                        </div>
-
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
-                          <div className="space-y-3">
-                            <label className="flex items-center">
-                              <input type="checkbox" className="mr-2" defaultChecked />
-                              <span className="text-sm">Email notifications for new bookings</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input type="checkbox" className="mr-2" defaultChecked />
-                              <span className="text-sm">SMS notifications for urgent updates</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input type="checkbox" className="mr-2" />
-                              <span className="text-sm">Marketing emails and promotions</span>
-                            </label>
-                          </div>
-                        </div>
-
-                        <Button>Save Settings</Button>
-                      </CardContent>
-                    </Card>
-                  )}
                 </>
               ) : (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-3xl">⏳</span>
+                      <Clock className="w-8 h-8 text-yellow-600" />
                     </div>
                     <h3 className="text-xl font-semibold mb-2">Account Pending Approval</h3>
                     <p className="text-gray-600 mb-4">
@@ -7493,8 +7679,8 @@ export default function Home() {
                   booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
                 }`}>
-                {booking.status === 'confirmed' ? '✅ Confirmed' :
-                  booking.status === 'pending' ? '⏳ Pending' : '❌ Cancelled'}
+                {booking.status === 'confirmed' ? <span className="flex items-center gap-1"><CheckCircle className="w-4 h-4 text-green-600" /> Confirmed</span> :
+                  booking.status === 'pending' ? <span className="flex items-center gap-1"><Clock className="w-4 h-4 text-yellow-600" /> Pending</span> : <span className="flex items-center gap-1"><XCircle className="w-4 h-4 text-red-600" /> Cancelled</span>}
               </span>
               <span className="text-gray-500 text-sm">
                 Booked on {booking.createdAtFormatted}
@@ -7504,7 +7690,7 @@ export default function Home() {
             {/* Booking Info */}
             <div className="bg-gray-50 p-5 rounded-xl">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                📅 Booking Information
+                <Calendar className="w-5 h-5 text-gray-700" /> Booking Information
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-white p-3 rounded-lg">
@@ -7522,7 +7708,7 @@ export default function Home() {
                 <div className="bg-white p-3 rounded-lg">
                   <span className="text-gray-500 text-xs uppercase tracking-wide block">Package Type</span>
                   <p className="font-semibold text-gray-800">
-                    {booking.packageType === 'international' ? '🌍 International' : '🏠 Domestic'}
+                    {booking.packageType === 'international' ? <span className="flex items-center gap-1"><Globe className="w-4 h-4 text-blue-600" /> International</span> : <span className="flex items-center gap-1"><HomeIcon className="w-4 h-4 text-green-600" /> Domestic</span>}
                   </p>
                 </div>
                 <div className="bg-white p-3 rounded-lg col-span-2">
@@ -7536,13 +7722,13 @@ export default function Home() {
             {booking.journeyDetails ? (
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
-                  ✈️ Travel Itinerary
+                  <Plane className="w-5 h-5 text-gray-700" /> Travel Itinerary
                 </h3>
 
                 {booking.journeyDetails.flight && (
                   <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
                     <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                      ✈️ Flight Information
+                      <Plane className="w-4 h-4 text-blue-700" /> Flight Information
                     </h4>
                     <p className="text-blue-800 whitespace-pre-line">{booking.journeyDetails.flight}</p>
                   </div>
@@ -7551,7 +7737,7 @@ export default function Home() {
                 {booking.journeyDetails.hotel && (
                   <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
                     <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-                      🏨 Hotel Accommodation
+                      <Building className="w-4 h-4 text-green-700" /> Hotel Accommodation
                     </h4>
                     <p className="text-green-800 whitespace-pre-line">{booking.journeyDetails.hotel}</p>
                   </div>
@@ -7560,7 +7746,7 @@ export default function Home() {
                 {booking.journeyDetails.itinerary && (
                   <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
                     <h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2">
-                      📋 Day-by-Day Itinerary
+                      <ClipboardList className="w-4 h-4 text-purple-700" /> Day-by-Day Itinerary
                     </h4>
                     <div className="text-purple-800 whitespace-pre-line leading-relaxed">
                       {booking.journeyDetails.itinerary}
@@ -7571,7 +7757,7 @@ export default function Home() {
                 {booking.journeyDetails.additionalNotes && (
                   <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r-lg">
                     <h4 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
-                      📝 Additional Notes
+                      <FileText className="w-4 h-4 text-yellow-700" /> Additional Notes
                     </h4>
                     <p className="text-yellow-800">{booking.journeyDetails.additionalNotes}</p>
                   </div>
@@ -7580,7 +7766,7 @@ export default function Home() {
                 {!booking.journeyDetails.flight && !booking.journeyDetails.hotel && !booking.journeyDetails.itinerary && (
                   <div className="bg-yellow-50 p-4 rounded-lg text-center">
                     <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <span className="text-2xl">⏳</span>
+                      <Clock className="w-6 h-6 text-yellow-600" />
                     </div>
                     <h3 className="font-semibold mb-2">Journey Details Being Prepared</h3>
                     <p className="text-yellow-800">
@@ -7592,7 +7778,7 @@ export default function Home() {
             ) : (
               <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-xl text-center">
                 <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">⏳</span>
+                  <Clock className="w-8 h-8 text-yellow-600" />
                 </div>
                 <h3 className="font-semibold text-lg mb-2">Journey Details Coming Soon</h3>
                 <p className="text-yellow-800">
@@ -7604,7 +7790,7 @@ export default function Home() {
             {/* Special Requests */}
             {booking.specialRequests && (
               <div className="bg-pink-50 border-l-4 border-pink-500 p-4 rounded-r-lg">
-                <h4 className="font-semibold text-pink-900 mb-2">📝 Your Special Requests</h4>
+                <h4 className="font-semibold text-pink-900 mb-2 flex items-center gap-1.5"><FileText className="w-4 h-4 text-pink-700" /> Your Special Requests</h4>
                 <p className="text-pink-800">{booking.specialRequests}</p>
               </div>
             )}
@@ -7612,7 +7798,7 @@ export default function Home() {
             {/* Payment Summary */}
             <div className="bg-gray-50 p-5 rounded-xl">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                💰 Payment Summary
+                <CreditCard className="w-5 h-5 text-gray-700" /> Payment Summary
               </h3>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
@@ -7633,7 +7819,7 @@ export default function Home() {
             {/* Contact Information */}
             <div className="bg-blue-50 p-5 rounded-xl">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                📞 Contact & Emergency Information
+                <Phone className="w-5 h-5 text-blue-700" /> Contact & Emergency Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
@@ -7652,7 +7838,7 @@ export default function Home() {
                 )}
               </div>
               <p className="text-xs text-blue-600 mt-4 bg-blue-100 p-2 rounded">
-                💡 Keep this information handy during your travels. Contact your agency for any assistance.
+                <Info className="w-4 h-4 inline mr-1 text-blue-600" /> Keep this information handy during your travels. Contact your agency for any assistance.
               </p>
             </div>
 
@@ -7664,13 +7850,13 @@ export default function Home() {
               <Button
                 onClick={() => window.print()}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 flex items-center justify-center gap-1.5"
               >
-                🖨️ Print Details
+                <Printer className="w-4 h-4" /> Print Details
               </Button>
               {booking.status === 'confirmed' && (
                 <Button
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  className="flex-1 bg-green-600 hover:bg-green-700 flex items-center justify-center gap-1.5"
                   onClick={() => {
                     // Share functionality
                     if (navigator.share) {
@@ -7683,7 +7869,7 @@ export default function Home() {
                     }
                   }}
                 >
-                  📤 Share
+                  <Share2 className="w-4 h-4" /> Share
                 </Button>
               )}
             </div>
@@ -8075,7 +8261,7 @@ export default function Home() {
           <Card className="w-full max-w-2xl mx-4">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <span className="mr-2">⭐</span>
+                <Star className="w-5 h-5 text-yellow-500 mr-2" />
                 Write a Review for {reviewListing.title}
               </CardTitle>
               <CardDescription>
@@ -8093,7 +8279,7 @@ export default function Home() {
                       onClick={() => setNewReview({ ...newReview, rating: star })}
                       className={`text-2xl ${newReview.rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
                     >
-                      ⭐
+                      <Star className="w-6 h-6 fill-current inline" />
                     </button>
                   ))}
                 </div>
@@ -8182,7 +8368,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-white text-blue-700 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-md">
-                  🏢
+                  <Building className="w-8 h-8 text-blue-700" />
                 </div>
                 <div>
                   <h3 className="text-xl font-extrabold tracking-tight">{chatUnlockTarget.agencyName}</h3>
@@ -8199,28 +8385,28 @@ export default function Home() {
                 </p>
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <span className="text-blue-500 font-bold text-sm">💬</span>
+                    <MessageSquare className="w-4 h-4 text-blue-500" />
                     <div>
                       <p className="font-bold text-gray-900 leading-tight">Direct Chat</p>
                       <p className="text-[9px] text-gray-500 mt-0.5">Unlimited messaging</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <span className="text-blue-500 font-bold text-sm">📄</span>
+                    <FileText className="w-4 h-4 text-blue-500" />
                     <div>
                       <p className="font-bold text-gray-900 leading-tight">Custom Quotes</p>
                       <p className="text-[9px] text-gray-500 mt-0.5">Personalized plans</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <span className="text-blue-500 font-bold text-sm">📞</span>
+                    <Phone className="w-4 h-4 text-blue-500" />
                     <div>
                       <p className="font-bold text-gray-900 leading-tight">Direct Call</p>
                       <p className="text-[9px] text-gray-500 mt-0.5">Callbacks enabled</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <span className="text-blue-500 font-bold text-sm">⚡</span>
+                    <Zap className="w-4 h-4 text-blue-500" />
                     <div>
                       <p className="font-bold text-gray-900 leading-tight">Mediation Help</p>
                       <p className="text-[9px] text-gray-500 mt-0.5">100% Secure & safe</p>
@@ -8279,7 +8465,7 @@ export default function Home() {
                 ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
 
                 <div className="bg-red-50 text-red-800 border border-red-150 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
-                  <span className="text-xl leading-none">⚠️</span>
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
                   <div className="text-xs">
                     <p className="font-extrabold text-red-905">Insufficient Balance</p>
                     <p className="text-red-750 mt-1 leading-relaxed">
@@ -8317,9 +8503,9 @@ export default function Home() {
               ) : (
                 <Button
                   onClick={() => unlockCustomerChat(chatUnlockTarget.agencyId, chatUnlockTarget.agencyName)}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer flex items-center justify-center gap-1"
                 >
-                  Confirm & Connect ⚡
+                  Confirm & Connect <Zap className="w-4 h-4 inline ml-1" />
                 </Button>
               )}
             </div>
@@ -8334,7 +8520,7 @@ export default function Home() {
             <div className="relative w-16 h-16 mx-auto mb-6">
               <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center text-xl">
-                💳
+                <CreditCard className="w-6 h-6 text-blue-600" />
               </div>
             </div>
             <h4 className="font-extrabold text-gray-900 mb-2">Secure Checkout</h4>
@@ -8354,10 +8540,10 @@ export default function Home() {
               toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
                 'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
             }`}>
-            <span className="text-xl">
-              {toast.type === 'success' && '✨'}
-              {toast.type === 'error' && '⚠️'}
-              {toast.type === 'info' && 'ℹ️'}
+            <span className="text-xl flex items-center justify-center">
+              {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+              {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-600" />}
+              {toast.type === 'info' && <Info className="w-5 h-5 text-sky-600" />}
             </span>
             <div className="text-xs font-bold tracking-wide">
               {toast.message}
@@ -8384,7 +8570,7 @@ export default function Home() {
             top: effect.y,
           }}
         >
-          {effect.type === 'wishlist' ? '❤️' : '⚖️'}
+          {effect.type === 'wishlist' ? <Heart className="w-6 h-6 text-rose-500 fill-rose-500" /> : <Scale className="w-6 h-6 text-blue-500" />}
         </div>
       ))}
 

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Search } from 'lucide-react';
 
 interface SearchFiltersProps {
   searchTerm: string;
@@ -36,7 +37,7 @@ export default function SearchFilters({
                 onKeyPress={(e) => e.key === 'Enter' && onSearch()}
               />
               <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                🔍
+                <Search className="h-4 w-4" />
               </div>
             </div>
           </div>

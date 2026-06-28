@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Upload } from 'lucide-react';
+import { Plus, Trash2, Upload, ClipboardList } from 'lucide-react';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -369,7 +369,7 @@ const packageType = watch('packageType');
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <span className="text-2xl">📋</span>
+            <ClipboardList className="h-6 w-6 text-blue-600" />
             {initialData ? 'Edit Travel Package' : 'Create New Travel Package'}
           </CardTitle>
           <CardDescription>

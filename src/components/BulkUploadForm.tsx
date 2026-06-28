@@ -342,7 +342,7 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
     setIsUploading(false);
     
     if (failedCount === 0) {
-      alert(`🎉 Successfully imported all ${successCount} listings for approval!`);
+      alert(`Successfully imported all ${successCount} listings for approval!`);
       // Reset state and call parent success
       setParsedListings([]);
       setFileName('');
