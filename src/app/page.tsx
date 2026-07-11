@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,9 @@ import SearchFilters from '@/components/SearchFilters';
 import ListingCard from '@/components/ListingCard';
 import PackageDetailView from '@/components/PackageDetailView';
 import PackageComparison from '@/components/PackageComparison';
+import Footer from '@/components/Footer';
+import AutocompleteSearch from '@/components/AutocompleteSearch';
+import WishlistView from '@/components/WishlistView';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { 
   User, 
@@ -71,11 +74,13 @@ import {
   Smile,
   Printer,
   Share2,
+  ThumbsUp,
   FileText,
   Zap,
   Home as HomeIcon,
   Upload,
-  BarChart3
+  BarChart3,
+  Briefcase
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -239,6 +244,7 @@ export default function Home() {
   const [currentChatAgency, setCurrentChatAgency] = useState<string>('agency1');
   const [currentChatAgencyName, setCurrentChatAgencyName] = useState<string>('Adventure Travels');
   const [currentChatAgencyIsOnline, setCurrentChatAgencyIsOnline] = useState<boolean>(false);
+  const [currentChatAgencyLogo, setCurrentChatAgencyLogo] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
   const [chatSearchQuery, setChatSearchQuery] = useState<string>('');
   const [listings, setListings] = useState<any[]>([]);
@@ -310,6 +316,20 @@ export default function Home() {
   const [viewingAdminListing, setViewingAdminListing] = useState<any>(null);
   // User Experience Enhancements
   const [searchTerm, setSearchTerm] = useState('');
+
+  const allDestinations = useMemo(() => {
+    const dests = new Set<string>();
+    const popular = ['Goa', 'Kerala', 'Manali', 'Kashmir', 'Dubai', 'Bali', 'Singapore', 'Maldives', 'Thailand', 'Europe', 'Gujarat', 'Rajasthan', 'Himachal Pradesh', 'Uttarakhand'];
+    popular.forEach(p => dests.add(p));
+    listings.forEach(l => {
+      if (l.destination) dests.add(l.destination);
+      if (l.stateName) dests.add(l.stateName);
+      if (l.countryName) dests.add(l.countryName);
+    });
+    const blocklist = ['fdgdh', 'fdgh', 'test', 'asdf'];
+    return Array.from(dests).filter(d => typeof d === 'string' && d.length > 2 && !blocklist.includes(d.toLowerCase().trim()));
+  }, [listings]);
+
   const [filters, setFilters] = useState({
     priceRange: [0, 10000] as [number, number],
     duration: '',
@@ -321,18 +341,41 @@ export default function Home() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+
+  // Chat auto-scroll refs
+  const userChatEndRef = useRef<HTMLDivElement>(null);
+  const agencyChatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    userChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, currentChatAgency]);
+
+  useEffect(() => {
+    agencyChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [agencyChatMessages, selectedConversation]);
   
   // Dynamic Scroll Listener for sticky header scroll animations
   const [isScrolled, setIsScrolled] = useState(false);
   useEffect(() => {
-    const scrollContainer = document.getElementById('user-dashboard-scroll-container');
-    if (!scrollContainer) return;
     const handleScroll = () => {
-      setIsScrolled(scrollContainer.scrollTop > 50);
+      const scrollContainer = document.getElementById('user-dashboard-scroll-container');
+      const scrollTop = Math.max(window.scrollY, scrollContainer ? scrollContainer.scrollTop : 0);
+      setIsScrolled(scrollTop > 50);
     };
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    setIsScrolled(scrollContainer.scrollTop > 50);
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    const scrollContainer = document.getElementById('user-dashboard-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    
+    handleScroll();
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollContainer) scrollContainer.removeEventListener('scroll', handleScroll);
+    };
   }, [userActiveSection]);
 
   // Hero Search Widget states
@@ -359,7 +402,7 @@ export default function Home() {
   const [pincodeInput, setPincodeInput] = useState('');
 
   // Wishlist and Compare sub-tab state
-  const [wishlistSubTab, setWishlistSubTab] = useState<'wishlist' | 'compare'>('wishlist');
+
 
   // Floating effects queue state
   const [floatingEffects, setFloatingEffects] = useState<Array<{ id: number; x: number; y: number; type: 'wishlist' | 'compare' }>>([]);
@@ -1288,6 +1331,7 @@ export default function Home() {
 
   // Reset scroll position when user switches tabs in the dashboard
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     const scrollContainer = document.getElementById('user-dashboard-scroll-container');
     if (scrollContainer) {
       scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1377,6 +1421,7 @@ export default function Home() {
                   const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
                   const agencyName = agencyData?.companyName || 'Unknown Agency';
                   const isOnline = agencyData?.isOnline || agencyData?.is_online || false;
+                  const logoUrl = agencyData?.logoUrl || agencyData?.agencyLogo || agencyData?.avatarUrl || null;
 
                   conversationsMap.set(otherUserId, {
                     agencyId: otherUserId,
@@ -1386,6 +1431,7 @@ export default function Home() {
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0, // Could implement read status
                     isOnline,
+                    logoUrl,
                   });
                 } catch (error) {
                   console.warn('Error fetching agency data for conversation:', error);
@@ -1398,6 +1444,7 @@ export default function Home() {
                     lastMessageTime: msg.timestamp,
                     unreadCount: 0,
                     isOnline: false,
+                    logoUrl: null,
                   });
                 }
               }
@@ -3260,14 +3307,14 @@ export default function Home() {
       // User Dashboard
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
-        <div className="flex flex-col h-screen bg-gray-100">
+        <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
           {/* Top Navigation Bar */}
-          <header className={`header-transition text-white z-20 sticky top-0 shadow-md ${isScrolled ? 'bg-[#1C1F26]/90 backdrop-blur-md py-2 border-b border-gray-800/80 shadow-lg' : 'bg-[#1C1F26] py-3.5'}`}>
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 px-4 w-full">
+          <header className={`header-transition text-white z-[100] sticky top-0 shadow-md ${isScrolled ? 'bg-[#1C1F26]/90 backdrop-blur-md py-1.5 border-b border-gray-800/80 shadow-lg' : 'bg-[#1C1F26] py-2'}`}>
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full">
               {/* Logo & Search */}
-              <div className="flex items-center gap-6 flex-1 w-full">
+              <div className="flex items-center gap-4 flex-1 w-full">
                 <div
-                  className={`font-extrabold tracking-wider cursor-pointer transition-all duration-300 ${isScrolled ? 'text-2xl' : 'text-3xl'}`}
+                  className={`flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer transition-all duration-300 ${isScrolled ? 'text-2xl' : 'text-3xl'}`}
                   onClick={() => {
                     setUserActiveSection('listings');
                     setViewingListing(null);
@@ -3285,22 +3332,22 @@ export default function Home() {
                     });
                     setShowBookingForm(false);
                     setShowComparison(false);
-                    setWishlistSubTab('wishlist');
                   }}
                 >
-                  <span className="text-white">BOM</span><span className="text-orange-500">TRA</span>
+                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-8 sm:h-10 w-auto object-contain" />
                 </div>
                 <div className="relative w-full max-w-xl">
-                  <Input
-                    type="text"
+                  <AutocompleteSearch
                     placeholder="Search your Holiday Destination"
-                    className="w-full pl-10 pr-4 py-1.5 rounded-full text-black bg-white focus:ring-orange-500 focus:outline-none border-none text-xs h-9 shadow-inner"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(val) => setSearchTerm(val)}
+                    onSelect={(val) => {
+                      setSearchTerm(val);
+                    }}
+                    suggestions={allDestinations}
+                    inputClassName="w-full pl-10 pr-4 py-1.5 rounded-full text-black bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none border-none text-xs h-9 shadow-inner"
+                    iconClassName="left-3 top-2.5"
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-gray-400" />
-                  </div>
                 </div>
               </div>
 
@@ -3350,20 +3397,35 @@ export default function Home() {
 
                 {/* Compare */}
                 <div
-                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'wishlist' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
+                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${showComparison ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
-                    setUserActiveSection('wishlist');
-                    setWishlistSubTab('wishlist');
+                    setUserActiveSection('listings');
+                    setShowComparison(true);
                   }}
                 >
                   <Scale className="h-4 w-4" />
                   <div className="flex flex-col leading-tight hidden sm:flex">
                     <span className="font-semibold text-gray-200">Compare</span>
-                    <span className="text-[9px] text-gray-400 font-medium">& Wishlist</span>
+                    <span className="text-[9px] text-gray-400 font-medium">Packages</span>
                   </div>
                 </div>
 
+                {/* Wishlist */}
+                <div
+                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'wishlist' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
+                  onClick={() => {
+                    setFromSection(userActiveSection);
+                    setUserActiveSection('wishlist');
+                    setShowComparison(false);
+                  }}
+                >
+                  <Heart className="h-4 w-4" />
+                  <div className="flex flex-col leading-tight hidden sm:flex">
+                    <span className="font-semibold text-gray-200">Wishlist</span>
+                    <span className="text-[9px] text-gray-400 font-medium">Saved</span>
+                  </div>
+                </div>
                 {/* Messages */}
                 <div
                   className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'chat' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
@@ -3410,13 +3472,13 @@ export default function Home() {
 
           {/* Main Dashboard Scroll Area */}
           <div
-            className={`flex-1 w-full dashboard-scroll fast-scroll ${
-              userActiveSection === 'chat' ? 'overflow-hidden flex flex-col h-full' : 'overflow-y-auto pb-10'
+            className={`flex-1 w-full ${
+              userActiveSection === 'chat' ? 'overflow-hidden flex flex-col h-full' : ''
             }`}
             id="user-dashboard-scroll-container"
           >
             {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-              <div className="w-full bg-[#0F172A] py-20 px-6 relative overflow-hidden mb-8 shadow-2xl mt-0 min-h-[480px] flex flex-col justify-center items-center">
+              <div className="w-full bg-[#0F172A] py-20 px-6 relative z-40 mb-8 shadow-2xl mt-0 min-h-[480px] flex flex-col justify-center items-center">
                 {/* Background image overlay */}
                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center opacity-25"></div>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#14161C] via-slate-900/35 to-transparent"></div>
@@ -3463,17 +3525,20 @@ export default function Home() {
                     {/* Inputs Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                       {/* Destination Input */}
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-col gap-1.5 z-40">
                         <label className="text-[10px] font-black text-orange-400 uppercase tracking-wider">Destination</label>
                         <div className="relative">
-                          <Input
-                            type="text"
+                          <AutocompleteSearch
                             placeholder="Where are you planning to go?"
                             value={heroSearchInput}
-                            onChange={(e) => setHeroSearchInput(e.target.value)}
-                            className="w-full pl-9 pr-3 rounded-xl border-none text-black bg-white focus-visible:ring-2 focus-visible:ring-orange-500 h-11 text-xs"
+                            onChange={(val) => setHeroSearchInput(val)}
+                            onSelect={(val) => {
+                              setHeroSearchInput(val);
+                            }}
+                            suggestions={allDestinations}
+                            inputClassName="w-full pl-9 pr-3 rounded-xl border-none text-black bg-white focus-visible:ring-2 focus-visible:ring-orange-500 h-11 text-xs"
+                            iconClassName="left-3 top-3.5"
                           />
-                          <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                         </div>
                       </div>
 
@@ -3512,6 +3577,7 @@ export default function Home() {
                           
                           // Scroll down to active listings section
                           setTimeout(() => {
+                            window.scrollTo({ top: 380, behavior: 'smooth' });
                             const container = document.getElementById('user-dashboard-scroll-container');
                             if (container) {
                               container.scrollTo({ top: 380, behavior: 'smooth' });
@@ -3528,14 +3594,14 @@ export default function Home() {
               </div>
             )}
 
-            <main className={`px-6 max-w-7xl mx-auto w-full ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : ''}`}>
+            <main className={`${(userActiveSection === 'comparison' || showComparison || userActiveSection === 'wishlist') ? 'w-full' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || showComparison) ? 'pb-0' : 'pb-10'}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
-              {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && (
-                <div className={`${userActiveSection === 'chat' ? 'mb-4 mt-4 shrink-0' : 'mb-6 mt-6'} flex justify-between items-center border-b pb-4 border-gray-200`}>
+              {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && (
+                <div className={`${userActiveSection === 'chat' ? 'mb-4 mt-4 shrink-0 px-6 max-w-7xl mx-auto' : 'mb-6 mt-6 px-6 max-w-7xl mx-auto'} flex justify-between items-center border-b pb-4 border-gray-200`}>
                   <div className="flex items-center gap-3">
                     {userActiveSection === 'wishlist' && (
                       <button
-                        onClick={() => setUserActiveSection(fromSection)}
+                        onClick={() => setUserActiveSection(fromSection === 'wishlist' ? 'listings' : fromSection)}
                         className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-750 transition-all hover:scale-105 active:scale-95 text-lg font-bold shadow-sm"
                         title="Go back"
                       >
@@ -3579,8 +3645,8 @@ export default function Home() {
                             <Button
                               size="sm"
                               onClick={() => {
-                                setUserActiveSection('wishlist');
-                                setWishlistSubTab('compare');
+                                setUserActiveSection('listings');
+                                setShowComparison(true);
                               }}
                               className="flex-1 sm:flex-none"
                             >
@@ -4296,13 +4362,7 @@ export default function Home() {
                   onBack={() => setViewingListing(null)}
                   onBook={startBooking}
                   onChat={handleInitiateChat}
-                  onWishlist={(listingId) => {
-                    setWishlist(prev =>
-                      prev.includes(listingId)
-                        ? prev.filter(id => id !== listingId)
-                        : [...prev, listingId]
-                    );
-                  }}
+                  onWishlist={handleWishlistToggle}
                   isWishlisted={wishlist.includes(viewingListing.id)}
                 />
               )}
@@ -4318,6 +4378,10 @@ export default function Home() {
                     const matchedConv = userConversations.find(c => c.agencyId === agencyId);
                     setCurrentChatAgencyIsOnline(matchedConv ? matchedConv.isOnline : false);
                     setUserActiveSection('chat');
+                  }}
+                  onView={(pkg) => {
+                    setShowComparison(false);
+                    setViewingListing(pkg);
                   }}
                 />
               )}
@@ -4633,6 +4697,7 @@ export default function Home() {
                                   setCurrentChatAgency(conversation.agencyId);
                                   setCurrentChatAgencyName(conversation.agencyName);
                                   setCurrentChatAgencyIsOnline(conversation.isOnline || false);
+                                  setCurrentChatAgencyLogo(conversation.logoUrl || null);
                                 }}
                                 className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 border border-l-4 ${
                                   isActive
@@ -4642,11 +4707,15 @@ export default function Home() {
                               >
                                 {/* Avatar */}
                                 <div className={`w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm relative ${
-                                  conversation.isOnline ? 'bg-orange-600' : 'bg-slate-900'
+                                  !conversation.logoUrl && conversation.isOnline ? 'bg-orange-600' : (!conversation.logoUrl ? 'bg-slate-900' : '')
                                 }`}>
-                                  {initials}
+                                  {conversation.logoUrl ? (
+                                    <img src={conversation.logoUrl} alt={initials} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    initials
+                                  )}
                                   {conversation.isOnline && (
-                                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+                                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full z-10" />
                                   )}
                                 </div>
                                 {/* Info */}
@@ -4680,7 +4749,11 @@ export default function Home() {
                         <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
-                              {currentChatAgencyName ? currentChatAgencyName.slice(0, 2).toUpperCase() : 'AG'}
+                              {currentChatAgencyLogo ? (
+                                <img src={currentChatAgencyLogo} alt={currentChatAgencyName || 'AG'} className="w-full h-full object-cover rounded-full" />
+                              ) : (
+                                currentChatAgencyName ? currentChatAgencyName.slice(0, 2).toUpperCase() : 'AG'
+                              )}
                             </div>
                             <div>
                               <h4 className="font-bold text-xs text-gray-900">{currentChatAgencyName}</h4>
@@ -4704,6 +4777,7 @@ export default function Home() {
                               setCurrentChatAgency('');
                               setCurrentChatAgencyName('');
                               setCurrentChatAgencyIsOnline(false);
+                              setCurrentChatAgencyLogo(null);
                             }}
                             className="text-gray-400 hover:text-gray-650 p-1.5 hover:bg-gray-100 rounded-xl transition-all"
                             title="Close Chat"
@@ -4736,6 +4810,7 @@ export default function Home() {
                                 </div>
                               );
                             })}
+                          <div ref={userChatEndRef} />
                         </div>
 
                         {/* Message Input Box & Quick Replies */}
@@ -4754,7 +4829,7 @@ export default function Home() {
                             
                             if (availableBuyerReplies.length === 0) return null;
                             return (
-                              <div className="px-4 pt-3 pb-1 flex overflow-x-auto gap-2 scrollbar-hide snap-x">
+                              <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2">
                                 {availableBuyerReplies.map((reply, idx) => (
                                   <button
                                     key={idx}
@@ -4770,7 +4845,7 @@ export default function Home() {
                                       const dbInstance = getDbInstance();
                                       if (dbInstance) await addDoc(collection(dbInstance, 'chat_messages'), messageData);
                                     }}
-                                    className="snap-start shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
+                                    className="shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
                                   >
                                     {reply}
                                   </button>
@@ -4848,222 +4923,113 @@ export default function Home() {
               )}
 
               {userActiveSection === 'wishlist' && (
-                <div className="space-y-6">
-                  {/* Premium White Sub-Tab Toggle */}
-                  <div className="flex border-b border-gray-200">
-                    <button
-                      onClick={() => setWishlistSubTab('wishlist')}
-                      className={`py-3 px-6 text-sm font-semibold border-b-2 transition-all duration-205 ${
-                        wishlistSubTab === 'wishlist'
-                          ? 'border-gray-900 text-gray-900 font-bold'
-                          : 'border-transparent text-gray-500 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2"><Heart className="h-4 w-4 text-red-500" /> Wishlist ({wishlist.length})</span>
-                    </button>
-                    <button
-                      onClick={() => setWishlistSubTab('compare')}
-                      className={`py-3 px-6 text-sm font-semibold border-b-2 transition-all duration-205 ${
-                        wishlistSubTab === 'compare'
-                          ? 'border-gray-900 text-gray-900 font-bold'
-                          : 'border-transparent text-gray-500 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2"><Scale className="h-4 w-4 text-blue-500" /> Compare Packages ({comparisonList.length})</span>
-                    </button>
-                  </div>
-
-                  {wishlistSubTab === 'wishlist' ? (
-                    <div>
-                      <div className="mb-6 mt-2">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Wishlist</h2>
-                        <p className="text-gray-650">Save your favorite travel packages for later</p>
-                      </div>
-
-                      {wishlist.length === 0 ? (
-                        <Card className="text-center py-12">
-                          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Heart className="h-8 w-8 text-red-500" />
-                          </div>
-                          <h3 className="text-lg font-semibold mb-2">Your wishlist is empty</h3>
-                          <p className="text-gray-600 mb-6">
-                            Add travel packages to your wishlist by clicking the heart icon on any listing.
-                          </p>
-                          <Button
-                            onClick={() => setUserActiveSection('listings')}
-                            className="bg-gray-600 hover:bg-gray-700"
-                          >
-                            Browse Travel Packages
-                          </Button>
-                        </Card>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {listings
-                            .filter(listing => wishlist.includes(listing.id))
-                            .map((listing) => (
-                              <ListingCard
-                                key={listing.id}
-                                listing={listing}
-                                onView={setViewingListing}
-                                onBook={startBooking}
-                                onChat={(listingData) => {
-                                  setCurrentChatAgency(listingData.agencyId);
-                                  setCurrentChatAgencyName(listingData.agencyName);
-                                  const matchedConv = userConversations.find(c => c.agencyId === listingData.agencyId);
-                                  setCurrentChatAgencyIsOnline(matchedConv ? matchedConv.isOnline : false);
-                                  setUserActiveSection('chat');
-                                }}
-                                onWishlist={(listingId) => {
-                                  setWishlist(prev =>
-                                    prev.includes(listingId)
-                                      ? prev.filter(id => id !== listingId)
-                                      : [...prev, listingId]
-                                  );
-                                }}
-                                isWishlisted={wishlist.includes(listing.id)}
-                                variant="user"
-                              />
-                            ))
-                          }
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="mb-6 mt-2">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Compare Packages</h2>
-                        <p className="text-gray-650">Compare side-by-side to choose the best travel plan</p>
-                      </div>
-
-                      <PackageComparison
-                        onBack={() => setUserActiveSection(fromSection)}
-                        onChat={(agencyId, agencyName) => {
-                          setCurrentChatAgency(agencyId);
-                          setCurrentChatAgencyName(agencyName);
-                          const matchedConv = userConversations.find(c => c.agencyId === agencyId);
-                          setCurrentChatAgencyIsOnline(matchedConv ? matchedConv.isOnline : false);
-                          setUserActiveSection('chat');
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
+                <WishlistView 
+                  wishlist={wishlist}
+                  listings={listings}
+                  onWishlistToggle={handleWishlistToggle}
+                  onView={(listing) => {
+                    setViewingListing(listing);
+                    setUserActiveSection('listings');
+                  }}
+                  onExplore={() => setUserActiveSection('listings')}
+                  onBack={() => setUserActiveSection(fromSection === 'wishlist' ? 'listings' : fromSection)}
+                />
               )}
 
               {userActiveSection === 'profile' && (
                 <div className="py-6 animate-in fade-in duration-200 space-y-6">
-                  {/* MAIN PROFILE & SETTINGS HEADER (Matching Agency Dashboard Design & Color Combination) */}
-                  <Card className="bg-white border border-gray-200 shadow-md rounded-3xl overflow-hidden mb-6">
-                    <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-6 md:p-8">
-                      <CardTitle className="flex items-center text-xl font-bold text-gray-900">
-                        <User className="mr-2.5 h-6 w-6 text-gray-700" />
-                        User Profile & Settings
-                      </CardTitle>
-                      <CardDescription className="text-xs text-gray-500 mt-1">
-                        Manage your personal details, traveler preferences, and account security
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-6 md:p-8">
-                      {/* Avatar Upload Section (Matching Agency Logo Upload Section) */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
-                        <div className="w-24 h-24 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-                          {profilePhotoUrl && !profileImageError ? (
-                            <img
-                              src={profilePhotoUrl}
-                              alt={profileName}
-                              onError={() => setProfileImageError(true)}
-                              className="w-full h-full object-cover p-1 rounded-2xl"
-                            />
-                          ) : (
-                            <User className="h-8 w-8 text-slate-400" />
-                          )}
+                  {/* Header Title */}
+                  <div className="mb-6 ml-2">
+                    <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-2">
+                      <User className="h-7 w-7 text-gray-700" />
+                      User Profile <span className="text-orange-500">& Settings</span>
+                      <Sparkles className="h-6 w-6 text-orange-400" />
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-2 font-medium">Manage your personal details, traveler preferences, and account security</p>
+                  </div>
+
+                  {/* Avatar Upload Section */}
+                  <div className="bg-gradient-to-r from-[#FFF4EC] to-[#FFFAF6] border border-orange-100 rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col md:flex-row items-center gap-8 shadow-sm">
+                    {/* Background SVG Trace */}
+                    <svg className="absolute top-0 right-1/4 w-64 h-full text-orange-200 opacity-50 pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <path d="M0,100 C30,70 50,20 100,0" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" />
+                      <Plane className="w-4 h-4 text-orange-300 absolute top-4 right-4" />
+                    </svg>
+                    
+                    <div className="relative z-10 w-28 h-28 bg-white rounded-full border-[3px] border-white shadow-md flex items-center justify-center overflow-hidden shrink-0">
+                      {profilePhotoUrl && !profileImageError ? (
+                        <img
+                          src={profilePhotoUrl}
+                          alt={profileName}
+                          onError={() => setProfileImageError(true)}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-10 w-10 text-slate-300" />
+                      )}
+                      {/* Upload Camera Icon Button on the avatar */}
+                      <label className="absolute bottom-1 right-1 w-8 h-8 bg-white rounded-full shadow-md border border-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-50">
+                        <Camera className="w-4 h-4 text-gray-600" />
+                        <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="hidden" />
+                      </label>
+                    </div>
+
+                    <div className="relative z-10 flex-1 text-center md:text-left">
+                      <h3 className="text-lg font-extrabold text-gray-900">{profileName || userData?.name || 'User Profile'}</h3>
+                      
+                      <label className="mt-5 inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-5 py-2.5 rounded-full shadow-md shadow-orange-500/20 cursor-pointer transition-all">
+                        <Upload className="h-4 w-4" /> Upload New Avatar
+                        <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="hidden" />
+                      </label>
+                    </div>
+
+                    <div className="relative z-10 flex flex-row gap-4 md:border-l border-orange-200/50 md:pl-8">
+                      
+                      <div className="bg-white border border-gray-150 px-6 py-4 rounded-2xl min-w-[120px] shadow-sm flex items-center gap-4">
+                        <div className="w-10 h-10 bg-orange-50 border border-orange-100 rounded-xl flex items-center justify-center shrink-0">
+                          <Heart className="w-5 h-5 text-orange-500" />
                         </div>
-                        <div className="flex-1 text-center md:text-left">
-                          <h3 className="text-sm font-bold text-gray-900">User Profile Avatar</h3>
-                          <p className="text-xs text-gray-500 mt-1 max-w-lg leading-relaxed">
-                            Upload a clean, professional profile photo to personalize your traveler account and booking chats. We recommend a high-resolution PNG or JPG.
-                          </p>
-                          <label className="mt-4 inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl border border-gray-200 shadow-sm cursor-pointer transition-all">
-                            <span className="flex items-center gap-1.5"><Package className="h-4 w-4" /> Upload New Avatar</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleProfilePhotoChange}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-                        <div className="flex gap-4 border-t border-gray-200 md:border-none pt-4 md:pt-0">
-                          <div className="text-center bg-white border border-gray-200 px-5 py-3 rounded-2xl min-w-[110px] shadow-sm">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bookings</p>
-                            <p className="text-xl font-black text-gray-900 mt-0.5">{userBookings.length}</p>
-                          </div>
-                          <div className="text-center bg-white border border-gray-200 px-5 py-3 rounded-2xl min-w-[110px] shadow-sm">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Wishlist</p>
-                            <p className="text-xl font-black text-blue-600 mt-0.5">{wishlist.length}</p>
-                          </div>
+                        <div>
+                          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Wishlist</p>
+                          <p className="text-2xl font-black text-gray-900 leading-none mt-1">{wishlist.length}</p>
+                          <p className="text-[10px] text-gray-400 font-medium mt-0.5">Saved Trips</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
                   {/* GRID LAYOUT FOR NAVIGATION & CONTENT */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* LEFT SIDEBAR: NAVIGATION MENU */}
-                    <div className="md:col-span-1 space-y-4">
-                      <Card className="bg-white border border-gray-200 shadow-sm rounded-3xl p-4 space-y-1">
-                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 mb-2">Settings Menu</h4>
+                    <div className="md:col-span-1 space-y-6">
+                      <div className="bg-white border border-gray-150 shadow-sm rounded-3xl p-3 space-y-1">
+                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 pt-2 mb-3">Settings Menu</h4>
+                        
                         <button
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-2xl transition-all duration-200 ${profileTab === 'account'
-                              ? 'font-bold text-blue-600 bg-blue-50 border border-blue-200/60 shadow-sm'
-                              : 'font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 border border-transparent'
+                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm rounded-2xl transition-all duration-200 ${profileTab === 'account'
+                              ? 'font-bold text-orange-600 bg-orange-50 border-orange-100/50 shadow-[0_2px_10px_rgb(249,115,22,0.05)]'
+                              : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50/80'
                             }`}
                           onClick={() => {
                             setProfileTab('account');
                             setUserActiveSection('profile');
                           }}
                         >
-                          <User className="h-4 w-4 shrink-0" />
+                          <User className="h-[18px] w-[18px] shrink-0" />
                           <span>My Account</span>
                         </button>
 
                         <button
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-2xl transition-all duration-200 border border-transparent"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 rounded-2xl transition-all duration-200"
                           onClick={() => {
                             setFromSection('profile');
-                            setWishlistSubTab('compare');
                             setUserActiveSection('wishlist');
                           }}
                         >
-                          <ShoppingCart className="h-4 w-4 shrink-0" />
-                          <span>My Holiday Cart</span>
-                        </button>
-                        <button
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 rounded-2xl transition-all duration-200 border border-transparent"
-                          onClick={() => {
-                            setFromSection('profile');
-                            setWishlistSubTab('wishlist');
-                            setUserActiveSection('wishlist');
-                          }}
-                        >
-                          <Heart className="h-4 w-4 shrink-0" />
+                          <Heart className="h-[18px] w-[18px] shrink-0" />
                           <span>Wishlist</span>
                         </button>
-                      </Card>
-
-                      {/* Quick Support & Documentation Widget */}
-                      {/* <Card className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white border-none shadow-md rounded-3xl p-5 relative overflow-hidden">
-                        <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none select-none translate-y-6 translate-x-4"><Shield className="w-32 h-32" /></div>
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1">Assistance</h4>
-                        <p className="text-sm font-bold mb-2">Need help with bookings?</p>
-                        <p className="text-xs text-blue-100 mb-4 leading-relaxed">Access our 24/7 dedicated dispute resolution center for real-time support.</p>
-                        <Button
-                          onClick={() => setUserActiveSection('support')}
-                          className="w-full bg-white text-slate-900 hover:bg-gray-100 text-xs font-bold py-2.5 rounded-xl shadow transition-all"
-                        >
-                          Contact Support
-                        </Button>
-                      </Card> */}
+                      </div>
                     </div>
 
                     {/* RIGHT COLUMN: MAIN CONTENT PANEL */}
@@ -5072,16 +5038,21 @@ export default function Home() {
                         <>
                           {/* Personal Details Card */}
                           <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
-                            <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
-                              <div>
-                                <h2 className="text-lg font-bold text-gray-900">Your Personal Details</h2>
-                                <p className="text-xs text-gray-400 mt-0.5">Manage your identity and contact credentials</p>
+                            <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
+                                  <User className="h-5 w-5 text-orange-500" />
+                                </div>
+                                <div>
+                                  <h2 className="text-lg font-extrabold text-gray-900">Your Personal Details</h2>
+                                  <p className="text-xs text-gray-500 mt-0.5 font-medium">Manage your identity and contact credentials</p>
+                                </div>
                               </div>
                               {!isEditingProfile ? (
                                 <Button
                                   onClick={() => setIsEditingProfile(true)}
                                   variant="outline"
-                                  className="border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 text-xs font-semibold rounded-xl px-4 py-2 h-auto transition-all flex items-center gap-1.5"
+                                  className="border-orange-200 text-orange-500 hover:bg-orange-50 hover:text-orange-600 text-xs font-bold rounded-full px-5 py-2 h-auto transition-all flex items-center gap-2"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                   Edit Profile
@@ -5091,7 +5062,7 @@ export default function Home() {
                                   <Button
                                     onClick={handleSaveProfile}
                                     disabled={savingProfile}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-6 py-2.5 rounded-2xl shadow-md transition-all h-auto flex items-center gap-1.5"
+                                    className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md transition-all h-auto flex items-center gap-1.5"
                                   >
                                     {savingProfile ? 'Saving...' : (
                                       <>
@@ -5118,25 +5089,28 @@ export default function Home() {
                             {/* Details Panel */}
                             <div className="space-y-6">
                               {!isEditingProfile ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div className="bg-gray-50/70 border border-gray-150 rounded-2xl p-4">
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Full Name</p>
-                                    <p className="text-sm font-bold text-gray-800 mt-1">{profileName || '—'}</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="bg-white border border-gray-150 rounded-2xl p-4 shadow-sm">
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Full Name</p>
+                                    <p className="text-sm font-extrabold text-gray-900">{profileName || '-'}</p>
                                   </div>
-                                  <div className="bg-gray-50/70 border border-gray-150 rounded-2xl p-4">
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Contact Number</p>
-                                    <p className="text-sm font-bold text-gray-800 mt-1">{profilePhone || '—'}</p>
+                                  <div className="bg-white border border-gray-150 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                                    <div>
+                                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Contact Number</p>
+                                      <p className="text-sm font-extrabold text-gray-900">{profilePhone || '-'}</p>
+                                    </div>
+                                    {profilePhone && <CheckCircle className="h-5 w-5 text-emerald-500" />}
                                   </div>
-                                  <div className="md:col-span-2 bg-gray-50/70 border border-gray-150 rounded-2xl p-4">
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Email Address</p>
+                                  <div className="md:col-span-2 bg-white border border-gray-150 rounded-2xl p-4 shadow-sm">
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Email Address</p>
                                     <div className="flex items-center justify-between mt-1">
-                                      <p className="text-sm font-bold text-gray-800">{profileEmail}</p>
+                                      <p className="text-sm font-extrabold text-gray-900">{profileEmail}</p>
                                       {user?.emailVerified ? (
-                                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 rounded-full px-2.5 py-0.5 text-[10px] font-bold border border-emerald-200">
+                                        <span className="inline-flex items-center gap-1 bg-[#F0FDF4] text-emerald-700 rounded-full px-3 py-1 text-[10px] font-bold border border-emerald-100">
                                           ✓ Verified
                                         </span>
                                       ) : (
-                                        <button onClick={() => alert('Verification email sent!')} className="text-xs font-bold text-blue-600 hover:underline">
+                                        <button onClick={() => alert('Verification email sent!')} className="text-xs font-bold text-orange-500 hover:underline">
                                           Verify Email
                                         </button>
                                       )}
@@ -5222,17 +5196,22 @@ export default function Home() {
                           {/* Co-traveller details Section */}
                           <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
                             <div>
-                              <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
-                                <div>
-                                  <h3 className="text-lg font-bold text-gray-900">Co-traveller Details</h3>
-                                  <p className="text-xs text-gray-400 mt-0.5">Manage details of passengers traveling with you</p>
+                              <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
+                                    <Users className="h-5 w-5 text-orange-500" />
+                                  </div>
+                                  <div>
+                                    <h3 className="text-lg font-extrabold text-gray-900">Co-traveller Details</h3>
+                                    <p className="text-xs text-gray-500 mt-0.5 font-medium">Manage details of passengers traveling with you</p>
+                                  </div>
                                 </div>
                                 <button
                                   onClick={() => setShowAddCoTraveller(true)}
-                                  className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center rounded-2xl shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
-                                  title="Add Co-traveller"
+                                  className="h-10 px-4 bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center rounded-full shadow-sm shadow-orange-500/20 text-xs font-bold gap-2 transition-all duration-200"
                                 >
-                                  <Plus className="h-5 w-5" />
+                                  <Plus className="h-4 w-4" />
+                                  Add Co-traveller
                                 </button>
                               </div>
 
@@ -5323,12 +5302,17 @@ export default function Home() {
 
                               {/* List of Co-travellers */}
                               {coTravellers.length === 0 ? (
-                                <div className="py-12 px-4 bg-gray-50 border border-dashed border-gray-200 rounded-3xl text-center space-y-3">
-                                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
-                                    <Users className="h-6 w-6 text-blue-600" />
-                                  </div>
-                                  <p className="text-sm font-bold text-gray-700">No co-travellers added yet</p>
-                                  <p className="text-xs text-gray-400 max-w-sm mx-auto">Add your family members or frequent travel companions for instant booking autofill.</p>
+                                <div className="py-14 px-4 bg-[#F8FAFC] rounded-3xl text-center flex flex-col items-center">
+                                  <Briefcase className="h-14 w-14 text-orange-500 mb-4" />
+                                  <p className="text-[15px] font-extrabold text-gray-900 mb-2">No co-travellers added yet</p>
+                                  <p className="text-[13px] text-gray-500 max-w-xs mx-auto font-medium leading-relaxed">Add your family members or frequent travel companions for instant booking autofill.</p>
+                                  <Button 
+                                    variant="outline" 
+                                    className="mt-6 border-orange-200 text-orange-500 hover:bg-orange-50 hover:text-orange-600 rounded-full px-6 font-bold shadow-sm" 
+                                    onClick={() => setShowAddCoTraveller(true)}
+                                  >
+                                    <Plus className="w-4 h-4 mr-2" /> Add Co-traveller
+                                  </Button>
                                 </div>
                               ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -5609,6 +5593,7 @@ export default function Home() {
                 </div>
               )}
             </main>
+            {userActiveSection !== 'chat' && userActiveSection !== 'wishlist' && <Footer />}
           </div>
 
           {/* Journey Details Modal */}
@@ -5923,7 +5908,6 @@ export default function Home() {
               </div>
             </div>
           )}
-
         </div>
       );
     } else {
@@ -6944,6 +6928,7 @@ export default function Home() {
                                     </div>
                                   );
                                 })}
+                              <div ref={agencyChatEndRef} />
                             </div>
 
                             {/* Message Input / Unlock Box */}
@@ -6967,7 +6952,7 @@ export default function Home() {
                                     
                                     if (availableSellerReplies.length === 0) return null;
                                     return (
-                                      <div className="px-4 pt-3 pb-1 flex overflow-x-auto gap-2 scrollbar-hide snap-x">
+                                      <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2">
                                         {availableSellerReplies.map((reply, idx) => (
                                           <button
                                             key={idx}
@@ -6983,7 +6968,7 @@ export default function Home() {
                                               const dbInstance = getDbInstance();
                                               if (dbInstance) await addDoc(collection(dbInstance, 'chat_messages'), messageData);
                                             }}
-                                            className="snap-start shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
+                                            className="shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
                                           >
                                             {reply}
                                           </button>

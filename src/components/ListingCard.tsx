@@ -331,9 +331,9 @@ export default function ListingCard({
               </>
             )}
 
-            <Badge className="bg-[#CFD8DC] hover:bg-[#CFD8DC] text-[#37474F] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
+            {/* <Badge className="bg-[#CFD8DC] hover:bg-[#CFD8DC] text-[#37474F] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
               code : {packageCode}
-            </Badge>
+            </Badge> */}
           </div>
 
           {/* Title */}

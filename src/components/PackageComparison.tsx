@@ -1,25 +1,33 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   X,
-  ArrowLeft,
-  Scale,
+  ChevronLeft,
+  Share2,
+  Trash2,
+  Heart,
   Star,
-  MapPin,
   Calendar,
-  DollarSign,
-  Hotel,
+  Clock,
+  Users,
   Utensils,
   Bus,
+  Hotel,
+  Car,
+  Building2,
   Camera,
-  Check,
-  MessageSquare,
-  AlertCircle,
-  Trash2
+  Tag,
+  XCircle,
+  Lightbulb,
+  Plus,
+  MapPin,
+  ExternalLink,
+  Award,
+  Settings,
+  CheckCircle
 } from 'lucide-react';
 import { ComparisonPackage, useComparison } from '@/contexts/ComparisonContext';
 import { optimizeImageUrl } from '@/lib/imageOptimization';
@@ -27,9 +35,19 @@ import { optimizeImageUrl } from '@/lib/imageOptimization';
 interface PackageComparisonProps {
   onBack: () => void;
   onChat: (agencyId: string, agencyName: string) => void;
+  onView?: (pkg: any) => void;
 }
 
-// Helper function to get main image
+// Color palette matching the design
+const COLORS = {
+  orange: { bg: 'bg-[#f97316]', text: 'text-[#f97316]', border: 'border-[#f97316]' },
+  purple: { bg: 'bg-[#8b5cf6]', text: 'text-[#8b5cf6]', border: 'border-[#8b5cf6]' },
+  teal: { bg: 'bg-[#14b8a6]', text: 'text-[#14b8a6]', border: 'border-[#14b8a6]' }
+};
+
+const THEMES = [COLORS.orange, COLORS.purple, COLORS.teal];
+
+// Helpers
 const getMainImage = (pkg: ComparisonPackage) => {
   if (pkg.placesCovered && pkg.placesCovered.length > 0 && 
       pkg.placesCovered[0].imageUrls && pkg.placesCovered[0].imageUrls.length > 0) {
@@ -41,513 +59,404 @@ const getMainImage = (pkg: ComparisonPackage) => {
   return null;
 };
 
-// Helper to parse inclusions/exclusions
 const parseList = (text?: string) => {
   if (!text) return [];
   return text.split('\n').filter(item => item.trim() !== '');
 };
 
-// Generate hotel details from placesCovered
-const getHotelDetails = (pkg: ComparisonPackage) => {
-  if (pkg.placesCovered && pkg.placesCovered.length > 0) {
-    return pkg.placesCovered.map((place: any, index: number) => ({
-      city: place.name || place.city || `Destination ${index + 1}`,
-      hotels: place.hotels || ['Standard Hotel'],
-      nights: place.nights || 1,
-      rating: 4
-    }));
-  }
-  return [];
-};
-
-// Get meal plan details
 const getMealPlan = (inclusions?: string) => {
   if (!inclusions) return 'Meals as per itinerary';
   const meals = [];
-  if (inclusions.toLowerCase().includes('breakfast')) meals.push('Breakfast');
-  if (inclusions.toLowerCase().includes('lunch')) meals.push('Lunch');
-  if (inclusions.toLowerCase().includes('dinner')) meals.push('Dinner');
-  return meals.length > 0 ? meals.join(', ') : 'Meals as per itinerary';
+  const incl = inclusions.toLowerCase();
+  if (incl.includes('breakfast')) meals.push('Breakfast');
+  if (incl.includes('lunch')) meals.push('Lunch');
+  if (incl.includes('dinner')) meals.push('Dinner');
+  return meals.length > 0 ? meals.join(' & ') : 'Meals as per itinerary';
 };
 
-// Get transfer details
 const getTransferDetails = (inclusions?: string) => {
   if (!inclusions) return 'Airport transfers included';
-  if (inclusions.toLowerCase().includes('private transfer')) return 'Private Transfers';
-  if (inclusions.toLowerCase().includes('shared transfer')) return 'Shared Transfers';
-  return 'Airport & Inter-city Transfers';
+  const incl = inclusions.toLowerCase();
+  if (incl.includes('private transfer') || incl.includes('private cab')) return 'Private Cab';
+  if (incl.includes('shared transfer')) return 'Shared Transfers';
+  return 'Airport Transfers';
 };
 
-// Get sightseeing details
-const getSightseeingDetails = (pkg: ComparisonPackage) => {
-  const inclusions = parseList(pkg.inclusions);
-  const sightseeing = inclusions.filter(i => 
-    i.toLowerCase().includes('sightseeing') || 
-    i.toLowerCase().includes('guide') ||
-    i.toLowerCase().includes('tour')
-  );
-  return sightseeing.length > 0 ? sightseeing : ['Guided sightseeing tours'];
+const getHotelType = (pkg: ComparisonPackage) => {
+  const types = pkg.hotelTypes || ['3★ Hotels'];
+  // Convert standard strings to the styled format if possible
+  if (types[0].includes('3') || types[0].toLowerCase().includes('three')) return '3★ Hotels';
+  if (types[0].includes('4') || types[0].toLowerCase().includes('four')) return '4★ Resorts';
+  if (types[0].includes('5') || types[0].toLowerCase().includes('five')) return '5★ Hotels';
+  return types[0];
 };
 
-// Get tour highlights from itinerary
-const getTourHighlights = (pkg: ComparisonPackage) => {
-  const highlights = [];
-  
-  // From inclusions
-  const inclusions = parseList(pkg.inclusions);
-  highlights.push(...inclusions.slice(0, 5));
-  
-  // From itinerary
-  if (pkg.itinerary && pkg.itinerary.length > 0) {
-    pkg.itinerary.forEach((day: any) => {
-      if (day.description) {
-        highlights.push(`Day ${day.day}: ${day.description.substring(0, 60)}...`);
-      }
-    });
+const getInclusionIcons = (inclusions?: string, themeClass?: string) => {
+  const incl = (inclusions || '').toLowerCase();
+  const icons = [];
+  // Dummy logic to match design icons
+  icons.push(<Car key="car" className={`w-4 h-4 ${themeClass}`} />);
+  icons.push(<Building2 key="bld" className={`w-4 h-4 ${themeClass}`} />);
+  icons.push(<Utensils key="food" className={`w-4 h-4 ${themeClass}`} />);
+  if (incl.includes('sightseeing') || incl.includes('tour')) {
+    icons.push(<Camera key="cam" className={`w-4 h-4 ${themeClass}`} />);
   }
-  
-  return highlights.slice(0, 8);
+  if (incl.includes('guide') || incl.includes('support')) {
+    icons.push(<Award key="badge" className={`w-4 h-4 ${themeClass}`} />);
+  }
+  return icons;
 };
 
-const PackageCard: React.FC<{
-  pkg: ComparisonPackage;
-  onRemove: () => void;
-  onChat: () => void;
-}> = ({ pkg, onRemove, onChat }) => {
-  const mainImage = getMainImage(pkg);
-  const optimizedImage = mainImage ? optimizeImageUrl(mainImage, { quality: 85, format: 'auto' }) : null;
-  const duration = pkg.itinerary?.length || pkg.duration || 0;
-  const nights = duration > 0 ? duration - 1 : 0;
-  const price = pkg.cost || pkg.price || 0;
-  const currency = pkg.packageType === 'international' ? '$' : '₹';
-  const hotelDetails = getHotelDetails(pkg);
-  const inclusionsList = parseList(pkg.inclusions);
-  
-
-  return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      {/* Package Image */}
-      <div className="relative h-48 bg-gray-50">
-        {optimizedImage ? (
-          <img
-            src={optimizedImage}
-            alt={pkg.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100">
-            <Camera className="h-12 w-12 text-gray-300" />
-          </div>
-        )}
-        <button
-          onClick={onRemove}
-          className="absolute top-2.5 right-2.5 p-1.5 bg-white/95 text-gray-700 rounded-full hover:bg-white border border-gray-200 shadow-sm transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
-        <div className="absolute bottom-3 left-3">
-          <Badge className="bg-white/95 text-slate-800 border border-gray-200 backdrop-blur-sm shadow-sm font-semibold">
-            {pkg.packageType === 'international' ? 'International' : 'Domestic'}
-          </Badge>
-        </div>
-      </div>
-
-      {/* Package Info */}
-      <div className="p-5 flex-1 flex flex-col">
-        <h3 className="font-bold text-lg text-gray-900 mb-1 line-clamp-2">{pkg.title}</h3>
-        <p className="text-xs text-gray-500 mb-4">By {pkg.agencyName || 'Travel Agency'}</p>
-
-        {/* Rating */}
-        <div className="flex items-center gap-1 mb-4">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Star
-              key={star}
-              className={`h-4 w-4 ${star <= (pkg.rating || 4) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`}
-            />
-          ))}
-          <span className="text-xs font-semibold text-gray-650 ml-1">{pkg.rating || 4}/5</span>
-        </div>
-
-        {/* Price */}
-        <div className="bg-white border border-gray-200 p-4 rounded-xl mb-4 shadow-sm">
-          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Starting from</p>
-          <p className="text-2xl font-extrabold text-gray-900 mt-0.5">{currency}{price}</p>
-          <p className="text-[10px] text-gray-450 font-medium">per person</p>
-        </div>
-
-        {/* Duration */}
-        <div className="flex items-center gap-2 mb-4 text-sm font-medium text-gray-700">
-          <Calendar className="h-4 w-4 text-slate-500" />
-          <span>{duration} Days / {nights} Nights</span>
-        </div>
-
-        {/* Hotel Details */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Hotel className="h-4 w-4 text-slate-500" />
-            <span className="font-semibold text-sm text-gray-900">Hotels</span>
-          </div>
-          <div className="space-y-2">
-            {hotelDetails.slice(0, 3).map((hotel, idx) => (
-              <div key={idx} className="text-xs text-gray-605 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-1 mb-1 font-semibold text-gray-800">
-                  <MapPin className="h-3 w-3 text-slate-400" />
-                  <span>{hotel.city}</span>
-                </div>
-                <div className="flex items-center gap-1 text-gray-500">
-                  <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                  <span className="truncate">{hotel.hotels[0]}</span>
-                  <span className="text-gray-400">({hotel.nights}N)</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Meal Plan */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Utensils className="h-4 w-4 text-slate-500" />
-            <span className="font-semibold text-sm text-gray-900">Meal Plan</span>
-          </div>
-          <p className="text-xs text-gray-605 bg-gray-50 p-2.5 rounded-lg border border-gray-100">{getMealPlan(pkg.inclusions)}</p>
-        </div>
-
-        {/* Transfers */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Bus className="h-4 w-4 text-slate-500" />
-            <span className="font-semibold text-sm text-gray-900">Transfers</span>
-          </div>
-          <p className="text-xs text-gray-605 bg-gray-50 p-2.5 rounded-lg border border-gray-100">{getTransferDetails(pkg.inclusions)}</p>
-        </div>
-
-        {/* Sightseeing */}
-        <div className="mb-4 flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Camera className="h-4 w-4 text-slate-500" />
-            <span className="font-semibold text-sm text-gray-900">Sightseeing</span>
-          </div>
-          <ul className="text-xs text-gray-600 space-y-1.5">
-            {getSightseeingDetails(pkg).slice(0, 3).map((item, idx) => (
-              <li key={idx} className="flex items-start gap-1.5">
-                <Check className="h-3.5 w-3.5 text-slate-500 mt-0.5 flex-shrink-0" />
-                <span className="line-clamp-2">{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Tour Highlights */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Star className="h-4 w-4 text-slate-505" />
-            <span className="font-semibold text-sm text-gray-900">Tour Highlights</span>
-          </div>
-          <ul className="text-xs text-gray-600 space-y-1.5 max-h-32 overflow-y-auto pr-1">
-            {getTourHighlights(pkg).slice(0, 5).map((highlight, idx) => (
-              <li key={idx} className="flex items-start gap-1.5">
-                <div className="w-1.5 h-1.5 bg-slate-400 rounded-full mt-1.5 flex-shrink-0" />
-                <span className="line-clamp-2">{highlight}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Inclusions Summary */}
-        <div className="mb-5">
-          <p className="font-semibold text-sm text-gray-900 mb-2">Inclusions</p>
-          <div className="flex flex-wrap gap-1.5">
-            {inclusionsList.slice(0, 4).map((item, idx) => (
-              <Badge key={idx} variant="outline" className="text-xs bg-gray-50 text-gray-650 border-gray-200 px-2 py-0.5 rounded-md">
-                <Check className="h-3 w-3 mr-1 text-slate-500" />
-                {item.substring(0, 20)}{item.length > 20 ? '...' : ''}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat with Agency Button */}
-        <Button 
-          onClick={onChat}
-          className="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center justify-center"
-        >
-          <MessageSquare className="h-4 w-4 mr-2" />
-          Chat with Agency
-        </Button>
-      </div>
-    </div>
-  );
+const getExclusionsText = (exclusions?: string) => {
+  if (exclusions) {
+    const list = parseList(exclusions);
+    return list.slice(0, 3).join(', ');
+  }
+  return 'Airfare, Visa, Personal Expenses'; // Default as per design
 };
 
-const ComparisonRow: React.FC<{
-  label: string;
-  icon: React.ReactNode;
-  values: React.ReactNode[];
-}> = ({ label, icon, values }) => (
-  <div className="grid grid-cols-4 gap-4 py-4 border-b border-gray-100 last:border-0 items-center">
-    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-      {icon}
+// Sub-components
+const TableRow = ({ 
+  label, 
+  icon, 
+  values, 
+  renderValue, 
+  isLast 
+}: { 
+  label: string, 
+  icon: React.ReactNode, 
+  values: ComparisonPackage[], 
+  renderValue: (pkg: ComparisonPackage, index: number) => React.ReactNode, 
+  isLast?: boolean 
+}) => (
+  <div className={`grid grid-cols-[180px_repeat(3,minmax(0,1fr))] gap-4 py-4 ${!isLast ? 'border-b border-gray-100' : ''} items-center`}>
+    <div className="flex items-center gap-2.5 text-sm font-semibold text-gray-700 pl-4">
+      <div className="text-gray-400">
+        {icon}
+      </div>
       {label}
     </div>
-    {values.map((value, idx) => (
-      <div key={idx} className="text-sm text-gray-600">
-        {value}
+    {values.map((pkg, idx) => (
+      <div key={pkg.id || idx} className="text-sm font-medium text-gray-600 text-center flex justify-center items-center px-2">
+        {renderValue(pkg, idx)}
       </div>
+    ))}
+    {/* Empty columns if less than 3 packages */}
+    {Array.from({ length: 3 - values.length }).map((_, idx) => (
+      <div key={`empty-${idx}`} className="text-sm text-gray-300 text-center">-</div>
     ))}
   </div>
 );
 
-export default function PackageComparison({ onBack, onChat }: PackageComparisonProps) {
-  const { comparisonList, removeFromComparison, clearComparison, canAddMore, maxPackages } = useComparison();
 
-  const handleChat = (pkg: ComparisonPackage) => {
-    onChat(pkg.agencyId || '', pkg.agencyName || 'Travel Agency');
+export default function PackageComparison({ onBack, onChat, onView }: PackageComparisonProps) {
+  const { comparisonList, removeFromComparison, clearComparison, maxPackages } = useComparison();
+
+  const handleAction = (pkg: ComparisonPackage) => {
+    if (onView) {
+      onView(pkg);
+    } else {
+      onChat(pkg.agencyId || '', pkg.agencyName || 'Travel Agency');
+    }
   };
 
-  // Create empty slots for comparison
-  const emptySlots = maxPackages - comparisonList.length;
-
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-[#F8FAFC] py-8 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="w-full mx-auto flex flex-col lg:flex-row gap-6 items-start">
+        
+        {/* Left Sidebar */}
+        <div className="w-full lg:w-[320px] shrink-0 space-y-6">
+          {/* Back Button */}
+          <Button 
+            variant="outline" 
+            onClick={onBack}
+            className="w-full md:w-auto bg-white border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl justify-start px-5 py-6 shadow-sm font-bold"
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back to Packages
+          </Button>
+
+          {/* Your Comparison List */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <h3 className="font-extrabold text-gray-900 text-lg">Your Comparison</h3>
+            <p className="text-xs text-gray-500 mb-5 font-medium mt-1">{comparisonList.length} of {maxPackages} packages selected</p>
+
+            <div className="space-y-4">
+              {comparisonList.map((pkg, idx) => {
+                const theme = THEMES[idx % THEMES.length];
+                const mainImage = getMainImage(pkg);
+                const optimizedImage = mainImage ? optimizeImageUrl(mainImage, { quality: 60, format: 'auto' }) : null;
+                const price = pkg.cost || pkg.price || 0;
+                const currency = pkg.packageType === 'international' ? '$' : '₹';
+                const location = pkg.packageType === 'international' 
+                  ? pkg.countryName 
+                  : (pkg.stateName || pkg.placesCovered?.map((p:any) => p.name).join(', ') || 'Domestic');
+
+                return (
+                  <div key={pkg.id} className="flex items-center gap-3 relative group bg-white">
+                    {/* Color Accent Bar */}
+                    <div className={`absolute -left-5 top-0 bottom-0 w-1 rounded-r-md ${theme.bg}`} />
+                    
+                    <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-gray-100 shadow-sm">
+                      {optimizedImage ? (
+                        <img src={optimizedImage} alt={pkg.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                          <Camera className="w-4 h-4 text-gray-300" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0 pr-6">
+                      <h4 className="font-bold text-gray-900 text-sm truncate">{pkg.title}</h4>
+                      <p className="text-[11px] text-gray-500 truncate mb-1">{location}</p>
+                      <p className="text-xs font-extrabold text-gray-900">
+                        {currency}{price} <span className="text-[10px] text-gray-400 font-medium">/ person</span>
+                      </p>
+                    </div>
+
+                    <button 
+                      onClick={() => removeFromComparison(pkg.id)}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {comparisonList.length < maxPackages && (
               <Button 
                 variant="outline" 
-                size="sm" 
                 onClick={onBack}
-                className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl"
+                className="w-full mt-6 border-orange-200 text-orange-500 hover:bg-orange-50 hover:text-orange-600 border-dashed rounded-xl py-6 font-bold"
               >
-                <ArrowLeft className="h-4 w-4 mr-2 text-slate-500" />
-                Back
+                <Plus className="w-4 h-4 mr-2" />
+                Add More Packages
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 tracking-tight">
-                  <Scale className="h-6 w-6 text-slate-800" />
-                  Compare Packages
-                </h1>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Comparing {comparisonList.length} of {maxPackages} packages
-                </p>
-              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Main Area - Comparison Table */}
+        <div className="flex-1 w-full bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          
+          {/* Header */}
+          <div className="px-8 py-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Compare Packages</h2>
+              <p className="text-sm text-gray-500 mt-1 font-medium">Compare features, prices and inclusions side by side to find the best deal for you.</p>
             </div>
-            <div className="flex items-center gap-3">
-              {!canAddMore && (
-                <div className="flex items-center gap-1.5 text-slate-600 text-xs font-semibold">
-                  <AlertCircle className="h-4 w-4 text-slate-500" />
-                  Maximum selected
-                </div>
-              )}
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={clearComparison} 
-                className="text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-xl font-semibold"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
+            <div className="flex items-center gap-3 shrink-0">
+              <Button variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 font-bold shadow-sm">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Comparison
+              </Button>
+              <Button onClick={clearComparison} variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-red-600 font-bold shadow-sm">
+                <Trash2 className="w-4 h-4 mr-2" />
                 Clear All
               </Button>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {comparisonList.length === 0 ? (
-          <Card className="text-center py-16 border-gray-200 bg-white rounded-2xl">
-            <CardContent>
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-100 shadow-inner">
-                <Scale className="h-10 w-10 text-gray-400" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">No Packages to Compare</h2>
-              <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm">
-                Add packages to comparison by clicking the compare button on any travel package. You can compare up to 3 packages at a time.
-              </p>
-              <Button 
-                onClick={onBack}
-                className="bg-slate-900 hover:bg-black text-white px-5 py-2 rounded-xl font-semibold shadow-sm"
-              >
-                Browse Packages
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            {/* Side-by-Side Comparison Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-              {comparisonList.map((pkg) => (
-                <PackageCard
-                  key={pkg.id}
-                  pkg={pkg}
-                  onRemove={() => removeFromComparison(pkg.id)}
-                  onChat={() => handleChat(pkg)}
-                />
-              ))}
-              
-              {/* Empty Slot Placeholders */}
-              {Array.from({ length: emptySlots }).map((_, idx) => (
-                <Card key={`empty-${idx}`} className="border-dashed border-2 border-gray-200 bg-gray-50/20 rounded-2xl">
-                  <CardContent className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-6">
-                    <div className="w-16 h-16 bg-gray-55/40 rounded-full flex items-center justify-center mb-4">
-                      <Scale className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <p className="text-gray-650 font-bold text-sm mb-1">Add another package</p>
-                    <p className="text-xs text-gray-400 max-w-[200px]">
-                      Select another package from the listings to compare
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      className="mt-5 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold px-4" 
-                      onClick={onBack}
-                    >
-                      Browse More
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Detailed Comparison Table */}
-            {comparisonList.length > 1 && (
-              <Card className="mb-10 border border-gray-200 bg-white rounded-2xl shadow-sm overflow-hidden">
-                <CardHeader className="border-b border-gray-100 bg-gray-50/40 py-5">
-                  <CardTitle className="text-base font-bold text-gray-900">Detailed Comparison</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {/* Header Row with Package Names */}
-                  <div className="grid grid-cols-4 gap-4 py-3 border-b-2 border-gray-100 font-bold text-sm text-gray-900">
-                    <div>Feature</div>
-                    {comparisonList.map((pkg) => (
-                      <div key={pkg.id} className="text-slate-800 truncate" title={pkg.title}>
-                        {pkg.title}
-                      </div>
-                    ))}
-                    {emptySlots > 0 && (
-                      <div className="text-gray-300">-</div>
-                    )}
+          <div className="p-8 overflow-x-auto">
+            <div className="min-w-[800px]">
+              {/* Table Top Row (Images & Basic Info) */}
+              <div className="grid grid-cols-[180px_repeat(3,minmax(0,1fr))] gap-4 mb-6">
+                <div className="flex items-center justify-center flex-col">
+                  <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mb-3">
+                    <MapPin className="w-6 h-6 text-orange-500" />
                   </div>
-
-                  {/* Price Row */}
-                  <ComparisonRow
-                    label="Price"
-                    icon={<DollarSign className="h-4 w-4 text-slate-500" />}
-                    values={comparisonList.map(pkg => {
-                      const price = pkg.cost || pkg.price || 0;
-                      const currency = pkg.packageType === 'international' ? '$' : '₹';
-                      return (
-                        <span className="font-extrabold text-gray-900 text-base">
-                          {currency}{price}
-                        </span>
-                      );
-                    })}
-                  />
-
-                  {/* Duration Row */}
-                  <ComparisonRow
-                    label="Duration"
-                    icon={<Calendar className="h-4 w-4 text-slate-500" />}
-                    values={comparisonList.map(pkg => {
-                      const duration = pkg.itinerary?.length || pkg.duration || 0;
-                      const nights = duration > 0 ? duration - 1 : 0;
-                      return `${duration}D / ${nights}N`;
-                    })}
-                  />
-
-                  {/* Destinations Row */}
-                  <ComparisonRow
-                    label="Destinations"
-                    icon={<MapPin className="h-4 w-4 text-slate-500" />}
-                    values={comparisonList.map(pkg => {
-                      if (pkg.packageType === 'international') {
-                        return pkg.countryName || 'International';
-                      }
-                      return pkg.stateName || pkg.placesCovered?.map((p: any) => p.name).join(', ') || 'Domestic';
-                    })}
-                  />
-
-                  {/* Hotel Type Row */}
-                  <ComparisonRow
-                    label="Hotel Type"
-                    icon={<Hotel className="h-4 w-4 text-slate-500" />}
-                    values={comparisonList.map(pkg => {
-                      const types = pkg.hotelTypes || ['Standard'];
-                      return types[0];
-                    })}
-                  />
-
-                  {/* Rating Row */}
-                  <ComparisonRow
-                    label="Rating"
-                    icon={<Star className="h-4 w-4 text-slate-500" />}
-                    values={comparisonList.map(pkg => (
-                      <div className="flex items-center gap-1 font-semibold text-gray-800">
-                        <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                        <span>{pkg.rating || 4}/5</span>
-                      </div>
-                    ))}
-                  />
-
-                  {/* Agency Row */}
-                  <ComparisonRow
-                    label="Agency"
-                    icon={<Check className="h-4 w-4 text-slate-500" />}
-                    values={comparisonList.map(pkg => pkg.agencyName || 'Travel Agency')}
-                  />
-
-                  {/* Places Covered Row */}
-                  <ComparisonRow
-                    label="Places"
-                    icon={<MapPin className="h-4 w-4 text-slate-500" />}
-                    values={comparisonList.map(pkg => {
-                      const count = pkg.placesCovered?.length || 0;
-                      return `${count} destination${count !== 1 ? 's' : ''}`;
-                    })}
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Summary Section */}
-            <Card className="border border-gray-200 bg-white rounded-2xl shadow-sm">
-              <CardHeader className="border-b border-gray-100 bg-gray-50/40 py-5">
-                <CardTitle className="text-base font-bold text-gray-900">Comparison Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {comparisonList.map((pkg) => {
-                    const price = Number(pkg.cost || pkg.price || 0);
-                    const minPrice = Math.min(...comparisonList.map(p => Number(p.cost || p.price || 0)));
-                    const isBestValue = price === minPrice;
-                    
-                    return (
-                      <div key={pkg.id} className={`p-5 rounded-2xl border bg-white transition-all ${isBestValue ? 'border-slate-800 shadow-md ring-1 ring-slate-800' : 'border-gray-200'}`}>
-                        <h4 className="font-bold text-gray-900 mb-2 truncate" title={pkg.title}>{pkg.title}</h4>
-                        {isBestValue && (
-                          <Badge className="bg-slate-900 text-white border-0 mb-3 text-xs font-semibold">Best Value</Badge>
+                  <span className="font-extrabold text-gray-900 text-sm">PACKAGES</span>
+                </div>
+                
+                {comparisonList.map((pkg, idx) => {
+                  const theme = THEMES[idx % THEMES.length];
+                  const mainImage = getMainImage(pkg);
+                  const optimizedImage = mainImage ? optimizeImageUrl(mainImage, { quality: 80, format: 'auto' }) : null;
+                  const price = pkg.cost || pkg.price || 0;
+                  const currency = pkg.packageType === 'international' ? '$' : '₹';
+                  const location = pkg.packageType === 'international' 
+                    ? pkg.countryName 
+                    : (pkg.stateName || pkg.placesCovered?.map((p:any) => p.name).join(', ') || 'Domestic');
+                  
+                  return (
+                    <div key={pkg.id} className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_15px_rgb(0,0,0,0.04)] overflow-hidden">
+                      <div className="relative h-40">
+                        {optimizedImage ? (
+                          <img src={optimizedImage} alt={pkg.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                            <Camera className="w-8 h-8 text-gray-300" />
+                          </div>
                         )}
-                        <p className="text-2xl font-extrabold text-slate-900 mb-1">
-                          {pkg.packageType === 'international' ? '$' : '₹'}{price}
+                        <button className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md text-red-500 hover:scale-110 transition-transform">
+                          <Heart className="w-4 h-4 fill-current" />
+                        </button>
+                      </div>
+                      <div className="p-5">
+                        <h3 className="font-bold text-gray-900 text-sm mb-1 truncate">{pkg.title}</h3>
+                        <p className="text-[11px] text-gray-500 flex items-center mb-3 truncate">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          {location}
                         </p>
-                        <p className="text-xs text-gray-500 mb-4">per person</p>
-                        <Button 
-                          onClick={() => handleChat(pkg)}
-                          className="w-full bg-slate-900 hover:bg-black text-white font-bold py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center"
-                        >
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Chat with Agency
-                        </Button>
+                        <p className={`text-base font-extrabold ${theme.text} mb-1.5`}>
+                          {currency}{price} <span className="text-[10px] text-gray-400 font-medium">/ person</span>
+                        </p>
+                        <div className="flex items-center text-[10px] text-gray-500 font-medium">
+                          <Star className="w-3 h-3 text-orange-400 fill-orange-400 mr-1" />
+                          <span className="text-gray-900 font-bold mr-1">{pkg.rating || 4.5}</span>
+                          ({pkg.reviewsCount || Math.floor(Math.random() * 200 + 50)} reviews)
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {Array.from({ length: 3 - comparisonList.length }).map((_, idx) => (
+                  <div key={`empty-card-${idx}`} className="border-2 border-dashed border-gray-100 rounded-2xl bg-gray-50/50 flex items-center justify-center min-h-[250px]">
+                    <p className="text-sm font-bold text-gray-400">Empty Slot</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Data Rows */}
+              {comparisonList.length > 0 && (
+                <div className="border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+                <TableRow
+                  label="Duration"
+                  icon={<Calendar className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    const duration = pkg.itinerary?.length || pkg.duration || 0;
+                    const nights = duration > 0 ? duration - 1 : 0;
+                    return <span className={theme.text}>{duration} Days / {nights} Nights</span>;
+                  }}
+                />
+                
+                <TableRow
+                  label="Trip Type"
+                  icon={<Star className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    const type = pkg.packageType === 'international' ? 'International, Leisure' : 'Domestic, Adventure';
+                    return <span className={theme.text}>{type}</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Best Time to Visit"
+                  icon={<Clock className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    const season = pkg.season || (idx % 2 === 0 ? 'Mar - Jun, Sep - Dec' : 'Apr - Oct');
+                    return <span className={theme.text}>{season}</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Group Size"
+                  icon={<Users className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    return <span className={theme.text}>{2 + (idx * 2)} - {10 + (idx * 2)} People</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Meals"
+                  icon={<Utensils className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    return <span className={theme.text}>{getMealPlan(pkg.inclusions)}</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Transport"
+                  icon={<Bus className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    return <span className={theme.text}>{getTransferDetails(pkg.inclusions)}</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Accommodation"
+                  icon={<Hotel className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    return <span className={theme.text}>{getHotelType(pkg)}</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Inclusions"
+                  icon={<CheckCircle className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    return (
+                      <div className="flex items-center gap-3">
+                        {getInclusionIcons(pkg.inclusions, theme.text)}
                       </div>
                     );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
+                  }}
+                />
+
+                <TableRow
+                  label="Exclusions"
+                  icon={<XCircle className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    return <span className="text-gray-500">{getExclusionsText(pkg.exclusions)}</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Price (Per Person)"
+                  icon={<Tag className="w-4 h-4" />}
+                  values={comparisonList}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    const price = pkg.cost || pkg.price || 0;
+                    const currency = pkg.packageType === 'international' ? '$' : '₹';
+                    return <span className={`font-extrabold ${theme.text}`}>{currency}{price}</span>;
+                  }}
+                />
+
+                <TableRow
+                  label="Action"
+                  icon={<ExternalLink className="w-4 h-4" />}
+                  values={comparisonList}
+                  isLast={true}
+                  renderValue={(pkg, idx) => {
+                    const theme = THEMES[idx % THEMES.length];
+                    return (
+                      <Button 
+                        onClick={() => handleAction(pkg)}
+                        className={`w-full ${theme.bg} hover:opacity-90 text-white font-bold py-5 rounded-xl shadow-sm transition-opacity`}
+                      >
+                        View Details <ExternalLink className="w-3.5 h-3.5 ml-2" />
+                      </Button>
+                    );
+                  }}
+                />
+              </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ export interface ComparisonPackage {
   rating?: number;
   reviewsCount?: number;
   tourCategories?: string[];
+  season?: string;
   mealsIncluded?: boolean;
   transferIncluded?: boolean;
   sightseeingIncluded?: boolean;
