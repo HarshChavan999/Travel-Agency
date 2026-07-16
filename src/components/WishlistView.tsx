@@ -8,6 +8,7 @@ import {
   Mail, 
   Search, 
   ChevronDown, 
+  ChevronLeft,
   LayoutGrid, 
   List, 
   MoreVertical, 
@@ -73,94 +74,27 @@ export default function WishlistView({ wishlist = [], listings = [], onWishlistT
       <div className="max-w-7xl mx-auto space-y-12">
         
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex flex-col gap-2 mb-2">
           {onBack && (
-            <button
-              onClick={onBack}
-              className="flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-750 transition-all hover:scale-105 active:scale-95 text-lg font-bold shadow-sm bg-white"
-              title="Go back"
-            >
-              ←
-            </button>
+            <div>
+              <Button 
+                variant="ghost" 
+                onClick={onBack}
+                className="mb-2 -ml-2 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded-lg px-3 py-2 group transition-all"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1 group-hover:-translate-x-1 transition-transform" /> Back
+              </Button>
+            </div>
           )}
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Wishlist</h1>
         </div>
-
-        {/* HERO SECTION */}
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
-          {/* Left: Text Content */}
-          <div className="flex-1 space-y-6 z-10">
-            <h1 className="text-5xl lg:text-6xl font-extrabold text-[#0B1528] leading-tight tracking-tight">
-              Plan Your <br />
-              <span className="text-[#FF6B00]">Dream</span> Journey
-            </h1>
-            <p className="text-gray-500 text-lg max-w-md leading-relaxed font-medium">
-              Save destinations, collaborate with friends, and vote together to plan the perfect trip.
-            </p>
-            
-          </div>
-
-          {/* Right: Tilted Cards Container */}
-          <div className="flex-1 relative h-[450px] w-full flex items-center justify-center lg:justify-end pr-4">
-            {/* Background dashed path */}
-            <svg className="absolute inset-0 w-full h-full text-orange-200 opacity-50 z-0 pointer-events-none" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice">
-              <path d="M50,300 C150,350 250,50 350,150" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="6 6" />
-            </svg>
-            <div className="absolute top-10 right-10 text-orange-500 opacity-60 z-0">
-               <Send className="w-6 h-6 transform -rotate-45" />
-            </div>
-
-            <div className="relative flex items-center justify-center z-10 w-full">
-              {topListings.map((card, index) => {
-                // Calculate rotation and translation based on index to recreate the fan effect
-                let rotation = 'rotate-0';
-                let translation = 'translate-x-0 translate-y-0';
-                let zIndex = 'z-10';
-                let scale = 'scale-100';
-
-                if (index === 0) { rotation = 'rotate-0'; translation = '-translate-x-12 -translate-y-8'; zIndex = 'z-30'; scale = 'scale-110 shadow-2xl'; }
-                if (index === 1) { rotation = '-rotate-6'; translation = '-translate-x-32 translate-y-4'; zIndex = 'z-10'; scale = 'scale-95'; }
-                if (index === 2) { rotation = 'rotate-6'; translation = 'translate-x-12 translate-y-2'; zIndex = 'z-20'; scale = 'scale-100'; }
-                if (index === 3) { rotation = 'rotate-12'; translation = 'translate-x-32 translate-y-12'; zIndex = 'z-10'; scale = 'scale-90'; }
-                
-                const cardImage = (card.photos && card.photos.length > 0) ? card.photos[0] : 
-                                 (card.placesCovered && card.placesCovered.length > 0 && card.placesCovered[0].imageUrls && card.placesCovered[0].imageUrls.length > 0) 
-                                 ? card.placesCovered[0].imageUrls[0] : '';
-                const rating = card.rating || 4;
-                const finalImage = cardImage ? optimizeImageUrl(cardImage, { quality: 80, format: 'auto' }) : fallbackImages[index % fallbackImages.length];
-
-                return (
-                  <div key={card.id || index} className={`absolute w-40 h-64 rounded-2xl overflow-hidden shadow-xl border-4 border-white transition-all duration-500 ${rotation} ${translation} ${zIndex} ${scale}`}>
-                    <img src={finalImage} className="w-full h-full object-cover" alt={card.title || 'Destination'} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h4 className="text-white font-bold text-sm mb-1 line-clamp-1">{card.title}</h4>
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <svg key={i} className={`w-2.5 h-2.5 ${i < rating ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-white/80 text-[9px] font-medium mt-1 flex items-center line-clamp-1">
-                        <MapPin className="w-2.5 h-2.5 mr-1" />
-                        {card.agencyName || 'Agency'}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
 
         {/* MY WISHLISTS LISTING SECTION */}
-        <div className="pt-6">
+        <div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">My Wishlists</h2>
+            <div>
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Wishlists</h1>
+              <p className="text-sm text-gray-500 mt-1 font-medium">Save and manage your favorite travel destinations.</p>
+            </div>
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -251,26 +185,6 @@ export default function WishlistView({ wishlist = [], listings = [], onWishlistT
               <p className="text-xs text-gray-500 font-medium">Start adding your dream destinations now!</p>
             </div>
           </div>
-        </div>
-
-        {/* BOTTOM BANNER */}
-        <div className="mt-12 mb-8 bg-[#FFF4ED] rounded-3xl p-8 relative overflow-hidden flex flex-col md:flex-row items-center justify-between border border-[#FFE4D6]">
-          {/* Decorative dashes inside banner */}
-          <svg className="absolute inset-0 w-full h-full text-orange-200/60 pointer-events-none" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid slice">
-            <path d="M0,150 C300,200 600,50 1000,100" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="8 8" />
-          </svg>
-          
-          <div className="flex items-center gap-6 z-10">
-            <div className="bg-white w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border border-orange-100 shrink-0 transform -rotate-12">
-              <Send className="text-orange-500 w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">Dream it. Save it. Live it.</h3>
-              <p className="text-sm text-gray-600 font-medium">The best journeys start with a wishlist.</p>
-            </div>
-          </div>
-          {/* Little orange plane in top right corner of banner */}
-          <Send className="absolute right-10 top-6 text-orange-400 w-5 h-5 transform -rotate-12 opacity-80" />
         </div>
 
       </div>

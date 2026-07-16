@@ -162,82 +162,7 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="w-full mx-auto flex flex-col lg:flex-row gap-6 items-start">
-        
-        {/* Left Sidebar */}
-        <div className="w-full lg:w-[320px] shrink-0 space-y-6">
-          {/* Back Button */}
-          <Button 
-            variant="outline" 
-            onClick={onBack}
-            className="w-full md:w-auto bg-white border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl justify-start px-5 py-6 shadow-sm font-bold"
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back to Packages
-          </Button>
-
-          {/* Your Comparison List */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <h3 className="font-extrabold text-gray-900 text-lg">Your Comparison</h3>
-            <p className="text-xs text-gray-500 mb-5 font-medium mt-1">{comparisonList.length} of {maxPackages} packages selected</p>
-
-            <div className="space-y-4">
-              {comparisonList.map((pkg, idx) => {
-                const theme = THEMES[idx % THEMES.length];
-                const mainImage = getMainImage(pkg);
-                const optimizedImage = mainImage ? optimizeImageUrl(mainImage, { quality: 60, format: 'auto' }) : null;
-                const price = pkg.cost || pkg.price || 0;
-                const currency = pkg.packageType === 'international' ? '$' : '₹';
-                const location = pkg.packageType === 'international' 
-                  ? pkg.countryName 
-                  : (pkg.stateName || pkg.placesCovered?.map((p:any) => p.name).join(', ') || 'Domestic');
-
-                return (
-                  <div key={pkg.id} className="flex items-center gap-3 relative group bg-white">
-                    {/* Color Accent Bar */}
-                    <div className={`absolute -left-5 top-0 bottom-0 w-1 rounded-r-md ${theme.bg}`} />
-                    
-                    <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-gray-100 shadow-sm">
-                      {optimizedImage ? (
-                        <img src={optimizedImage} alt={pkg.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                          <Camera className="w-4 h-4 text-gray-300" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0 pr-6">
-                      <h4 className="font-bold text-gray-900 text-sm truncate">{pkg.title}</h4>
-                      <p className="text-[11px] text-gray-500 truncate mb-1">{location}</p>
-                      <p className="text-xs font-extrabold text-gray-900">
-                        {currency}{price} <span className="text-[10px] text-gray-400 font-medium">/ person</span>
-                      </p>
-                    </div>
-
-                    <button 
-                      onClick={() => removeFromComparison(pkg.id)}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {comparisonList.length < maxPackages && (
-              <Button 
-                variant="outline" 
-                onClick={onBack}
-                className="w-full mt-6 border-orange-200 text-orange-500 hover:bg-orange-50 hover:text-orange-600 border-dashed rounded-xl py-6 font-bold"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add More Packages
-              </Button>
-            )}
-          </div>
-        </div>
+      <div className="w-full mx-auto space-y-6">
 
         {/* Right Main Area - Comparison Table */}
         <div className="flex-1 w-full bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
@@ -245,6 +170,13 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
           {/* Header */}
           <div className="px-8 py-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
+              <Button 
+                variant="ghost" 
+                onClick={onBack}
+                className="mb-3 -ml-3 text-gray-500 hover:text-gray-900 font-bold hover:bg-gray-100 rounded-lg px-3 py-2"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" /> Back to Packages
+              </Button>
               <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Compare Packages</h2>
               <p className="text-sm text-gray-500 mt-1 font-medium">Compare features, prices and inclusions side by side to find the best deal for you.</p>
             </div>
@@ -282,8 +214,8 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
                     : (pkg.stateName || pkg.placesCovered?.map((p:any) => p.name).join(', ') || 'Domestic');
                   
                   return (
-                    <div key={pkg.id} className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_15px_rgb(0,0,0,0.04)] overflow-hidden">
-                      <div className="relative h-40">
+                    <div key={pkg.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="relative h-32">
                         {optimizedImage ? (
                           <img src={optimizedImage} alt={pkg.title} className="w-full h-full object-cover" />
                         ) : (
@@ -291,13 +223,16 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
                             <Camera className="w-8 h-8 text-gray-300" />
                           </div>
                         )}
-                        <button className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md text-red-500 hover:scale-110 transition-transform">
-                          <Heart className="w-4 h-4 fill-current" />
+                        <button 
+                          onClick={() => removeFromComparison(pkg.id)}
+                          className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <div className="p-5">
+                      <div className="p-4">
                         <h3 className="font-bold text-gray-900 text-sm mb-1 truncate">{pkg.title}</h3>
-                        <p className="text-[11px] text-gray-500 flex items-center mb-3 truncate">
+                        <p className="text-[11px] text-gray-500 flex items-center mb-2 truncate">
                           <MapPin className="w-3 h-3 mr-1" />
                           {location}
                         </p>
@@ -315,8 +250,15 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
                 })}
 
                 {Array.from({ length: 3 - comparisonList.length }).map((_, idx) => (
-                  <div key={`empty-card-${idx}`} className="border-2 border-dashed border-gray-100 rounded-2xl bg-gray-50/50 flex items-center justify-center min-h-[250px]">
-                    <p className="text-sm font-bold text-gray-400">Empty Slot</p>
+                  <div key={`empty-card-${idx}`} className="border border-dashed border-gray-300 rounded-2xl bg-gray-50/50 flex flex-col items-center justify-center h-full min-h-[160px] gap-3">
+                    <Button 
+                      variant="ghost" 
+                      onClick={onBack}
+                      className="text-gray-500 hover:bg-gray-100 hover:text-gray-900 font-bold rounded-lg text-sm flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Package
+                    </Button>
                   </div>
                 ))}
               </div>

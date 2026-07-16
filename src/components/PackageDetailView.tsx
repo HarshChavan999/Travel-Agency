@@ -13,6 +13,7 @@ import {
   Calendar, 
 
   ChevronRight,
+  ChevronLeft,
   Home,
 
   Camera,
@@ -216,12 +217,12 @@ export default function PackageDetailView({
             <div className="flex flex-col items-end gap-3">
               <div className="flex items-center gap-2">
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded-lg group transition-all"
                   onClick={onBack}
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
                   Back
                 </Button>
                 <Button 
@@ -314,70 +315,68 @@ export default function PackageDetailView({
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Photo Gallery Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
+        {/* Photo Gallery Section - Thrillophilia Style */}
+        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-2 mb-8 h-[300px] sm:h-[400px] lg:h-[460px]">
           {/* Main Photo */}
-          <div className="lg:col-span-3">
-            <div className="relative aspect-[16/9] bg-gray-200 rounded-2xl overflow-hidden shadow-lg group">
-              {mainImage ? (
-                <img 
-                  src={optimizeImageUrl(mainImage, { width: 1200, quality: 90, format: 'auto', cacheBust: true })} 
-                  alt={listing.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Camera className="h-16 w-16 text-gray-400" />
-                  <span className="ml-2 text-gray-500">No photos available</span>
-                </div>
-              )}
-              {allImages.length > 1 && (
-                <button 
-                  className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm hover:bg-black/80"
-                  onClick={() => setShowAllPhotos(true)}
-                >
-                  +{allImages.length - 1} Photos
-                </button>
-              )}
+          <div className="lg:col-span-8 h-full relative cursor-pointer group rounded-l-xl lg:rounded-l-2xl overflow-hidden" onClick={() => setShowAllPhotos(true)}>
+            {mainImage ? (
+              <img 
+                src={optimizeImageUrl(mainImage, { width: 1600, quality: 100, format: 'auto' })} 
+                alt={listing.title}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                <Camera className="h-16 w-16 text-gray-400" />
+                <span className="ml-2 text-gray-500">No photos available</span>
+              </div>
+            )}
+            
+            {/* Mobile View All Button */}
+            <div className="lg:hidden absolute bottom-4 right-4">
+              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded-lg">
+                <Camera className="h-4 w-4" />
+                View All Images
+              </Button>
             </div>
           </div>
 
-          {/* Side Photo Cards */}
-          <div className="lg:col-span-1 flex flex-col gap-3">
-            <div 
-              className={`flex-1 bg-sky-100 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                activeImageTab === 'sightseeing' ? 'ring-2 ring-orange-500 bg-sky-200' : 'hover:bg-sky-200'
-              }`}
-              onClick={() => setActiveImageTab('sightseeing')}
-            >
-              <Camera className="h-8 w-8 text-sky-600 mb-2" />
-              <span className="text-sm font-medium text-sky-800">Sightseeing Photos</span>
-              <span className="text-xs text-sky-600 mt-1">{allImages.length} photos</span>
-            </div>
-            
-            <div 
-              className={`flex-1 bg-sky-100 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                activeImageTab === 'hotel' ? 'ring-2 ring-orange-500 bg-sky-200' : 'hover:bg-sky-200'
-              }`}
-              onClick={() => setActiveImageTab('hotel')}
-            >
-              <Building2 className="h-8 w-8 text-sky-600 mb-2" />
-              <span className="text-sm font-medium text-sky-800">Hotel Photos</span>
-              <span className="text-xs text-sky-600 mt-1">View hotels</span>
-            </div>
-            
-            <div 
-              className={`flex-1 bg-sky-100 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                activeImageTab === 'video' ? 'ring-2 ring-orange-500 bg-sky-200' : 'hover:bg-sky-200'
-              }`}
-              onClick={() => setActiveImageTab('video')}
-            >
-              <Video className="h-8 w-8 text-sky-600 mb-2" />
-              <span className="text-sm font-medium text-sky-800">Video</span>
-              <span className="text-xs text-sky-600 mt-1">Watch tour video</span>
-            </div>
+          {/* Side Photo Grid (Desktop Only) */}
+          <div className="lg:col-span-4 h-full hidden lg:grid grid-cols-2 grid-rows-2 gap-2">
+            {[1, 2, 3, 4].map((idx) => {
+              const imgIndex = idx;
+              const hasImage = imgIndex < allImages.length;
+              const image = hasImage ? allImages[imgIndex] : null;
+              
+              return (
+                <div 
+                  key={idx} 
+                  className={`relative overflow-hidden group cursor-pointer bg-gray-100 ${idx === 2 ? 'rounded-tr-2xl' : ''} ${idx === 4 ? 'rounded-br-2xl' : ''}`}
+                  onClick={() => setShowAllPhotos(true)}
+                >
+                  {hasImage && image ? (
+                    <img 
+                      src={optimizeImageUrl(image, { width: 600, quality: 100, format: 'auto' })} 
+                      alt={`${listing.title} ${idx + 1}`}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100"></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop View All Button (Floating at bottom right) */}
+          <div className="hidden lg:block absolute bottom-4 right-4 z-10">
+            <Button onClick={() => setShowAllPhotos(true)} className="bg-white text-black hover:bg-gray-100 flex items-center gap-2 shadow-md rounded-lg font-semibold px-4 py-2 border border-gray-200">
+              <Camera className="h-4 w-4" />
+              View All Images
+            </Button>
           </div>
         </div>
 
@@ -619,33 +618,33 @@ export default function PackageDetailView({
           </div>
 
           {/* Right Column - Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-4 space-y-4">
-              {/* Quick Info Card */}
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-lg mb-4">Package Highlights</h3>
-                  <ul className="space-y-3 text-sm">
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span>Guided tours with expert local guides</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span>Premium accommodation throughout</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span>All transfers and transportation</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span>24/7 customer support</span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
+          <div className="lg:col-span-1 flex flex-col gap-4">
+            {/* Quick Info Card */}
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-lg mb-4">Package Highlights</h3>
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    <span>Guided tours with expert local guides</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    <span>Premium accommodation throughout</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    <span>All transfers and transportation</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    <span>24/7 customer support</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
 
+            <div className="sticky top-4 space-y-4">
               {/* Agency Info */}
               <Card>
                 <CardContent className="p-4">
@@ -691,11 +690,11 @@ export default function PackageDetailView({
 
               {/* Back Button */}
               <Button 
-                variant="outline" 
-                className="w-full"
+                variant="ghost" 
+                className="w-full flex items-center justify-center gap-2 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded-lg group transition-all"
                 onClick={onBack}
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
                 Back to Listings
               </Button>
             </div>
@@ -721,34 +720,56 @@ export default function PackageDetailView({
         </div>
       )}
 
-      {/* Photo Gallery Modal */}
+      {/* Full Screen Photo Gallery Modal - Thrillophilia Style */}
       {showAllPhotos && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-          <div className="max-w-5xl w-full max-h-[90vh] overflow-y-auto bg-white rounded-xl">
-            <div className="sticky top-0 bg-white p-4 border-b flex items-center justify-between">
-              <h3 className="text-xl font-bold">Photo Gallery</h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowAllPhotos(false)}
-                className="flex items-center gap-1"
-              >
-                <X className="h-4 w-4" /> Close
-              </Button>
+        <div className="fixed inset-0 bg-white z-[200] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+          <div className="sticky top-0 bg-white border-b z-10 px-4 md:px-8 py-3 flex items-center shadow-sm">
+            <button 
+              className="flex items-center gap-2 text-gray-900 font-bold hover:bg-gray-100 px-3 md:px-4 py-2 rounded-lg transition-colors"
+              onClick={() => setShowAllPhotos(false)}
+            >
+              <ArrowLeft className="h-5 w-5" /> Back
+            </button>
+            <div className="flex-1 flex justify-center overflow-x-auto hide-scrollbar">
+              <div className="flex items-center gap-6 md:gap-10 text-sm font-medium text-gray-500 whitespace-nowrap">
+                <button className="text-orange-600 border-b-2 border-orange-600 pb-1 px-2">
+                  All Images ({allImages.length})
+                </button>
+                <button className="hover:text-gray-900 pb-1 px-2 transition-colors">
+                  Destinations
+                </button>
+                <button className="hover:text-gray-900 pb-1 px-2 transition-colors">
+                  Activities
+                </button>
+                <button className="hover:text-gray-900 pb-1 px-2 transition-colors">
+                  Stays
+                </button>
+              </div>
             </div>
-            <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="w-[100px] hidden md:block"></div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-white">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {allImages.map((image, index) => (
-                <div key={index} className="aspect-square rounded-xl overflow-hidden shadow-md">
+                <div key={index} className="aspect-[4/3] md:aspect-video rounded-xl overflow-hidden bg-gray-100 group">
                   <img 
-                    src={optimizeImageUrl(image, { width: 800, quality: 90, format: 'auto', cacheBust: true })} 
-                    alt={`Photo ${index + 1}`}
-                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500 ease-out"
-                    loading="lazy"
+                    src={optimizeImageUrl(image, { width: 1200, quality: 100, format: 'auto' })} 
+                    alt={`Gallery Image ${index + 1}`}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                    loading={index < 4 ? "eager" : "lazy"}
                     decoding="async"
                   />
                 </div>
               ))}
             </div>
+            
+            {allImages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                <Camera className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-lg">No photos available for this package.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

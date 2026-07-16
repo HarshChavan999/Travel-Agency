@@ -13,6 +13,8 @@ interface AutocompleteSearchProps {
   iconClassName?: string;
   containerClassName?: string;
   icon?: React.ReactNode;
+  typewriterPrefix?: string;
+  typewriter?: string[];
 }
 
 // Levenshtein distance for typo tolerance
@@ -44,11 +46,45 @@ export default function AutocompleteSearch({
   inputClassName = "",
   iconClassName = "",
   containerClassName = "relative w-full",
-  icon = <Search className={`absolute left-3 top-3 h-4 w-4 text-gray-400 ${iconClassName}`} />
+  icon = <Search className={`absolute left-3 top-3 h-4 w-4 text-gray-400 ${iconClassName}`} />,
+  typewriterPrefix = "",
+  typewriter = []
 }: AutocompleteSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const [displayText, setDisplayText] = useState("");
+  const [typewriterIndex, setTypewriterIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!typewriter || typewriter.length === 0) {
+      return;
+    }
+
+    const currentWord = typewriter[typewriterIndex];
+    let typingSpeed = isDeleting ? 50 : 100;
+
+    if (!isDeleting && displayText === currentWord) {
+      const timeout = setTimeout(() => setIsDeleting(true), 2000);
+      return () => clearTimeout(timeout);
+    }
+
+    if (isDeleting && displayText === '') {
+      setIsDeleting(false);
+      setTypewriterIndex((prev) => (prev + 1) % typewriter.length);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setDisplayText(currentWord.substring(0, displayText.length + (isDeleting ? -1 : 1)));
+    }, typingSpeed);
+
+    return () => clearTimeout(timeout);
+  }, [displayText, isDeleting, typewriter, typewriterIndex]);
+
+  const hasTypewriter = typewriter && typewriter.length > 0;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -133,7 +169,7 @@ export default function AutocompleteSearch({
       <div className={className}>
         <Input
           type="text"
-          placeholder={placeholder}
+          placeholder={hasTypewriter ? "" : placeholder}
           value={value}
           onChange={(e) => {
             onChange(e.target.value);
@@ -147,6 +183,12 @@ export default function AutocompleteSearch({
           className={inputClassName}
         />
         {icon}
+        {hasTypewriter && !value && (
+          <div className="absolute inset-y-0 left-10 flex items-center pointer-events-none text-sm text-gray-400">
+            <span>{typewriterPrefix}</span>
+            <span className="font-bold text-gray-700 ml-1">{displayText}</span>
+          </div>
+        )}
       </div>
 
       {isOpen && filteredSuggestions.length > 0 && (

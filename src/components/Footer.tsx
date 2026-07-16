@@ -14,8 +14,8 @@ export default function Footer() {
           
           {/* Column 1 */}
           <div>
-            <h3 className="text-sm font-bold mb-4">Get to Know us</h3>
-            <ul className="space-y-2 text-xs text-gray-300">
+            <h3 className="text-base font-bold mb-4">Get to Know us</h3>
+            <ul className="space-y-2.5 text-sm text-gray-300">
               <li><Link href="#" className="hover:text-white transition-colors">About us</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Career</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Press Release</Link></li>
@@ -24,8 +24,8 @@ export default function Footer() {
 
           {/* Column 2 */}
           <div>
-            <h3 className="text-sm font-bold mb-4">Get in touch with us</h3>
-            <ul className="space-y-2 text-xs text-gray-300">
+            <h3 className="text-base font-bold mb-4">Get in touch with us</h3>
+            <ul className="space-y-2.5 text-sm text-gray-300">
               <li><Link href="#" className="hover:text-white transition-colors">Facebook</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Twitter</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Instagram</Link></li>
@@ -36,8 +36,8 @@ export default function Footer() {
 
           {/* Column 3 */}
           <div>
-            <h3 className="text-sm font-bold mb-4">Earn with us</h3>
-            <ul className="space-y-2 text-xs text-gray-300">
+            <h3 className="text-base font-bold mb-4">Earn with us</h3>
+            <ul className="space-y-2.5 text-sm text-gray-300">
               <li><Link href="#" className="hover:text-white transition-colors">Join as Travel Agent</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Become an Affiliate</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Join as an Influencer</Link></li>
@@ -46,8 +46,8 @@ export default function Footer() {
 
           {/* Column 4 */}
           <div>
-            <h3 className="text-sm font-bold mb-4">Let Us Help You</h3>
-            <ul className="space-y-2 text-xs text-gray-300">
+            <h3 className="text-base font-bold mb-4">Let Us Help You</h3>
+            <ul className="space-y-2.5 text-sm text-gray-300">
               <li><Link href="#" className="hover:text-white transition-colors">My Account</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Upcoming Tour</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">My Cancellation</Link></li>
@@ -61,13 +61,13 @@ export default function Footer() {
       {/* Bottom Bar */}
       <div className="border-t border-gray-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
-          <div className="flex flex-wrap gap-4 text-[11px] text-gray-300">
-            <Link href="#" className="hover:text-white">Condition of Use and Sale</Link>
-            <Link href="#" className="hover:text-white">Privacy Notice</Link>
-            <Link href="#" className="hover:text-white">Interest-Based Ads</Link>
+          <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+            <Link href="#" className="hover:text-white transition-colors">Condition of Use and Sale</Link>
+            <Link href="#" className="hover:text-white transition-colors">Privacy Notice</Link>
+            <Link href="#" className="hover:text-white transition-colors">Interest-Based Ads</Link>
           </div>
-          <div className="mt-4 sm:mt-0 flex items-center gap-1 font-extrabold tracking-tight">
-            <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-12 sm:h-14 w-auto object-contain" />
+          <div className="mt-4 sm:mt-0 flex items-center gap-1 font-extrabold tracking-tight bg-white px-3 py-1.5 rounded-xl shadow-sm">
+            <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-10 sm:h-12 w-auto object-contain" />
           </div>
         </div>
       </div>

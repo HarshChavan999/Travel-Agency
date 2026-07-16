@@ -24,7 +24,7 @@ export function optimizeImageUrl(
     format = 'auto',
     width,
     height,
-    cacheBust = true
+    cacheBust = false
   } = options;
 
   try {

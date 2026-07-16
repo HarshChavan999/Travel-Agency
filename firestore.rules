@@ -39,7 +39,7 @@ service cloud.firestore {
 
     // Listings collection - authenticated users can read approved listings, agencies can manage their own, admins can manage all
     match /listings/{listingId} {
-      allow read: if isAuthenticated() && (resource.data.approved == true || resource == null);
+      allow read: if resource == null || resource.data.approved == true || (isAuthenticated() && (resource.data.agencyId == request.auth.uid || isAdmin()));
       allow write: if isAdmin() ||
                       (isAgency() && resource.data.agencyId == request.auth.uid) ||
                       (request.auth != null && !exists(/databases/$(database)/documents/listings/$(listingId)));

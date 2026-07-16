@@ -6,7 +6,7 @@ import { useComparison } from '@/contexts/ComparisonContext';
 import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Scale, CheckCircle2, Camera, Bus, Bed, Utensils, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { optimizeImageUrl, generateBlurPlaceholder, preloadImage } from '@/lib/imageOptimization';
 import { injectImageStyles } from '@/lib/imageStyles';
-
+import Link from 'next/link';
 interface ListingCardProps {
   listing: any;
   onView?: (listing: any) => void;
@@ -173,7 +173,7 @@ export default function ListingCard({
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group flex flex-col gap-4">
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-150 relative overflow-hidden group flex flex-col gap-4">
       {/* Compare Toast */}
       {showCompareToast && (
         <div className="absolute top-4 right-4 z-10 animate-in fade-in duration-200">
@@ -489,14 +489,24 @@ export default function ListingCard({
                   />
                   <span>Wishlist</span>
                 </Button>
-
-                <Button
-                  size="sm"
-                  className="flex-[1.5] py-1.5 px-2 bg-[#FFA000] hover:bg-[#FF8F00] text-black font-extrabold text-[11px] sm:text-xs rounded-xl flex items-center justify-center shadow-sm"
-                  onClick={() => onView?.(listing)}
-                >
-                  View Itinerary
-                </Button>
+                {variant === 'user' ? (
+                  <Link href={`/package/${listing.id}`} className="flex-[1.5] block">
+                    <Button
+                      size="sm"
+                      className="w-full py-1.5 px-2 bg-[#FF9900] hover:bg-[#E68A00] text-white font-extrabold text-[11px] sm:text-xs rounded-xl flex items-center justify-center shadow-sm"
+                    >
+                      View Itinerary
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="flex-[1.5] py-1.5 px-2 bg-[#FF9900] hover:bg-[#E68A00] text-white font-extrabold text-[11px] sm:text-xs rounded-xl flex items-center justify-center shadow-sm"
+                    onClick={() => onView?.(listing)}
+                  >
+                    View Itinerary
+                  </Button>
+                )}
               </>
             ) : (
               <>
