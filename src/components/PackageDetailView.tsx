@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useComparison } from '@/contexts/ComparisonContext';
-import { optimizeImageUrl } from '@/lib/imageOptimization';
+import { optimizeImageUrl, preloadImage } from '@/lib/imageOptimization';
 import { 
   Star, 
   Share2, 
@@ -85,6 +85,7 @@ export default function PackageDetailView({
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const { addToComparison, isInComparison, canAddMore, comparisonList } = useComparison();
 
@@ -104,6 +105,23 @@ export default function PackageDetailView({
   const allImages = getAllImages();
   const mainImage = allImages.length > 0 ? allImages[0] : null;
   const remainingImages = allImages.slice(1, 4); // Get up to 3 more images for side panel
+
+  // Preload all listing images on mount for instant navigation
+  useEffect(() => {
+    if (allImages.length > 0) {
+      allImages.forEach((imgUrl) => {
+        const optimized = optimizeImageUrl(imgUrl, {
+          width: 1200,
+          quality: 85,
+          format: 'auto',
+          cacheBust: false
+        });
+        preloadImage(optimized).catch(() => {
+          // Ignore preload errors
+        });
+      });
+    }
+  }, [allImages]);
 
   // Parse inclusions and exclusions into arrays
   const parseList = (text: string) => {
@@ -318,27 +336,84 @@ export default function PackageDetailView({
         {/* Photo Gallery Section - Thrillophilia Style */}
         <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-2 mb-8 h-[300px] sm:h-[400px] lg:h-[460px]">
           {/* Main Photo */}
-          <div className="lg:col-span-8 h-full relative cursor-pointer group rounded-l-xl lg:rounded-l-2xl overflow-hidden" onClick={() => setShowAllPhotos(true)}>
-            {mainImage ? (
-              <img 
-                src={optimizeImageUrl(mainImage, { width: 1600, quality: 100, format: 'auto' })} 
-                alt={listing.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                loading="lazy"
-                decoding="async"
-              />
+          <div className="lg:col-span-8 h-full relative group rounded-l-xl lg:rounded-l-2xl overflow-hidden">
+            {allImages.length > 0 ? (
+              <div className="relative w-full h-full overflow-hidden">
+                <div 
+                  className="flex w-full h-full transition-transform duration-300 ease-out"
+                  style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+                >
+                  {allImages.map((imgUrl, idx) => (
+                    <div 
+                      key={idx} 
+                      className="w-full h-full shrink-0 relative cursor-pointer overflow-hidden"
+                      onClick={() => setShowAllPhotos(true)}
+                    >
+                      <img 
+                        src={optimizeImageUrl(imgUrl, { width: 1200, quality: 85, format: 'auto', cacheBust: false })} 
+                        alt={`${listing.title} photo ${idx + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                        loading={idx === 0 ? "eager" : "lazy"}
+                        decoding="async"
+                      />
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Navigation Arrows */}
+                {allImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+                      }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+                
+                {/* Dot Indicators for Mobile */}
+                {allImages.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex lg:hidden gap-1.5 bg-black/30 backdrop-blur-[2px] px-2.5 py-1.5 rounded-full opacity-100 transition-all duration-200 z-20">
+                    {allImages.map((_, idx) => (
+                      <span
+                        key={idx}
+                        className={`h-1.5 rounded-full transition-all duration-200 ${
+                          idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200">
+              <div className="w-full h-full flex items-center justify-center bg-gray-200 cursor-pointer" onClick={() => setShowAllPhotos(true)}>
                 <Camera className="h-16 w-16 text-gray-400" />
                 <span className="ml-2 text-gray-500">No photos available</span>
               </div>
             )}
             
-            {/* Mobile View All Button */}
-            <div className="lg:hidden absolute bottom-4 right-4">
-              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded-lg">
+            {/* Desktop View All Button overlay on Main Image if side photos aren't shown, 
+                or just keep mobile view all button */}
+            <div className="lg:hidden absolute bottom-14 right-4 z-20">
+              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded-lg h-9 text-xs">
                 <Camera className="h-4 w-4" />
-                View All Images
+                All
               </Button>
             </div>
           </div>
@@ -358,7 +433,7 @@ export default function PackageDetailView({
                 >
                   {hasImage && image ? (
                     <img 
-                      src={optimizeImageUrl(image, { width: 600, quality: 100, format: 'auto' })} 
+                      src={optimizeImageUrl(image, { width: 600, quality: 85, format: 'auto' })} 
                       alt={`${listing.title} ${idx + 1}`}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       loading="lazy"
@@ -754,7 +829,7 @@ export default function PackageDetailView({
               {allImages.map((image, index) => (
                 <div key={index} className="aspect-[4/3] md:aspect-video rounded-xl overflow-hidden bg-gray-100 group">
                   <img 
-                    src={optimizeImageUrl(image, { width: 1200, quality: 100, format: 'auto' })} 
+                    src={optimizeImageUrl(image, { width: 1200, quality: 85, format: 'auto', cacheBust: false })} 
                     alt={`Gallery Image ${index + 1}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     loading={index < 4 ? "eager" : "lazy"}

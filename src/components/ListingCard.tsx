@@ -173,10 +173,10 @@ export default function ListingCard({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-150 relative overflow-hidden group flex flex-col gap-4">
+    <div className="bg-white rounded-[20px] shadow-[0_2px_12px_rgb(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgb(0,0,0,0.1)] transition-all duration-200 relative overflow-hidden group flex flex-col w-full max-w-[420px] border border-gray-100">
       {/* Compare Toast */}
       {showCompareToast && (
-        <div className="absolute top-4 right-4 z-10 animate-in fade-in duration-200">
+        <div className="absolute top-4 right-4 z-20 animate-in fade-in duration-200">
           <div className="bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg">
             {compareToastMessage}
           </div>
@@ -185,362 +185,287 @@ export default function ListingCard({
 
       {/* Status Badge */}
       {!listing.approved && (
-        <div className="absolute top-2 right-2 z-10">
-          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+        <div className="absolute top-3 right-3 z-20">
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 shadow-sm px-2 py-0.5">
             Pending
           </Badge>
         </div>
       )}
 
-      {/* Top Portion: Flex Row of Image + Right Info */}
-      <div className="flex gap-4 items-start">
-        {/* Left Column: Image Container */}
-        <div className="relative w-28 h-20 sm:w-32 sm:h-24 md:w-36 md:h-28 flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl overflow-hidden">
-          {/* Loading Skeleton */}
-          {!imageLoaded && (
-            <div className="absolute inset-0 bg-gray-200 animate-pulse">
-              <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300"></div>
-            </div>
-          )}
+      {/* Verification badge */}
+      {listing.agencyData?.verified && listing.approved && (
+        <div className="absolute top-3 right-3 z-20">
+          <Badge variant="outline" className="bg-white/90 backdrop-blur-md text-emerald-700 border-white/40 text-[10px] px-2 py-1 shadow-sm flex items-center gap-1">
+            <ShieldCheck className="h-3 w-3 text-emerald-600" />
+            Verified
+          </Badge>
+        </div>
+      )}
 
-          {/* Error State */}
-          {imageError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-              <Camera className="h-6 w-6 text-gray-400" />
-            </div>
-          )}
-
-          {/* Main Image or Multi-Image Interactive Carousel */}
-          {allImages.length > 1 ? (
-            <div className="relative w-full h-full group/image overflow-hidden">
-              <img
-                src={optimizeImageUrl(allImages[currentImageIndex], {
-                  quality: 85,
-                  format: 'auto',
-                  cacheBust: false
-                })}
-                alt={`${cardTitle} photo ${currentImageIndex + 1}`}
-                className="w-full h-full object-cover transition-transform duration-700 ease-out scale-100 group-hover/image:scale-110"
-                loading="lazy"
-                decoding="async"
-              />
-              
-              {/* Navigation Arrows */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
-                }}
-                className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-10 cursor-pointer"
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="h-3 w-3" />
-              </button>
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
-                }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-10 cursor-pointer"
-                aria-label="Next image"
-              >
-                <ChevronRight className="h-3 w-3" />
-              </button>
-
-              {/* Dot Indicators */}
-              <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 bg-black/30 backdrop-blur-[2px] px-1.5 py-0.5 rounded-full opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 transition-all duration-200 z-10">
-                {allImages.map((_, idx) => (
-                  <span
-                    key={idx}
-                    className={`h-1 rounded-full transition-all duration-200 ${
-                      idx === currentImageIndex ? 'w-2.5 bg-white' : 'w-1 bg-white/50'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : optimizedImageUrl && !imageError ? (
-            <>
-              {!imageLoaded && (
-                <img
-                  src={blurPlaceholder}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover blur-sm"
-                  style={{ filter: 'blur(5px)' }}
-                />
-              )}
-              <img
-                src={optimizedImageUrl}
-                alt={cardTitle}
-                className={`w-full h-full object-cover transition-all duration-700 ease-out ${
-                  imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-110'
-                } group-hover:scale-110`}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                loading="lazy"
-                decoding="async"
-              />
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xs text-center p-2">
-              No image
-            </div>
-          )}
-          
-          {/* Agency Badge over image if needed, or verified check */}
-          {listing.agencyData?.verified && (
-            <div className="absolute bottom-1.5 left-1.5 z-10">
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0.5 shadow-sm flex items-center gap-1">
-                <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
-                Verified
-              </Badge>
-            </div>
+      {/* Image Section (Top, full width) */}
+      <div className="relative w-full h-[200px] sm:h-[220px] bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+        {/* Pills overlay */}
+        <div className="absolute top-3 left-3 z-20 flex gap-2">
+          {/* Domestic/International badge */}
+          <span className="bg-[#DCEBF4]/90 backdrop-blur-md text-[#1a5f7a] px-3 py-1 rounded-full text-[11px] font-semibold shadow-sm border border-white/20">
+            {packageType}
+          </span>
+          {/* Tour Categories badge */}
+          {listing.tourCategories && listing.tourCategories.length > 0 && (
+            <span className="bg-[#F8E7C0]/90 backdrop-blur-md text-[#8C6D1F] px-3 py-1 rounded-full text-[11px] font-semibold shadow-sm border border-white/20">
+              {listing.tourCategories[0]} Tour
+            </span>
           )}
         </div>
 
-        {/* Right Column: Text & Badges Info */}
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-          {/* Pills row */}
-          <div className="flex flex-wrap gap-1.5 items-center">
-            <Badge className="bg-[#BEE5F5] hover:bg-[#BEE5F5] text-[#084298] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full capitalize">
-              {packageType}
-            </Badge>
-
-            {listing.tourCategories && listing.tourCategories.length > 0 ? (
-              listing.tourCategories.slice(0, 1).map((cat: string, idx: number) => (
-                <Badge 
-                  key={idx} 
-                  className={`${
-                    cat.toLowerCase().includes('luxury') 
-                      ? 'bg-[#E2E3E5] text-[#4F4F4F]' 
-                      : 'bg-[#FFE0B2] text-[#E65100]'
-                  } hover:opacity-90 border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full`}
-                >
-                  {cat} Tour
-                </Badge>
-              ))
-            ) : (
-              <>
-                <Badge className="bg-[#FFE0B2] hover:bg-[#FFE0B2] text-[#E65100] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
-                  Family Tour
-                </Badge>
-                <Badge className="bg-[#E2E3E5] hover:bg-[#E2E3E5] text-[#4F4F4F] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
-                  Luxury
-                </Badge>
-              </>
-            )}
-
-            {/* <Badge className="bg-[#CFD8DC] hover:bg-[#CFD8DC] text-[#37474F] border-none font-semibold text-[10px] md:text-xs px-2 py-0.5 rounded-full">
-              code : {packageCode}
-            </Badge> */}
+        {/* Loading Skeleton */}
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-gray-200 animate-pulse">
+            <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300"></div>
           </div>
+        )}
 
-          {/* Title */}
-          <h3 className="font-bold text-sm sm:text-base md:text-lg text-gray-900 leading-snug line-clamp-2" title={cardTitle}>
+        {/* Error State */}
+        {imageError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+            <Camera className="h-8 w-8 text-gray-400" />
+          </div>
+        )}
+
+        {/* Image content */}
+        {allImages.length > 1 ? (
+          <div className="relative w-full h-full group/image overflow-hidden">
+            <div 
+              className="flex w-full h-full transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+            >
+              {allImages.map((imgUrl, idx) => (
+                <div key={idx} className="w-full h-full shrink-0 relative overflow-hidden">
+                  <img
+                    src={optimizeImageUrl(imgUrl, {
+                      quality: 85,
+                      format: 'auto',
+                      cacheBust: false
+                    })}
+                    alt={`${cardTitle} photo ${idx + 1}`}
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out scale-100 group-hover/image:scale-105"
+                    loading={idx === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                    onLoad={idx === currentImageIndex ? handleImageLoad : undefined}
+                    onError={idx === currentImageIndex ? handleImageError : undefined}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            {/* Navigation Arrows */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1.5 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1.5 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+              aria-label="Next image"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+
+            {/* Dot Indicators */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 backdrop-blur-[2px] px-2 py-1 rounded-full opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 transition-all duration-200 z-20">
+              {allImages.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all duration-200 ${
+                    idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        ) : optimizedImageUrl && !imageError ? (
+          <>
+            {!imageLoaded && (
+              <img
+                src={blurPlaceholder}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-sm"
+                style={{ filter: 'blur(5px)' }}
+              />
+            )}
+            <img
+              src={optimizedImageUrl}
+              alt={cardTitle}
+              className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+              } group-hover:scale-105`}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              loading="lazy"
+              decoding="async"
+            />
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-sm">
+            No image available
+          </div>
+        )}
+      </div>
+
+      {/* Content Section */}
+      <div className="p-4 flex flex-col gap-4">
+        
+        {/* Title and Rating */}
+        <div>
+          <h3 className="font-bold text-[18px] text-gray-900 leading-[1.3] line-clamp-2" title={cardTitle}>
             {cardTitle}
           </h3>
-
-          {/* Location details */}
-          {placesText.length > 25 ? (
-            <div className="relative w-full overflow-hidden whitespace-nowrap text-red-500 font-semibold text-[11px] sm:text-xs py-0.5">
-              <div className="animate-marquee-text inline-block">
-                {placesText} &nbsp;&nbsp;&bull;&nbsp;&nbsp; {placesText} &nbsp;&nbsp;&bull;&nbsp;&nbsp;
-              </div>
-            </div>
-          ) : (
-            <p className="text-red-500 font-semibold text-[11px] sm:text-xs line-clamp-1 py-0.5">
-              {placesText}
-            </p>
-          )}
-
-          {/* Star Ratings & Google Rating label */}
-          <div className="flex items-center gap-1 mt-0.5">
+          <div className="flex items-center gap-1.5 mt-1.5">
             <div className="flex items-center">
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star 
                   key={s} 
-                  className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#0D6EFD] ${
-                    s <= (listing.rating || 5) ? 'fill-[#0D6EFD]' : 'text-gray-200'
+                  className={`h-[14px] w-[14px] ${
+                    s <= (listing.rating || 5) ? 'fill-[#FFC107] text-[#FFC107]' : 'text-gray-300'
                   }`} 
                 />
               ))}
             </div>
-            <span className="text-red-500 font-bold text-[10px] sm:text-xs ml-1.5">Google Rating</span>
+            <span className="text-gray-500 font-medium text-[12px]">Google Rating</span>
           </div>
         </div>
-      </div>
 
-      {/* Middle Section: Icons Row */}
-      <div className="flex justify-around items-center py-2 px-1 bg-gray-50/50 rounded-2xl border border-gray-100">
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
-            <Camera className="h-4.5 w-4.5" />
+        {/* Icons Row */}
+        <div className="flex justify-between items-center px-1">
+          <div className="flex flex-col items-center gap-1.5">
+            <Camera className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+            <span className="text-[12px] font-medium text-gray-700">Sightseeing</span>
           </div>
-          <span className="text-[10px] font-semibold text-gray-700">SightSeeing</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
-            <Bus className="h-4.5 w-4.5" />
+          <div className="flex flex-col items-center gap-1.5">
+            <Bus className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+            <span className="text-[12px] font-medium text-gray-700">Transport</span>
           </div>
-          <span className="text-[10px] font-semibold text-gray-700">Transport</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
-            <Bed className="h-4.5 w-4.5" />
+          <div className="flex flex-col items-center gap-1.5">
+            <Bed className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+            <span className="text-[12px] font-medium text-gray-700">Hotel Stay</span>
           </div>
-          <span className="text-[10px] font-semibold text-gray-700">Hotel Stay</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-red-500">
-            <Utensils className="h-4.5 w-4.5" />
+          <div className="flex flex-col items-center gap-1.5">
+            <Utensils className="h-5 w-5 text-gray-600 stroke-[1.5]" />
+            <span className="text-[12px] font-medium text-gray-700">Meals</span>
           </div>
-          <span className="text-[10px] font-semibold text-gray-700">Meal</span>
         </div>
-      </div>
 
-      {/* Divider */}
-      <hr className="border-gray-200 w-full" />
+        {/* Divider */}
+        <hr className="border-gray-100 w-full" />
 
-      {/* 3 Columns details (Stay, Pick-up, Drop) */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="flex flex-col items-center text-center">
-          <span className="font-extrabold text-[11px] sm:text-xs text-gray-900">Stay</span>
-          <div className="w-full border border-sky-400 text-sky-600 bg-white font-bold py-1 px-1.5 rounded-full text-[10px] truncate mt-1">
-            {duration}D | {nights}N
+        {/* 3 Columns Details */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col text-left">
+            <span className="text-[12px] text-gray-500 mb-0.5">Duration</span>
+            <span className="text-[14px] text-gray-900 font-medium">
+              {duration}D | {nights}N
+            </span>
+          </div>
+          <div className="flex flex-col text-left border-l border-gray-200 pl-3">
+            <span className="text-[12px] text-gray-500 mb-0.5">Pick-up</span>
+            <span className="text-[14px] text-gray-900 font-medium truncate" title={pickupLocation}>
+              {pickupLocation}
+            </span>
+          </div>
+          <div className="flex flex-col text-left border-l border-gray-200 pl-3">
+            <span className="text-[12px] text-gray-500 mb-0.5">Drop</span>
+            <span className="text-[14px] text-gray-900 font-medium truncate" title={dropLocation}>
+              {dropLocation}
+            </span>
           </div>
         </div>
-        <div className="flex flex-col items-center text-center">
-          <span className="font-extrabold text-[11px] sm:text-xs text-gray-900">Pick-up</span>
-          <div className="w-full border border-sky-400 text-sky-600 bg-white font-bold py-1 px-1.5 rounded-full text-[10px] truncate mt-1" title={pickupLocation}>
-            {pickupLocation}
-          </div>
-        </div>
-        <div className="flex flex-col items-center text-center">
-          <span className="font-extrabold text-[11px] sm:text-xs text-gray-900">Drop</span>
-          <div className="w-full border border-sky-400 text-sky-600 bg-white font-bold py-1 px-1.5 rounded-full text-[10px] truncate mt-1" title={dropLocation}>
-            {dropLocation}
-          </div>
-        </div>
-      </div>
 
-      {/* Bottom Highlight Box */}
-      <div className="bg-[#E3F2FD] border border-[#90CAF9] rounded-2xl p-3 flex flex-col gap-3">
-        {/* EMI & pricing info */}
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-gray-600 font-medium">Interest free EMI</span>
-            <span className="text-sm font-extrabold text-gray-900">Available</span>
-          </div>
-          <div className="text-right">
+        {/* Divider */}
+        <hr className="border-gray-100 w-full" />
+
+        {/* Bottom Actions Row */}
+        <div className="flex items-end justify-between pt-1">
+          {/* Price Column */}
+          <div className="flex flex-col min-w-[90px] self-stretch justify-end pb-1">
+            <span className="text-[12px] text-gray-500">Starting from</span>
             {price && price !== 'N/A' && price !== '' ? (
-              <div className="flex flex-col">
-                <span className="text-[10px] text-gray-600 font-medium">Starting Price</span>
-                <span className="text-sm font-extrabold text-[#0D6EFD]">
+              <div className="flex flex-col mt-0.5">
+                <span className="text-[22px] font-bold text-gray-900 leading-none tracking-tight mb-1">
                   {currencySymbol}{price}
                 </span>
+                <span className="text-[12px] text-gray-500 leading-none">per person</span>
               </div>
             ) : (
-              <span className="text-xs text-[#0D6EFD] font-extrabold">Contact Agent for Pricing</span>
+              <span className="text-[14px] font-bold text-gray-900 mt-1">Contact Agent</span>
             )}
           </div>
-        </div>
 
-        {/* Actions Row */}
-        {showActions && (
-          <div className="flex gap-2 items-center">
-            {variant === 'user' ? (
-              <>
-                {showCompare && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 py-1.5 px-2 border border-[#0D6EFD] bg-white text-[#0D6EFD] hover:bg-[#E3F2FD] font-bold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
-                    onClick={handleCompareToggle}
-                  >
-                    {isInComparison(listing.id) ? (
-                      <>
-                        <CheckCircle2 className="h-3 w-3" />
-                        <span>Added</span>
-                      </>
-                    ) : (
-                      <>
-                        <Scale className="h-3 w-3" />
-                        <span>Compare</span>
-                      </>
-                    )}
-                  </Button>
-                )}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 py-1.5 px-2 border border-[#0D6EFD] bg-white text-[#0D6EFD] hover:bg-[#E3F2FD] font-bold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onWishlist?.(listing.id);
-                    window.dispatchEvent(new CustomEvent('floating-effect', {
-                      detail: { x: e.clientX, y: e.clientY, type: 'wishlist' }
-                    }));
-                  }}
-                >
-                  <Heart 
-                    className={`h-3 w-3 ${isWishlisted ? 'text-red-500 fill-red-500' : 'text-[#0D6EFD]'}`} 
-                  />
-                  <span>Wishlist</span>
-                </Button>
-                {variant === 'user' ? (
-                  <Link href={`/package/${listing.id}`} className="flex-[1.5] block">
-                    <Button
-                      size="sm"
-                      className="w-full py-1.5 px-2 bg-[#FF9900] hover:bg-[#E68A00] text-white font-extrabold text-[11px] sm:text-xs rounded-xl flex items-center justify-center shadow-sm"
-                    >
-                      View Itinerary
+          {/* Buttons Column */}
+          {showActions && (
+            <div className="flex gap-2 w-full max-w-[280px]">
+              {variant === 'user' ? (
+                <>
+                  <Link href={`/package/${listing.id}`} className="block flex-1">
+                    <Button className="w-full h-[48px] bg-[#1961CA] hover:bg-[#1550a6] text-white font-medium text-[14px] rounded-xl shadow-sm transition-colors">
+                      View Details
                     </Button>
                   </Link>
-                ) : (
-                  <Button
-                    size="sm"
-                    className="flex-[1.5] py-1.5 px-2 bg-[#FF9900] hover:bg-[#E68A00] text-white font-extrabold text-[11px] sm:text-xs rounded-xl flex items-center justify-center shadow-sm"
-                    onClick={() => onView?.(listing)}
+                  
+                  {/* Chat Button */}
+                  <Button 
+                    className="w-[124px] h-[48px] bg-[#D84315] hover:bg-[#BF360C] text-white font-medium text-[12px] rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5 px-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChat?.(listing);
+                    }}
                   >
-                    View Itinerary
+                    <div className="h-5 w-5 shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                        <path d="M8 12h.01" />
+                        <path d="M12 12h.01" />
+                        <path d="M16 12h.01" />
+                      </svg>
+                    </div>
+                    <span className="text-left leading-[1.15]">Chat with<br/>Agency</span>
                   </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 py-1.5 px-2 border border-gray-400 bg-white text-gray-700 hover:bg-gray-50 font-semibold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
-                  onClick={() => onView?.(listing)}
-                >
-                  <Eye className="h-3 w-3" />
-                  <span>View</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 py-1.5 px-2 border border-[#0D6EFD] bg-white text-[#0D6EFD] hover:bg-[#E3F2FD] font-semibold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
-                  onClick={() => onEdit?.(listing)}
-                >
-                  <Edit className="h-3 w-3" />
-                  <span>Edit</span>
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="flex-1 py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-[10px] sm:text-xs rounded-xl flex items-center justify-center gap-1"
-                  onClick={() => onDelete?.(listing.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  <span>Delete</span>
-                </Button>
-              </>
-            )}
-          </div>
-        )}
+                </>
+              ) : (
+                <>
+                  <Button className="flex-1 h-[48px] bg-[#1961CA] hover:bg-[#1550a6] text-white font-medium text-[14px] rounded-xl shadow-sm transition-colors" onClick={() => onView?.(listing)}>
+                    View Details
+                  </Button>
+                  <div className="flex flex-col gap-1.5 w-[88px]">
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-[21px] border-[#1961CA] text-[#1961CA] hover:bg-[#F0F6FF] font-medium text-[11px] rounded-md transition-colors"
+                      onClick={() => onEdit?.(listing)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1 h-[21px] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] border border-[#FEE2E2] font-medium text-[11px] rounded-md shadow-none transition-colors"
+                      onClick={() => onDelete?.(listing.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

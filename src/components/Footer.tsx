@@ -62,9 +62,9 @@ export default function Footer() {
       <div className="border-t border-gray-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
           <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-            <Link href="#" className="hover:text-white transition-colors">Condition of Use and Sale</Link>
-            <Link href="#" className="hover:text-white transition-colors">Privacy Notice</Link>
-            <Link href="#" className="hover:text-white transition-colors">Interest-Based Ads</Link>
+            <Link href="/policies/conditions-of-use" className="hover:text-white transition-colors">Condition of Use and Sale</Link>
+            <Link href="/policies/privacy-notice" className="hover:text-white transition-colors">Privacy Notice</Link>
+            <Link href="/policies/internet-based-policy" className="hover:text-white transition-colors">Internet-Based Policy</Link>
           </div>
           <div className="mt-4 sm:mt-0 flex items-center gap-1 font-extrabold tracking-tight bg-white px-3 py-1.5 rounded-xl shadow-sm">
             <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-10 sm:h-12 w-auto object-contain" />
