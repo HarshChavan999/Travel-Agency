@@ -6,12 +6,14 @@ let firebaseApp: any = null;
 
 export function initializeFirebase() {
   if (!admin.apps.length) {
-    // For Cloud Run, use service account credentials from environment
+    // For Cloud Run/App Hosting, use Application Default Credentials if private key is not provided
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY || process.env.FB_PRIVATE_KEY;
+    if (privateKey) {
         const serviceAccount = {
           type: "service_account",
           project_id: process.env.FIREBASE_PROJECT_ID || process.env.FB_PROJECT_ID,
           private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || process.env.FB_PRIVATE_KEY_ID,
-          private_key: (process.env.FIREBASE_PRIVATE_KEY || process.env.FB_PRIVATE_KEY)?.replace(/\\n/g, '\n'),
+          private_key: privateKey.replace(/\\n/g, '\n'),
           client_email: process.env.FIREBASE_CLIENT_EMAIL || process.env.FB_CLIENT_EMAIL,
           client_id: process.env.FIREBASE_CLIENT_ID || process.env.FB_CLIENT_ID,
           auth_uri: process.env.FIREBASE_AUTH_URI || process.env.FB_AUTH_URI,
@@ -24,6 +26,10 @@ export function initializeFirebase() {
           credential: cert(serviceAccount as any),
           projectId: process.env.FIREBASE_PROJECT_ID || process.env.FB_PROJECT_ID
         });
+    } else {
+        // App Hosting natively injects the service account credentials
+        firebaseApp = admin.initializeApp();
+    }
   } else {
     firebaseApp = admin.app();
   }
