@@ -89,7 +89,7 @@ export default function PackageClientView({ listing }: { listing: any }) {
               className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer"
               onClick={() => router.push('/')}
             >
-              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-8 w-auto object-contain" />
+              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 w-auto object-contain" />
             </div>
             
             <div className="relative w-full max-w-xl hidden sm:block cursor-text" onClick={() => router.push('/')}>
@@ -111,15 +111,6 @@ export default function PackageClientView({ listing }: { listing: any }) {
               <div className="flex flex-col leading-tight hidden sm:flex">
                 <span className="font-bold text-gray-200">{pincode}</span>
                 <span className="text-[9px] text-gray-400 font-medium">Location</span>
-              </div>
-            </div>
-
-            {/* Profile */}
-            <div className="flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0" onClick={() => router.push('/?view=profile')}>
-              <User className="h-4 w-4" />
-              <div className="flex flex-col leading-tight hidden sm:flex">
-                <span className="font-semibold text-gray-200">{userData?.name ? `Hi, ${userData.name.split(' ')[0]}` : 'Dashboard'}</span>
-                <span className="text-[9px] text-gray-400">Account</span>
               </div>
             </div>
 
@@ -151,13 +142,31 @@ export default function PackageClientView({ listing }: { listing: any }) {
             </div>
 
             {/* Support */}
-            <div className="flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0" onClick={() => router.push('/?view=support')}>
+            <div className="!hidden flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0" onClick={() => router.push('/?view=support')}>
               <Shield className="h-4 w-4" />
               <div className="flex flex-col leading-tight hidden sm:flex">
                 <span className="font-semibold text-gray-200">Support</span>
                 <span className="text-[9px] text-gray-400 font-medium">Help</span>
               </div>
             </div>
+
+            {/* Profile */}
+            {userData ? (
+              <div className="flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0 ml-2" onClick={() => router.push('/?view=profile')}>
+                <User className="h-4 w-4" />
+                <div className="flex flex-col leading-tight hidden sm:flex">
+                  <span className="font-semibold text-gray-200">Hi, {userData.name ? userData.name.split(' ')[0] : 'User'}</span>
+                  <span className="text-[9px] text-gray-400">Account</span>
+                </div>
+              </div>
+            ) : (
+              <button 
+                onClick={() => router.push('/?login=true')} 
+                className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
       </header>

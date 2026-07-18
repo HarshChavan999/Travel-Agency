@@ -1,5 +1,4 @@
-import { Metadata } from 'next';
-import HomeClient from './HomeClient';
+import HomeClient from '../HomeClient';
 import { parseFirestoreDocument } from '@/lib/firestoreParser';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
@@ -28,7 +27,7 @@ async function getApprovedListings() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(query),
-      next: { revalidate: 30 } // Cache for 30 seconds
+      next: { revalidate: 30 }
     });
 
     if (!res.ok) {
@@ -37,8 +36,6 @@ async function getApprovedListings() {
     }
 
     const data = await res.json();
-    
-    // runQuery returns an array of { document: { name, fields, ... } }
     const listings = data
       .filter((item: any) => item.document)
       .map((item: any) => parseFirestoreDocument(item.document));
@@ -50,15 +47,7 @@ async function getApprovedListings() {
   }
 }
 
-export const metadata: Metadata = {
-  title: "TripDM: Direct Message. Better Travel.",
-  description: "TripDM connects travelers directly with trusted travel agents through instant messaging. Browse top travel packages.",
-};
-
-export default async function HomePage() {
-  // Fetch initial data on the server for pure HTML SSR
+export default async function AgencyPage() {
   const initialListings = await getApprovedListings();
-
-  // Render the client component monolith, passing the server-fetched data as initial state
-  return <HomeClient initialListings={initialListings} routeMode="user" />;
+  return <HomeClient initialListings={initialListings} routeMode="agency" />;
 }
