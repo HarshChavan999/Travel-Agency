@@ -16,6 +16,7 @@ import PackageComparison from '@/components/PackageComparison';
 import Footer from '@/components/Footer';
 import AutocompleteSearch from '@/components/AutocompleteSearch';
 import WishlistView from '@/components/WishlistView';
+import AuthModal from '@/components/AuthModal';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { 
   User, 
@@ -206,8 +207,10 @@ const subcategoryDescriptions: { [key: string]: string } = {
   'Long Weekend Escapes': 'Quick 2-3 day getaways'
 };
 
-export default function HomeClient({ initialListings = [] }: { initialListings?: any[] }) {
+export default function HomeClient({ initialListings = [], routeMode }: { initialListings?: any[], routeMode?: string }) {
   const { user, userData, loading, signIn, signInWithGoogle, signOut, register } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -2197,8 +2200,39 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
     }
   };
 
+  // Handle register from AuthModal (user only)
+  const handleAuthModalRegister = async (
+    emailArg: string,
+    passwordArg: string,
+    role: 'user',
+    data: { name: string; phone?: string }
+  ) => {
+    await register(emailArg, passwordArg, role, data);
+  };
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+  }
+
+  // For admin/agency routes, force login immediately if not authenticated
+  if (!user && (routeMode === 'admin' || routeMode === 'agency')) {
+    return (
+      <>
+        <div className="flex min-h-screen items-center justify-center bg-gray-100">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Please sign in to continue.</p>
+          </div>
+        </div>
+        <AuthModal
+          isOpen={true}
+          onClose={() => {}}
+          initialTab="login"
+          onLogin={signIn}
+          onRegister={handleAuthModalRegister}
+          onGoogleSignIn={signInWithGoogle}
+        />
+      </>
+    );
   }
 
   if (user && userData) {
@@ -3369,8 +3403,12 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
           </div>
         </div>
       );
-    } else if (userData.role === 'user') {
-      // User Dashboard
+    }
+  }
+
+  // User Dashboard — render publicly for routeMode='user' (no login required)
+  // Also renders when logged in as a user role
+  if (routeMode === 'user' || (user && (userData?.role === 'user' || userData?.role === 'agency'))) {
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
@@ -3400,7 +3438,7 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
                     setShowComparison(false);
                   }}
                 >
-                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-8 w-auto object-contain" />
+                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 w-auto object-contain" />
                 </div>
                 <div className="relative w-full max-w-xl">
                   <AutocompleteSearch
@@ -3428,39 +3466,6 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
                     <span className="font-bold text-gray-200">{pincode}</span>
                     <span className="text-[9px] text-gray-400 font-medium">Location</span>
                   </div>
-                </div>
-
-                {/* Profile */}
-                <div
-                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
-                  onClick={() => {
-                    setFromSection(userActiveSection);
-                    setUserActiveSection('profile');
-                  }}
-                >
-                  <User className="h-4 w-4" />
-                  <div className="flex flex-col leading-tight hidden sm:flex">
-                    <span className="font-semibold text-gray-200">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
-                    <span
-                      className="text-[9px] text-gray-400 hover:text-white"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        signOut();
-                      }}
-                    >
-                      Sign Out
-                    </span>
-                  </div>
-                  {/* Mobile Sign Out */}
-                  <span
-                    className="xl:hidden absolute top-8 right-0 bg-black text-white p-2 rounded shadow opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      signOut();
-                    }}
-                  >
-                    Sign Out
-                  </span>
                 </div>
 
                 {/* Compare */}
@@ -3511,7 +3516,7 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
 
                 {/* Support */}
                 <div
-                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'support' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
+                  className={`!hidden flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'support' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('support');
@@ -3523,6 +3528,48 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
                     <span className="text-[9px] text-gray-400 font-medium">Dispute & Help</span>
                   </div>
                 </div>
+
+                {/* Profile / Sign In */}
+                {user && userData ? (
+                  <div
+                    className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''} ml-2`}
+                    onClick={() => {
+                      setFromSection(userActiveSection);
+                      setUserActiveSection('profile');
+                    }}
+                  >
+                    <User className="h-4 w-4" />
+                    <div className="flex flex-col leading-tight hidden sm:flex">
+                      <span className="font-semibold text-gray-200">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
+                      <span
+                        className="text-[9px] text-gray-400 hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          signOut();
+                        }}
+                      >
+                        Sign Out
+                      </span>
+                    </div>
+                    {/* Mobile Sign Out */}
+                    <span
+                      className="xl:hidden absolute top-8 right-0 bg-black text-white p-2 rounded shadow opacity-0 group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        signOut();
+                      }}
+                    >
+                      Sign Out
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
+                  >
+                    Sign In
+                  </button>
+                )}
               </div>
             </div>
           </header>
@@ -5991,19 +6038,32 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
               </div>
             </div>
           )}
+
+          {/* Auth Modal overlay for User Dashboard */}
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            initialTab={authModalTab}
+            onLogin={signIn}
+            onRegister={handleAuthModalRegister}
+            onGoogleSignIn={signInWithGoogle}
+            googleUser={user}
+          />
         </div>
       );
-    } else {
-      // Agency Dashboard
-      return (
+    }
+
+  // Agency Dashboard
+  if (user && userData?.role === 'agency') {
+    return (
         <div className="flex h-screen bg-gray-100">
           <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll flex flex-col">
             <div className="p-6 border-b bg-slate-50/50 flex flex-col items-center text-center">
               <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden mb-3.5">
-                {(agencyLogoUrl || userData.logoUrl || userData.agencyLogo) ? (
+                {(agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo) ? (
                   <img
-                    src={agencyLogoUrl || userData.logoUrl || userData.agencyLogo}
-                    alt={userData.companyName || 'Agency Logo'}
+                    src={agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo}
+                    alt={userData?.companyName || 'Agency Logo'}
                     className="w-full h-full object-contain p-1"
                     onError={() => setAgencyLogoError(true)}
                   />
@@ -6011,8 +6071,8 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
                   <Building2 className="h-8 w-8 text-indigo-500" />
                 )}
               </div>
-              <h2 className="text-lg font-bold text-gray-900 leading-tight">{userData.companyName || 'Travel Agency'}</h2>
-              <p className="text-xs text-gray-400 mt-1 font-medium">{userData.companyName ? 'Travel Agency Partner' : 'Registered Agency'}</p>
+              <h2 className="text-lg font-bold text-gray-900 leading-tight">{userData?.companyName || 'Travel Agency'}</h2>
+              <p className="text-xs text-gray-400 mt-1 font-medium">{userData?.companyName ? 'Travel Agency Partner' : 'Registered Agency'}</p>
             </div>
             <nav className="p-4 flex-1">
               <div className="space-y-2">
@@ -6109,26 +6169,26 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
                   {agencyActiveSection === 'settings' && 'Agency Settings'}
                 </h1>
                 <div className="flex items-center space-x-4">
-                  {userData.approved && (
+                  {userData?.approved && (
                     <div className="flex items-center gap-3 mr-4 border-r pr-4 border-gray-205">
                       <div className="text-right">
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                          Plan: <span className="text-blue-600 font-black">{userData.plan || 'Free'}</span>
+                          Plan: <span className="text-blue-600 font-black">{userData?.plan || 'Free'}</span>
                         </p>
                         <p className="text-xs font-black text-gray-700">
-                          {userData.plan === 'starter' ? `${userData.credits ?? 0} Credits` : `${userData.freeChats ?? 0} Free Replies`}
+                          {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` : `${userData?.freeChats ?? 0} Free Replies`}
                         </p>
                       </div>
                     </div>
                   )}
-                  <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
+                  <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData?.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
                   <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
                 </div>
               </div>
             </header>
 
             <main className={`p-6 ${agencyActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0' : ''}`}>
-              {userData.approved ? (
+              {userData?.approved ? (
                 <>
                   {agencyActiveSection === 'overview' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -7017,7 +7077,7 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
                             {/* Message Input / Unlock Box */}
                             {(() => {
                               const isUnlocked = (userData?.unlockedUsers || []).includes(selectedConversation.userId);
-                              const isFreePlan = userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan);
+                              const isFreePlan = (userData?.role as string) === 'agency' && (userData?.plan === 'free' || !userData?.plan);
                               const hasPhoneInInput = isFreePlan && agencyChatInput.replace(/\D/g, '').length >= 10;
                               return isUnlocked ? (
                                 <div className="bg-white border-t border-gray-150 flex flex-col shrink-0 relative">
@@ -7175,9 +7235,9 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
                         {/* Agency Logo Upload Section */}
                         <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
                           <div className="w-24 h-24 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-                            {(agencyLogoUrl || userData.logoUrl || userData.agencyLogo) && !agencyLogoError ? (
+                            {(agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo) && !agencyLogoError ? (
                               <img
-                                src={agencyLogoUrl || userData.logoUrl || userData.agencyLogo}
+                                src={agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo}
                                 alt="Agency Logo"
                                 className="w-full h-full object-contain p-1"
                                 onError={() => setAgencyLogoError(true)}
@@ -7717,7 +7777,8 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
         </div>
       );
     }
-  }
+
+
 
   // Journey Details Modal Component
   function JourneyDetailsModal({ booking, onClose }: { booking: any; onClose: () => void }) {
@@ -7953,701 +8014,30 @@ export default function HomeClient({ initialListings = [] }: { initialListings?:
     );
   }
 
+  // Fallback for unauthenticated admin/agency routes
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
-      <Card className="w-full max-w-xl">
-        <CardHeader>
-          <CardTitle>{isLogin ? 'Login' : `Register as ${isAgencyRegistration ? 'Agency' : 'User'}`}</CardTitle>
-          <CardDescription>
-            {isLogin ? 'Sign in to your account' : `Create a new ${isAgencyRegistration ? 'agency' : 'user'} account`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!isLogin && (
-            <div className="mb-4">
-              <Button
-                type="button"
-                variant={isAgencyRegistration ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIsAgencyRegistration(true)}
-                className="mr-2"
-              >
-                Agency
-              </Button>
-              <Button
-                type="button"
-                variant={!isAgencyRegistration ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIsAgencyRegistration(false)}
-              >
-                User
-              </Button>
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && !isAgencyRegistration ? (
-              // User Registration - Email and Password fields
-              <>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </>
-            ) : isLogin ? (
-              // Login - Email and Password fields
-              <>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </>
-            ) : (
-              // Agency Registration - No email and password fields
-              <></>
-            )}
-            {!isLogin && (
-              <>
-                {isAgencyRegistration ? (
-                  // Agency Registration Form
-                  <>
-                    <div className="space-y-6">
-                      {/* 1. Agency Basic Details */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-4">1. Agency Basic Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="agencyName">Agency Name</Label>
-                            <Input
-                              id="agencyName"
-                              value={name}
-                              onChange={(e) => setName(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="websiteUrl">Website URL (optional)</Label>
-                            <Input
-                              id="websiteUrl"
-                              value={companyName}
-                              onChange={(e) => setCompanyName(e.target.value)}
-                              placeholder="https://your-agency.com"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="email">Email Address</Label>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="contactNumber">Contact Number</Label>
-                            <Input
-                              id="contactNumber"
-                              type="tel"
-                              value={contactNumber}
-                              onChange={(e) => setContactNumber(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="businessLocation">Business Location (City, State)</Label>
-                            <Input
-                              id="businessLocation"
-                              value={businessLocation}
-                              onChange={(e) => setBusinessLocation(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label htmlFor="fullAddress">Full Address</Label>
-                            <textarea
-                              id="fullAddress"
-                              className="w-full p-2 border rounded-lg"
-                              rows={3}
-                              value={fullAddress}
-                              onChange={(e) => setFullAddress(e.target.value)}
-                              required
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 2. Legal & Verification Documents */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-4">2. Legal & Verification Documents</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="panCard">Upload PAN Card (PDF/JPG/PNG)</Label>
-                            <Input
-                              id="panCard"
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => setPanCard(e.target.files?.[0] || null)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="gstCertificate">Upload GST Certificate (PDF/JPG/PNG)</Label>
-                            <Input
-                              id="gstCertificate"
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => setGstCertificate(e.target.files?.[0] || null)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="businessProof">Upload Registration / Shop Act / Other Business Proof (PDF/JPG/PNG)</Label>
-                            <Input
-                              id="businessProof"
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => setBusinessProof(e.target.files?.[0] || null)}
-                              required
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 3. Agency Description */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-4">3. Agency Description</h3>
-                        <div>
-                          <Label htmlFor="agencyDescription">Text area for agency overview (Max 500 words)</Label>
-                          <p className="text-xs text-gray-500 mb-2">Should describe experience, services, and specialization</p>
-                          <textarea
-                            id="agencyDescription"
-                            className="w-full p-2 border rounded-lg"
-                            rows={6}
-                            value={agencyDescription}
-                            onChange={(e) => setAgencyDescription(e.target.value)}
-                            maxLength={500}
-                            required
-                          />
-                          <p className="text-xs text-gray-500 mt-1">{agencyDescription.length}/500 words</p>
-                        </div>
-                      </div>
-
-                      {/* 4. Operating Details */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-4">4. Operating Details</h3>
-                        <div>
-                          <Label>Operating From (select one or more):</Label>
-                          <div className="space-y-2 mt-2">
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={operatingFromHome}
-                                onChange={(e) => setOperatingFromHome(e.target.checked)}
-                                className="mr-2"
-                              />
-                              <span>Home</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={operatingFromOffice}
-                                onChange={(e) => setOperatingFromOffice(e.target.checked)}
-                                className="mr-2"
-                              />
-                              <span>Office</span>
-                            </label>
-                          </div>
-                          {operatingFromOffice && (
-                            <div className="mt-4">
-                              <Label htmlFor="officeAddress">Office Address</Label>
-                              <textarea
-                                id="officeAddress"
-                                className="w-full p-2 border rounded-lg"
-                                rows={3}
-                                value={officeAddress}
-                                onChange={(e) => setOfficeAddress(e.target.value)}
-                                required
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 5. Media Uploads */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-4">5. Media Uploads</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Upload agency photos:</Label>
-                            <div className="space-y-2">
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={uploadOfficePhotos}
-                                  onChange={(e) => setUploadOfficePhotos(e.target.checked)}
-                                  className="mr-2"
-                                />
-                                <span>Office photos</span>
-                              </label>
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={uploadBranding}
-                                  onChange={(e) => setUploadBranding(e.target.checked)}
-                                  className="mr-2"
-                                />
-                                <span>Branding or certificates</span>
-                              </label>
-                            </div>
-                          </div>
-                          <div>
-                            <Label>Upload Photos (Multiple allowed)</Label>
-                            <Input
-                              type="file"
-                              multiple
-                              accept="image/*"
-                              onChange={(e) => setAgencyPhotos(Array.from(e.target.files || []))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 6. Refund Policy */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-4">6. Refund Policy</h3>
-                        <div>
-                          <Label htmlFor="refundPolicy">Text area for agency refund & cancellation policy</Label>
-                          <p className="text-xs text-gray-500 mb-2">Required field</p>
-                          <textarea
-                            id="refundPolicy"
-                            className="w-full p-2 border rounded-lg"
-                            rows={4}
-                            value={refundPolicy}
-                            onChange={(e) => setRefundPolicy(e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      {/* 7. Declaration */}
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-4">7. Declaration</h3>
-                        <label className="flex items-start">
-                          <input
-                            type="checkbox"
-                            checked={declarationChecked}
-                            onChange={(e) => setDeclarationChecked(e.target.checked)}
-                            className="mr-2 mt-1"
-                            required
-                          />
-                          <span className="text-sm">
-                            I declare that all the information provided is true and correct, and I agree to the platform's terms and policies.
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  // User Registration Form
-                  <>
-                    <div>
-                      <Label htmlFor="name">Name</Label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            {isLogin && (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => signInWithGoogle()}
-              >
-                Sign in with Google
-              </Button>
-            )}
-            <Button type="submit" className="w-full">
-              {isLogin ? 'Sign In' : 'Register'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center">
-            <Button variant="link" onClick={() => setIsLogin(!isLogin)}>
-              {isLogin ? 'Need to register?' : 'Already have an account?'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Journey Details Modal */}
-      {showJourneyModal && selectedJourneyBooking && (
-        <JourneyDetailsModal
-          booking={selectedJourneyBooking}
-          onClose={() => {
-            setShowJourneyModal(false);
-            setSelectedJourneyBooking(null);
-          }}
-        />
-      )}
-
-      {/* Review Modal */}
-      {showReviewModal && reviewListing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl mx-4">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Star className="w-5 h-5 text-yellow-500 mr-2" />
-                Write a Review for {reviewListing.title}
-              </CardTitle>
-              <CardDescription>
-                Share your experience to help other travelers
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Rating */}
-              <div>
-                <Label className="text-base font-medium">Your Rating</Label>
-                <div className="flex gap-1 mt-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => setNewReview({ ...newReview, rating: star })}
-                      className={`text-2xl ${newReview.rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
-                    >
-                      <Star className="w-6 h-6 fill-current inline" />
-                    </button>
-                  ))}
-                </div>
-                <p className="text-sm text-gray-500 mt-1">
-                  {newReview.rating === 0 ? 'Select a rating' :
-                    newReview.rating === 1 ? 'Poor' :
-                      newReview.rating === 2 ? 'Fair' :
-                        newReview.rating === 3 ? 'Good' :
-                          newReview.rating === 4 ? 'Very Good' : 'Excellent'}
-                </p>
-              </div>
-
-              {/* Review Text */}
-              <div>
-                <Label htmlFor="reviewComment">Your Review</Label>
-                <textarea
-                  id="reviewComment"
-                  className="w-full p-3 border rounded-lg mt-1"
-                  rows={4}
-                  value={newReview.comment}
-                  onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-                  placeholder="Tell others about your experience..."
-                />
-              </div>
-
-              {/* Photo Upload */}
-              <div>
-                <Label htmlFor="reviewPhotos">Add Photos (Optional)</Label>
-                <Input
-                  id="reviewPhotos"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => {
-                    // Handle photo upload here
-                    console.log('Photos selected:', e.target.files);
-                  }}
-                  className="mt-1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Share photos from your trip to help others visualize the experience
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  onClick={() => {
-                    // Submit review logic
-                    alert('Review submitted successfully!');
-                    setShowReviewModal(false);
-                    setNewReview({ listingId: '', rating: 5, comment: '', photos: [] });
-                    setReviewListing(null);
-                  }}
-                  disabled={newReview.rating === 0 || !newReview.comment.trim()}
-                  className="flex-1"
-                >
-                  Submit Review
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowReviewModal(false);
-                    setNewReview({ listingId: '', rating: 5, comment: '', photos: [] });
-                    setReviewListing(null);
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Pincode Change Modal Removed */}
-
-      {/* ── REDESIGNED PREMIUM UNLOCK CHAT CONVERSATION MODAL ── */}
-      {showUnlockModal && chatUnlockTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <Card className="max-w-md w-full bg-white shadow-2xl rounded-3xl border border-gray-150 overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Visual Premium Header */}
-            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 text-white relative">
-              <div className="absolute top-6 right-6 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
-                Verified Agent
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white text-blue-700 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-md">
-                  <Building className="w-8 h-8 text-blue-700" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-extrabold tracking-tight">{chatUnlockTarget.agencyName}</h3>
-                  <p className="text-xs text-blue-200 mt-0.5">Connect and discuss "{chatUnlockTarget.packageTitle}"</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Explanation and Features List */}
-              <div className="space-y-3">
-                <p className="text-sm text-gray-705 font-bold leading-relaxed">
-                  Unlock direct messaging and customized itineraries:
-                </p>
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <MessageSquare className="w-4 h-4 text-blue-500" />
-                    <div>
-                      <p className="font-bold text-gray-900 leading-tight">Direct Chat</p>
-                      <p className="text-[9px] text-gray-500 mt-0.5">Unlimited messaging</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <FileText className="w-4 h-4 text-blue-500" />
-                    <div>
-                      <p className="font-bold text-gray-900 leading-tight">Custom Quotes</p>
-                      <p className="text-[9px] text-gray-500 mt-0.5">Personalized plans</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <Phone className="w-4 h-4 text-blue-500" />
-                    <div>
-                      <p className="font-bold text-gray-900 leading-tight">Direct Call</p>
-                      <p className="text-[9px] text-gray-500 mt-0.5">Callbacks enabled</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-650 bg-gray-50 border p-2.5 rounded-xl">
-                    <Zap className="w-4 h-4 text-blue-500" />
-                    <div>
-                      <p className="font-bold text-gray-900 leading-tight">Mediation Help</p>
-                      <p className="text-[9px] text-gray-500 mt-0.5">100% Secure & safe</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Transaction Box */}
-              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-4">
-                <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400 tracking-wider">
-                  <span>Connection Details</span>
-                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[9px]">
-                    Plan: {userData?.plan || 'Free'}
-                  </span>
-                </div>
-
-                {/* Visual credit deduction flow */}
-                <div className="flex items-center justify-between gap-4 py-1">
-                  <div className="text-center flex-1">
-                    <span className="text-[9px] text-gray-450 font-bold uppercase tracking-wider">Your Balance</span>
-                    <div className="text-lg font-black text-gray-800 mt-0.5">
-                      {userData?.plan === 'starter' && `${userData?.credits ?? 0}`}
-                      {userData?.plan === 'premium' && `${userData?.freeChats ?? 0}`}
-                      {(userData?.plan === 'free' || !userData?.plan) && `${userData?.freeChats ?? 0}`}
-                    </div>
-                    <span className="text-[9px] text-gray-500 font-medium">
-                      {userData?.plan === 'starter' ? 'Credits' : 'Free Chats'}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col items-center">
-                    <span className="text-[9px] text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-black">
-                      -{userData?.plan === 'starter' ? '200' : '1'}
-                    </span>
-                    <span className="text-sm text-blue-600 mt-0.5">➔</span>
-                  </div>
-
-                  <div className="text-center flex-1">
-                    <span className="text-[9px] text-gray-450 font-bold uppercase tracking-wider">After Unlock</span>
-                    <div className="text-lg font-black text-blue-600 mt-0.5">
-                      {userData?.plan === 'starter' && `${Math.max(0, (userData?.credits ?? 0) - 200)}`}
-                      {userData?.plan === 'premium' && `${Math.max(0, (userData?.freeChats ?? 0) - 1)}`}
-                      {(userData?.plan === 'free' || !userData?.plan) && `${Math.max(0, (userData?.freeChats ?? 0) - 1)}`}
-                    </div>
-                    <span className="text-[9px] text-gray-500 font-medium">
-                      {userData?.plan === 'starter' ? 'Credits left' : 'Free Chats left'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Check if user has sufficient credits */}
-              {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
-                (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
-                ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
-
-                <div className="bg-red-50 text-red-800 border border-red-150 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
-                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-extrabold text-red-905">Insufficient Balance</p>
-                    <p className="text-red-750 mt-1 leading-relaxed">
-                      You need at least {userData?.plan === 'starter' ? '200 Credits' : '1 Free Chat'} to connect with this agency. Top up credits or change plans to continue.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="p-4 bg-gray-50 border-t flex flex-row gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowUnlockModal(false)}
-                className="flex-1 rounded-xl text-xs font-bold border-gray-300 py-3.5 text-gray-700 bg-white hover:bg-gray-100 transition-all border"
-              >
-                Cancel
-              </Button>
-
-              {((userData?.plan === 'starter' && (userData?.credits ?? 0) < 200) ||
-                (userData?.plan === 'premium' && (userData?.freeChats ?? 0) <= 0 && (userData?.credits ?? 0) < 150) ||
-                ((userData?.plan === 'free' || !userData?.plan) && (userData?.freeChats ?? 0) <= 0)) ? (
-
-                <Button
-                  onClick={() => {
-                    setShowUnlockModal(false);
-                    setProfileTab('credits');
-                    setUserActiveSection('profile');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-xl text-xs font-bold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
-                >
-                  Top Up / Upgrade Plan
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => unlockCustomerChat(chatUnlockTarget.agencyId, chatUnlockTarget.agencyName)}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-extrabold border-none transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer flex items-center justify-center gap-1"
-                >
-                  Confirm & Connect <Zap className="w-4 h-4 inline ml-1" />
-                </Button>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* ── TRANSACTION LOADING MODAL ── */}
-      {isPurchasingCredits && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <Card className="max-w-xs w-full bg-white shadow-2xl rounded-3xl border border-gray-150 p-8 text-center animate-in zoom-in-95 duration-150">
-            <div className="relative w-16 h-16 mx-auto mb-6">
-              <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
-              <div className="absolute inset-0 flex items-center justify-center text-xl">
-                <CreditCard className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-            <h4 className="font-extrabold text-gray-900 mb-2">Secure Checkout</h4>
-            <p className="text-xs text-gray-500 font-medium leading-relaxed">
-              {purchaseStatusText}
-            </p>
-            <p className="text-[10px] text-gray-405 font-semibold tracking-wider uppercase mt-6 border-t pt-4">
-              Do not close this window
-            </p>
-          </Card>
-        </div>
-      )}
-      {/* Premium Custom Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[200] animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 ${toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-emerald-100/50' :
-              toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-rose-100/50' :
-                'bg-sky-50/90 border-sky-200 text-sky-900 shadow-sky-100/50'
-            }`}>
-            <span className="text-xl flex items-center justify-center">
-              {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-emerald-600" />}
-              {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-600" />}
-              {toast.type === 'info' && <Info className="w-5 h-5 text-sky-600" />}
-            </span>
-            <div className="text-xs font-bold tracking-wide">
-              {toast.message}
-            </div>
-            <button
-              onClick={() => setToast(null)}
-              className="text-gray-400 hover:text-gray-650 transition-colors ml-2 font-bold focus:outline-none"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Particles Renderer */}
-      {floatingEffects.map((effect) => (
-        <div
-          key={effect.id}
-          className={`fixed pointer-events-none z-[9999] select-none text-2xl ${
-            effect.type === 'wishlist' ? 'animate-float-heart' : 'animate-float-scale'
-          }`}
-          style={{
-            left: effect.x,
-            top: effect.y,
-          }}
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop')] bg-cover bg-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div className="z-10 bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Admin & Agency Portal</h2>
+        <p className="text-gray-600 mb-6 text-center max-w-sm">Please log in to access your dashboard. The credentials must correspond to a registered administrative or agency account.</p>
+        <button 
+          onClick={() => setShowAuthModal(true)}
+          className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-xl transition-all hover:scale-105 hover:shadow-lg"
         >
-          {effect.type === 'wishlist' ? <Heart className="w-6 h-6 text-rose-500 fill-rose-500" /> : <Scale className="w-6 h-6 text-blue-500" />}
-        </div>
-      ))}
+          Open Login
+        </button>
+      </div>
 
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => {}} // Cannot close on restricted routes
+        initialTab={routeMode === 'agency' ? 'signup' : 'login'}
+        onLogin={signIn}
+        onRegister={handleAuthModalRegister}
+        onGoogleSignIn={signInWithGoogle}
+        googleUser={user}
+      />
     </div>
   );
 }

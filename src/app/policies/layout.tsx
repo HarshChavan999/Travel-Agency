@@ -6,12 +6,21 @@ import { usePathname, useRouter } from 'next/navigation';
 import { MapPin, User, Scale, Heart, MessageSquare, Shield, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Footer from '@/components/Footer';
+import AuthModal from '@/components/AuthModal';
 
 export default function PoliciesLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { userData } = useAuth();
+  const { user, userData, signIn, signInWithGoogle, register } = useAuth();
   const [pincode, setPincode] = useState<string>('Select City');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
+
+  const handleAuthModalRegister = async (emailArg: string, passwordArg: string, role: 'user', data: { name: string; phone?: string }) => {
+    if (register) {
+      await register(emailArg, passwordArg, role, data);
+    }
+  };
 
   useEffect(() => {
     const fetchIpPincode = async () => {
@@ -170,7 +179,7 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
               </div>
             ) : (
               <button 
-                onClick={() => router.push('/?login=true')} 
+                onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }} 
                 className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
               >
                 Sign In
@@ -212,6 +221,16 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
       </div>
 
       <Footer />
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialTab={authModalTab}
+        onLogin={signIn || (async () => {})}
+        onRegister={handleAuthModalRegister}
+        onGoogleSignIn={signInWithGoogle || (async () => {})}
+        googleUser={user}
+      />
     </div>
   );
 }
