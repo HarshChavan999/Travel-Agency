@@ -13,6 +13,8 @@ import SearchFilters from '@/components/SearchFilters';
 import ListingCard from '@/components/ListingCard';
 import PackageDetailView from '@/components/PackageDetailView';
 import PackageComparison from '@/components/PackageComparison';
+import AdminLoginView from '@/components/AdminLoginView';
+import AgencyLoginView from '@/components/AgencyLoginView';
 import Footer from '@/components/Footer';
 import AutocompleteSearch from '@/components/AutocompleteSearch';
 import WishlistView from '@/components/WishlistView';
@@ -2215,24 +2217,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   }
 
   // For admin/agency routes, force login immediately if not authenticated
-  if (!user && (routeMode === 'admin' || routeMode === 'agency')) {
-    return (
-      <>
-        <div className="flex min-h-screen items-center justify-center bg-gray-100">
-          <div className="text-center">
-            <p className="text-gray-500 text-sm">Please sign in to continue.</p>
-          </div>
-        </div>
-        <AuthModal
-          isOpen={true}
-          onClose={() => {}}
-          initialTab="login"
-          onLogin={signIn}
-          onRegister={handleAuthModalRegister}
-          onGoogleSignIn={signInWithGoogle}
-        />
-      </>
-    );
+  if (!user && routeMode === 'admin') {
+    return <AdminLoginView />;
+  }
+  
+  if (!user && routeMode === 'agency') {
+    return <AgencyLoginView />;
   }
 
   if (user && userData) {
@@ -3408,7 +3398,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
   // User Dashboard — render publicly for routeMode='user' (no login required)
   // Also renders when logged in as a user role
-  if (routeMode === 'user' || (user && (userData?.role === 'user' || userData?.role === 'agency'))) {
+  if (routeMode === 'user' || (user && userData?.role === 'user')) {
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
