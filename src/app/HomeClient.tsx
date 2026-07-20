@@ -1,6 +1,5 @@
 'use client';
-
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +19,7 @@ import Footer from '@/components/Footer';
 import AutocompleteSearch from '@/components/AutocompleteSearch';
 import WishlistView from '@/components/WishlistView';
 import AuthModal from '@/components/AuthModal';
+import UserProfile from '@/components/UserProfile';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { 
   User, 
@@ -243,8 +243,21 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [allAgencies, setAllAgencies] = useState<any[]>([]);
   const [pendingListings, setPendingListings] = useState<any[]>([]);
   const [agencyActiveSection, setAgencyActiveSection] = useState('listings');
-  const [userActiveSection, setUserActiveSection] = useState('listings');
-  const [fromSection, setFromSection] = useState('listings');
+  const searchParams = useSearchParams();
+  const sectionParam = searchParams.get('section');
+  
+  useEffect(() => {
+    if (sectionParam) {
+      if (sectionParam === 'compare') {
+        setUserActiveSection('listings');
+        setShowComparison(true);
+      } else {
+        setUserActiveSection(sectionParam);
+      }
+    }
+  }, [sectionParam]);
+
+  const [userActiveSection, setUserActiveSection] = useState('listings');  const [fromSection, setFromSection] = useState('listings');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [currentChatAgency, setCurrentChatAgency] = useState<string>('agency1');
@@ -3446,7 +3459,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       return (
         <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
           {/* Top Navigation Bar */}
-          <header className="header-transition text-white z-[100] relative bg-[#0B0F19] shadow-sm border-b border-gray-800 h-16 flex items-center">
+          <header className="header-transition text-gray-900 z-[100] relative bg-white shadow-sm border-b border-gray-200 h-16 flex items-center">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
               {/* Logo & Search */}
               <div className="flex items-center gap-4 flex-1 w-full h-full">
@@ -3471,7 +3484,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setShowComparison(false);
                   }}
                 >
-                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 w-auto object-contain" />
+                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-20 w-auto object-contain" />
                 </div>
                 <div className="relative w-full max-w-xl">
                   <AutocompleteSearch
@@ -3484,109 +3497,81 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       setSearchTerm(val);
                     }}
                     suggestions={allDestinations}
-                    inputClassName="w-full pl-10 pr-4 py-1.5 rounded-full text-black bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none border-none text-sm h-10 shadow-inner"
-                    iconClassName="left-3 top-3"
+                    inputClassName="w-full pl-10 pr-4 py-1.5 rounded-md text-black bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:outline-none border border-gray-200 text-sm h-10 shadow-inner"
+                    iconClassName="left-3 top-3 text-gray-400"
                   />
                 </div>
               </div>
 
-              {/* Right Icons */}
-              <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap">
+              {/* Right Links */}
+              <div className="flex items-center gap-5 w-full md:w-auto justify-between md:justify-end flex-wrap pl-4">
+                
                 {/* Location */}
-                <div className="flex items-center gap-2 text-xs text-white select-none bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm transition-all">
+                <div className="flex items-center gap-1.5 text-gray-700 select-none mr-2">
                   <MapPin className="h-4 w-4 text-orange-500" />
-                  <div className="flex flex-col leading-tight hidden sm:flex">
-                    <span className="font-bold text-gray-200">{pincode}</span>
-                    <span className="text-[9px] text-gray-400 font-medium">Location</span>
+                  <div className="flex flex-col leading-[1.1] hidden sm:flex">
+                    <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
+                    <span className="text-[9px] text-gray-500 font-medium tracking-wide">Location</span>
                   </div>
                 </div>
 
                 {/* Compare */}
-                <div
-                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${showComparison ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
+                <span
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${showComparison ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('listings');
                     setShowComparison(true);
                   }}
                 >
-                  <Scale className="h-4 w-4" />
-                  <div className="flex flex-col leading-tight hidden sm:flex">
-                    <span className="font-semibold text-gray-200">Compare</span>
-                    <span className="text-[9px] text-gray-400 font-medium">Packages</span>
-                  </div>
-                </div>
+                  Compare
+                </span>
 
                 {/* Wishlist */}
-                <div
-                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'wishlist' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
+                <span
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${userActiveSection === 'wishlist' ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('wishlist');
                     setShowComparison(false);
                   }}
                 >
-                  <Heart className="h-4 w-4" />
-                  <div className="flex flex-col leading-tight hidden sm:flex">
-                    <span className="font-semibold text-gray-200">Wishlist</span>
-                    <span className="text-[9px] text-gray-400 font-medium">Saved</span>
-                  </div>
-                </div>
+                  Wishlist
+                </span>
+
                 {/* Messages */}
-                <div
-                  className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'chat' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
+                <span
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${userActiveSection === 'chat' ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('chat');
                   }}
                 >
-                  <MessageSquare className="h-4 w-4" />
-                  <div className="flex flex-col leading-tight hidden sm:flex">
-                    <span className="font-semibold text-gray-200">Messages</span>
-                    <span className="text-[9px] text-gray-400 font-medium">Agencies</span>
-                  </div>
-                </div>
-
-                {/* Support */}
-                <div
-                  className={`!hidden flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'support' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''}`}
-                  onClick={() => {
-                    setFromSection(userActiveSection);
-                    setUserActiveSection('support');
-                  }}
-                >
-                  <Shield className="h-4 w-4" />
-                  <div className="flex flex-col leading-tight hidden sm:flex">
-                    <span className="font-semibold text-gray-200">Support</span>
-                    <span className="text-[9px] text-gray-400 font-medium">Dispute & Help</span>
-                  </div>
-                </div>
+                  Messages
+                </span>
 
                 {/* Profile / Sign In */}
                 {user && userData ? (
-                  <div
-                    className={`flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500 font-bold border-orange-500/20 bg-orange-500/5' : ''} ml-2`}
-                    onClick={() => {
-                      setFromSection(userActiveSection);
-                      setUserActiveSection('profile');
-                    }}
-                  >
-                    <User className="h-4 w-4" />
-                    <div className="flex flex-col leading-tight hidden sm:flex">
-                      <span className="font-semibold text-gray-200">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
-                      <span
-                        className="text-[9px] text-gray-400 hover:text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          signOut();
-                        }}
-                      >
-                        Sign Out
-                      </span>
+                  <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-5">
+                    <div
+                      className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
+                      onClick={() => {
+                        setFromSection(userActiveSection);
+                        setUserActiveSection('profile');
+                      }}
+                    >
+                      {userData.avatarUrl ? (
+                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200">
+                          <User className="h-4 w-4" />
+                        </div>
+                      )}
+                      <span className="hidden sm:inline">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
                     </div>
-                    {/* Mobile Sign Out */}
+                    
                     <span
-                      className="xl:hidden absolute top-8 right-0 bg-black text-white p-2 rounded shadow opacity-0 group-hover:opacity-100"
+                      className="text-[13px] text-gray-500 hover:text-orange-500 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         signOut();
@@ -3598,9 +3583,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 ) : (
                   <button
                     onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                    className="bg-orange-400 hover:bg-orange-500 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
+                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors"
                   >
-                    Sign In
+                    Login
                   </button>
                 )}
               </div>
@@ -3608,10 +3593,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
           </header>
 
           {/* Secondary Nav Bar */}
-          <nav className="bg-[#14161C] border-t border-gray-800 shadow-sm z-10 hidden lg:block">
-            <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between text-sm text-gray-300 font-medium">
+          <nav className="bg-gray-50 border-b border-gray-200 shadow-sm z-10 hidden lg:block">
+            <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between text-sm text-gray-600 font-medium">
               <div className="flex items-center gap-8">
-                <button className="flex items-center gap-1 hover:text-white transition-colors" onClick={() => setUserActiveSection('listings')}>
+                <button className="flex items-center gap-1 hover:text-orange-500 transition-colors" onClick={() => setUserActiveSection('listings')}>
 
                 </button>
               </div>
@@ -3628,12 +3613,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
               <div className="w-full bg-[#0F172A] py-20 px-6 relative z-40 mb-8 shadow-2xl mt-0 min-h-[480px] flex flex-col justify-center items-center">
                 {/* Background image overlay */}
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center opacity-25"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#14161C] via-slate-900/35 to-transparent"></div>
-                
-                {/* Floating decor particles */}
-                <div className="absolute top-10 left-10 text-white/5 pointer-events-none select-none"><Plane className="w-40 h-40" /></div>
-                <div className="absolute bottom-10 right-10 text-white/5 pointer-events-none select-none"><MapIcon className="w-40 h-40" /></div>
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center opacity-80"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#14161C] via-[#14161C]/60 to-black/30"></div>
+                {/* Floating decor particles removed for a cleaner look */}
 
                 <div className="max-w-5xl mx-auto w-full text-center relative z-10 text-white mt-4 flex flex-col items-center">
                   <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-1.5 font-bold text-xs mb-5 rounded-full shadow-lg tracking-wide uppercase">
@@ -3763,7 +3745,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               </div>
             )}
 
-            <main className={`${(userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat') ? 'w-full' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings')) ? 'pb-0' : 'pb-10'}`}>
+            <main className={`${(userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat') ? 'w-full' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
               {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && userActiveSection !== 'chat' && (
                 <div className="mb-6 mt-6 px-6 max-w-7xl mx-auto flex justify-between items-center border-b pb-4 border-gray-200">
@@ -5129,438 +5111,27 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
 
               {userActiveSection === 'profile' && (
-                <div className="py-6 animate-in fade-in duration-200 space-y-6">
-                  {/* Header Title */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-6">
-                    <div>
-                      <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Profile Settings</h1>
-                      <p className="text-sm text-gray-500 mt-1 font-medium">Manage your personal details, preferences, and account security.</p>
-                    </div>
-                  </div>
-
-                  {/* Avatar Upload Section */}
-                  <div className="bg-white border border-gray-200 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-8 shadow-sm">
-                    <div className="relative w-24 h-24 bg-gray-50 rounded-full border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-                      {profilePhotoUrl && !profileImageError ? (
-                        <img
-                          src={profilePhotoUrl}
-                          alt={profileName}
-                          onError={() => setProfileImageError(true)}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="h-10 w-10 text-gray-400" />
-                      )}
-                    </div>
-                    <div className="flex-1 text-center md:text-left">
-                      <h3 className="text-xl font-bold text-gray-900 mb-3">{profileName || userData?.name || 'User Profile'}</h3>
-                      <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-sm font-semibold text-gray-700 rounded-lg cursor-pointer shadow-sm transition-colors">
-                        <Camera className="w-4 h-4" />
-                        Change Avatar
-                        <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="hidden" />
-                      </label>
-                    </div>
-                    <div className="flex flex-row gap-4 border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-8">
-                      <div className="text-center md:text-left">
-                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Saved Trips</p>
-                        <p className="text-3xl font-black text-gray-900 leading-none">{wishlist.length}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* GRID LAYOUT FOR NAVIGATION & CONTENT */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {/* LEFT SIDEBAR: NAVIGATION MENU */}
-                    <div className="md:col-span-1 space-y-6">
-                      <div className="bg-white border border-gray-150 shadow-sm rounded-3xl p-3 space-y-1">
-                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 pt-2 mb-3">Settings Menu</h4>
-                        
-                        <button
-                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm rounded-2xl transition-all duration-200 ${profileTab === 'account'
-                              ? 'font-bold text-orange-600 bg-orange-50 border-orange-100/50 shadow-[0_2px_10px_rgb(249,115,22,0.05)]'
-                              : 'font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50/80'
-                            }`}
-                          onClick={() => {
-                            setProfileTab('account');
-                            setUserActiveSection('profile');
-                          }}
-                        >
-                          <User className="h-[18px] w-[18px] shrink-0" />
-                          <span>My Account</span>
-                        </button>
-
-                        <button
-                          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 rounded-2xl transition-all duration-200"
-                          onClick={() => {
-                            setFromSection('profile');
-                            setUserActiveSection('wishlist');
-                          }}
-                        >
-                          <Heart className="h-[18px] w-[18px] shrink-0" />
-                          <span>Wishlist</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* RIGHT COLUMN: MAIN CONTENT PANEL */}
-                    <div className="md:col-span-3 space-y-6">
-                      {profileTab === 'account' && (
-                        <>
-                          {/* Personal Details Card */}
-                          <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
-                            <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-6">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
-                                  <User className="h-5 w-5 text-orange-500" />
-                                </div>
-                                <div>
-                                  <h2 className="text-lg font-extrabold text-gray-900">Your Personal Details</h2>
-                                  <p className="text-xs text-gray-500 mt-0.5 font-medium">Manage your identity and contact credentials</p>
-                                </div>
-                              </div>
-                              {!isEditingProfile ? (
-                                <Button
-                                  onClick={() => setIsEditingProfile(true)}
-                                  variant="outline"
-                                  className="border-orange-200 text-orange-500 hover:bg-orange-50 hover:text-orange-600 text-xs font-bold rounded-full px-5 py-2 h-auto transition-all flex items-center gap-2"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  Edit Profile
-                                </Button>
-                              ) : (
-                                <div className="flex gap-2">
-                                  <Button
-                                    onClick={handleSaveProfile}
-                                    disabled={savingProfile}
-                                    className="bg-[#FF9900] hover:bg-[#E68A00] text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md transition-all h-auto flex items-center gap-1.5"
-                                  >
-                                    {savingProfile ? 'Saving...' : (
-                                      <>
-                                        <Save className="h-3.5 w-3.5" />
-                                        Save
-                                      </>
-                                    )}
-                                  </Button>
-                                  <Button
-                                    onClick={() => {
-                                      setProfileName(userData?.name || '');
-                                      setProfilePhone(userData?.phone || userData?.contactNumber || '');
-                                      setIsEditingProfile(false);
-                                    }}
-                                    variant="outline"
-                                    className="border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-2xl px-6 py-2.5 h-auto transition-all"
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Details Panel */}
-                            <div className="space-y-6">
-                              {!isEditingProfile ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="bg-gray-50/50 border border-gray-100 rounded-2xl p-4">
-                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1">Full Name</p>
-                                    <p className="text-sm font-bold text-gray-900">{profileName || '-'}</p>
-                                  </div>
-                                  <div className="bg-gray-50/50 border border-gray-100 rounded-2xl p-4 flex items-center justify-between">
-                                    <div>
-                                      <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1">Contact Number</p>
-                                      <p className="text-sm font-bold text-gray-900">{profilePhone || '-'}</p>
-                                    </div>
-                                    {profilePhone && <CheckCircle className="h-5 w-5 text-emerald-500" />}
-                                  </div>
-                                  <div className="md:col-span-2 bg-gray-50/50 border border-gray-100 rounded-2xl p-4">
-                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1">Email Address</p>
-                                    <div className="flex items-center justify-between mt-1">
-                                      <p className="text-sm font-bold text-gray-900">{profileEmail}</p>
-                                      {user?.emailVerified ? (
-                                        <span className="inline-flex items-center gap-1 bg-[#F0FDF4] text-emerald-700 rounded-full px-3 py-1 text-[11px] font-bold border border-emerald-100">
-                                          ✓ Verified
-                                        </span>
-                                      ) : (
-                                        <button onClick={() => alert('Verification email sent!')} className="text-sm font-bold text-orange-500 hover:underline">
-                                          Verify Email
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="space-y-5">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div>
-                                      <Label htmlFor="editName" className="text-xs font-semibold text-gray-600 mb-1.5 block">Full Name</Label>
-                                      <Input
-                                        id="editName"
-                                        type="text"
-                                        value={profileName}
-                                        onChange={(e) => setProfileName(e.target.value)}
-                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-orange-400 p-3.5 text-sm shadow-sm"
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="editPhone" className="text-xs font-semibold text-gray-600 mb-1.5 block">Contact Number</Label>
-                                      <Input
-                                        id="editPhone"
-                                        type="text"
-                                        value={profilePhone}
-                                        onChange={(e) => setProfilePhone(e.target.value)}
-                                        placeholder="e.g. +91 9876543210"
-                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-orange-400 p-3.5 text-sm shadow-sm"
-                                      />
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs font-semibold text-gray-600 mb-1.5 block">Email Address (Primary Credential)</Label>
-                                    <Input
-                                      type="text"
-                                      value={profileEmail}
-                                      disabled
-                                      className="bg-gray-50 border-gray-200 text-gray-500 rounded-2xl cursor-not-allowed p-3.5 text-sm shadow-sm"
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </Card>
-
-                          {/* Traveler Preferences & Document Management Card */}
-                          {/* <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
-                            <div className="pb-4 border-b border-gray-100 mb-6">
-                              <h3 className="text-lg font-bold text-gray-900">Traveler Preferences & Documents</h3>
-                              <p className="text-xs text-gray-400 mt-0.5">Standard corporate flight, seating, and meal preferences</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                              <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm hover:border-blue-200 transition-all">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Plane className="h-5 w-5" /></span>
-                                  <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Preferred</span>
-                                </div>
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Seat Preference</h4>
-                                <p className="text-sm font-bold text-gray-800 mt-1">Window / Aisle</p>
-                              </div>
-
-                              <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm hover:border-blue-200 transition-all">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Utensils className="h-5 w-5" /></span>
-                                  <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Verified</span>
-                                </div>
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Meal Preference</h4>
-                                <p className="text-sm font-bold text-gray-800 mt-1">Vegetarian / Vegan</p>
-                              </div>
-
-                              <div className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm hover:border-blue-200 transition-all">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Tag className="h-5 w-5" /></span>
-                                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-200">Active</span>
-                                </div>
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Frequent Flyer Tier</h4>
-                                <p className="text-sm font-bold text-gray-800 mt-1">Gold Executive</p>
-                              </div>
-                            </div>
-                          </Card> */}
-
-                          {/* Co-traveller details Section */}
-                          <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
-                            <div>
-                              <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-6">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
-                                    <Users className="h-5 w-5 text-orange-500" />
-                                  </div>
-                                  <div>
-                                    <h3 className="text-lg font-extrabold text-gray-900">Co-traveller Details</h3>
-                                    <p className="text-xs text-gray-500 mt-0.5 font-medium">Manage details of passengers traveling with you</p>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => setShowAddCoTraveller(true)}
-                                  className="h-10 px-4 bg-[#FF9900] hover:bg-[#E68A00] text-white flex items-center justify-center rounded-full shadow-sm text-xs font-bold gap-2 transition-all duration-200"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                  Add Co-traveller
-                                </button>
-                              </div>
-
-                              {/* Inline Add Co-traveller Form */}
-                              {showAddCoTraveller && (
-                                <div className="bg-blue-50/30 border border-blue-200 rounded-3xl p-6 mb-6 space-y-5 animate-in slide-in-from-top-4 duration-200 shadow-sm">
-                                  <h4 className="text-base font-bold text-gray-900">Add New Co-traveller</h4>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <div>
-                                      <Label htmlFor="coName" className="text-xs font-semibold text-gray-600 mb-1 block">Full Name</Label>
-                                      <Input
-                                        id="coName"
-                                        placeholder="Full Name"
-                                        value={newCoTraveller.name}
-                                        onChange={(e) => setNewCoTraveller({ ...newCoTraveller, name: e.target.value })}
-                                        className="bg-white rounded-2xl text-xs focus-visible:ring-orange-400 p-3 border-gray-200 shadow-sm"
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="coContact" className="text-xs font-semibold text-gray-600 mb-1 block">Contact Number</Label>
-                                      <Input
-                                        id="coContact"
-                                        placeholder="Phone"
-                                        value={newCoTraveller.contact}
-                                        onChange={(e) => setNewCoTraveller({ ...newCoTraveller, contact: e.target.value })}
-                                        className="bg-white rounded-2xl text-xs focus-visible:ring-orange-400 p-3 border-gray-200 shadow-sm"
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="coRelation" className="text-xs font-semibold text-gray-600 mb-1 block">Relationship</Label>
-                                      <select
-                                        id="coRelation"
-                                        value={newCoTraveller.relationship}
-                                        onChange={(e) => setNewCoTraveller({ ...newCoTraveller, relationship: e.target.value })}
-                                        className="block w-full rounded-2xl border-gray-200 bg-white p-3 text-xs text-gray-800 shadow-sm focus:border-blue-500 focus:ring-orange-400 focus-visible:ring-orange-400"
-                                      >
-                                        <option>Spouse</option>
-                                        <option>Child</option>
-                                        <option>Parent</option>
-                                        <option>Sibling</option>
-                                        <option>Friend</option>
-                                        <option>Other</option>
-                                      </select>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-2 justify-end pt-2">
-                                    <Button
-                                      onClick={async () => {
-                                        if (!newCoTraveller.name.trim() || !newCoTraveller.contact.trim()) {
-                                          alert('Please fill in Name and Contact number');
-                                          return;
-                                        }
-                                        const updatedList = [...coTravellers, {
-                                          id: `${Date.now()}`,
-                                          ...newCoTraveller
-                                        }];
-
-                                        // Save instantly to database if user is saved
-                                        const dbInstance = getDbInstance();
-                                        if (dbInstance && user) {
-                                          try {
-                                            await updateDoc(doc(dbInstance, 'users', user.uid), {
-                                              coTravellers: updatedList
-                                            });
-                                          } catch (err) {
-                                            console.error('Error saving co-travellers list:', err);
-                                          }
-                                        }
-
-                                        setCoTravellers(updatedList);
-                                        setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
-                                        setShowAddCoTraveller(false);
-                                      }}
-                                      className="bg-orange-400 hover:bg-orange-500 text-white text-xs px-6 py-2.5 h-auto rounded-2xl border-none transition-all shadow-md font-bold"
-                                    >
-                                      Add Traveler
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      onClick={() => setShowAddCoTraveller(false)}
-                                      className="border-gray-200 text-gray-700 text-xs px-6 py-2.5 h-auto rounded-2xl transition-all font-semibold"
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* List of Co-travellers */}
-                              {coTravellers.length === 0 ? (
-                                <div className="py-14 px-4 bg-[#F8FAFC] rounded-3xl text-center flex flex-col items-center">
-                                  <Briefcase className="h-14 w-14 text-orange-500 mb-4" />
-                                  <p className="text-[15px] font-extrabold text-gray-900 mb-2">No co-travellers added yet</p>
-                                  <p className="text-[13px] text-gray-500 max-w-xs mx-auto font-medium leading-relaxed">Add your family members or frequent travel companions for instant booking autofill.</p>
-                                </div>
-                              ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {coTravellers.map((traveller) => (
-                                    <div
-                                      key={traveller.id}
-                                      className="flex justify-between items-center p-5 bg-white border border-gray-200 rounded-3xl hover:border-blue-200 transition-all duration-200 shadow-sm group animate-in fade-in"
-                                    >
-                                      <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-105 transition-all">
-                                          <User className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                          <p className="text-sm font-bold text-gray-900">{traveller.name}</p>
-                                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                            <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {traveller.contact}</span>
-                                            <span>•</span>
-                                            <span className="bg-blue-50 text-blue-600 border border-blue-100 px-2.5 py-0.5 rounded-full font-bold text-[10px]">{traveller.relationship}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={async () => {
-                                          const updatedList = coTravellers.filter(t => t.id !== traveller.id);
-
-                                          const dbInstance = getDbInstance();
-                                          if (dbInstance && user) {
-                                            try {
-                                              await updateDoc(doc(dbInstance, 'users', user.uid), {
-                                                coTravellers: updatedList
-                                              });
-                                            } catch (err) {
-                                              console.error('Error deleting co-traveller:', err);
-                                            }
-                                          }
-
-                                          setCoTravellers(updatedList);
-                                        }}
-                                        className="text-gray-400 hover:text-red-500 p-2.5 hover:bg-red-50 rounded-xl transition-all duration-150"
-                                        title="Remove Traveler"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </Card>
-
-                          {/* Account Security & Sessions Card */}
-                          {/* <Card className="bg-white border border-gray-200 shadow-md rounded-3xl p-6 md:p-8">
-                            <div className="pb-4 border-b border-gray-100 mb-6">
-                              <h3 className="text-lg font-bold text-gray-900">Account Security & Sessions</h3>
-                              <p className="text-xs text-gray-400 mt-0.5">Enterprise security overview and active authentication status</p>
-                            </div>
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-150 rounded-2xl">
-                                <div className="flex items-center gap-3">
-                                  <span className="p-2 bg-gray-100 rounded-xl"><Lock className="h-5 w-5 text-gray-700" /></span>
-                                  <div>
-                                    <p className="text-sm font-bold text-gray-800">Password Authentication</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">Protected with 256-bit secure login credentials</p>
-                                  </div>
-                                </div>
-                                <span className="bg-emerald-100 text-emerald-800 font-bold text-[10px] px-3 py-1 rounded-full border border-emerald-200">Enabled</span>
-                              </div>
-
-                              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-150 rounded-2xl">
-                                <div className="flex items-center gap-3">
-                                  <span className="p-2 bg-gray-100 rounded-xl"><Laptop className="h-5 w-5 text-gray-700" /></span>
-                                  <div>
-                                    <p className="text-sm font-bold text-gray-800">Current Session</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">Windows • Active Browser Session</p>
-                                  </div>
-                                </div>
-                                <span className="bg-blue-100 text-blue-800 font-bold text-[10px] px-3 py-1 rounded-full border border-blue-200">Active Now</span>
-                              </div>
-                            </div>
-                          </Card> */}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <UserProfile
+                  user={user}
+                  userData={userData}
+                  wishlist={wishlist}
+                  coTravellers={coTravellers}
+                  setCoTravellers={setCoTravellers}
+                  profileName={profileName}
+                  setProfileName={setProfileName}
+                  profilePhone={profilePhone}
+                  setProfilePhone={setProfilePhone}
+                  profilePhotoUrl={profilePhotoUrl}
+                  handleProfilePhotoChange={handleProfilePhotoChange}
+                  isEditingProfile={isEditingProfile}
+                  setIsEditingProfile={setIsEditingProfile}
+                  savingProfile={savingProfile}
+                  handleSaveProfile={handleSaveProfile}
+                  onNavigateToWishlist={() => {
+                    setFromSection('profile');
+                    setUserActiveSection('wishlist');
+                  }}
+                />
               )}
 
               {userActiveSection === 'support' && (

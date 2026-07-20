@@ -99,90 +99,98 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Global Header */}
-      <header className="header-transition text-white z-[100] relative bg-[#0B0F19] shadow-sm border-b border-gray-800 min-h-16 flex items-center py-2 md:py-0">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
+      <header className="header-transition bg-white text-gray-900 z-[100] relative shadow-sm border-b border-gray-200 min-h-[72px] flex items-center py-2 md:py-0">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-6 w-full h-full">
           {/* Logo & Search */}
-          <div className="flex items-center gap-4 flex-1 w-full h-full py-2">
+          <div className="flex items-center gap-6 flex-1 w-full h-full py-2">
             <div 
-              className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer"
+              className="flex items-center gap-1 sm:gap-2 font-black tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => router.push('/')}
             >
-              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 w-auto object-contain" />
+              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-20 w-auto object-contain" />
             </div>
             
             <div className="relative w-full max-w-xl hidden sm:block cursor-text" onClick={() => router.push('/')}>
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <input 
-                type="text"
+                type="text" 
+                placeholder="Search your Holiday Destination" 
+                className="w-full pl-10 pr-4 py-1.5 rounded-md text-black bg-gray-50 border border-gray-200 text-sm h-10 shadow-inner focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
                 readOnly
-                placeholder="Search your Holiday Destination"
-                className="w-full pl-10 pr-4 py-1.5 rounded-full text-black bg-white focus:outline-none border-none text-sm h-10 shadow-inner cursor-pointer"
               />
             </div>
           </div>
 
-          {/* Right Icons */}
-          <div className="flex items-center gap-2.5 w-full md:w-auto overflow-x-auto hide-scrollbar pb-2 md:pb-0 pt-1 md:pt-0 shrink-0">
+          {/* Right Links */}
+          <div className="flex items-center gap-5 w-full md:w-auto justify-between md:justify-end flex-wrap pl-4">
+            
             {/* Location */}
-            <div className="flex items-center gap-2 text-xs text-white select-none bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm transition-all cursor-pointer shrink-0" onClick={() => router.push('/')}>
+            <div className="flex items-center gap-1.5 text-gray-700 select-none mr-2">
               <MapPin className="h-4 w-4 text-orange-500" />
-              <div className="flex flex-col leading-tight hidden sm:flex">
-                <span className="font-bold text-gray-200">{pincode}</span>
-                <span className="text-[9px] text-gray-400 font-medium">Location</span>
+              <div className="flex flex-col leading-[1.1] hidden sm:flex">
+                <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
+                <span className="text-[9px] text-gray-500 font-medium tracking-wide">Location</span>
               </div>
             </div>
 
             {/* Compare */}
-            <div className="flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0" onClick={() => router.push('/?view=compare')}>
-              <Scale className="h-4 w-4" />
-              <div className="flex flex-col leading-tight hidden sm:flex">
-                <span className="font-semibold text-gray-200">Compare</span>
-                <span className="text-[9px] text-gray-400 font-medium">Packages</span>
-              </div>
-            </div>
+            <span
+              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+              onClick={() => router.push('/?section=compare')}
+            >
+              Compare
+            </span>
 
             {/* Wishlist */}
-            <div className="flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0" onClick={() => router.push('/?view=wishlist')}>
-              <Heart className="h-4 w-4" />
-              <div className="flex flex-col leading-tight hidden sm:flex">
-                <span className="font-semibold text-gray-200">Wishlist</span>
-                <span className="text-[9px] text-gray-400 font-medium">Saved</span>
-              </div>
-            </div>
+            <span
+              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+              onClick={() => router.push('/?section=wishlist')}
+            >
+              Wishlist
+            </span>
 
             {/* Messages */}
-            <div className="flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0" onClick={() => router.push('/?view=messages')}>
-              <MessageSquare className="h-4 w-4" />
-              <div className="flex flex-col leading-tight hidden sm:flex">
-                <span className="font-semibold text-gray-200">Messages</span>
-                <span className="text-[9px] text-gray-400 font-medium">Agencies</span>
-              </div>
-            </div>
+            <span
+              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+              onClick={() => router.push('/?section=chat')}
+            >
+              Messages
+            </span>
 
-            {/* Support */}
-            <div className="!hidden flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0" onClick={() => router.push('/?view=support')}>
-              <Shield className="h-4 w-4" />
-              <div className="flex flex-col leading-tight hidden sm:flex">
-                <span className="font-semibold text-gray-200">Support</span>
-                <span className="text-[9px] text-gray-400 font-medium">Help</span>
-              </div>
-            </div>
-
-            {/* Profile */}
-            {userData ? (
-              <div className="flex items-center gap-2 cursor-pointer transition-all text-xs bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-full hover-lift shadow-sm hover:text-orange-400 shrink-0 ml-2" onClick={() => router.push('/?view=profile')}>
-                <User className="h-4 w-4" />
-                <div className="flex flex-col leading-tight hidden sm:flex">
-                  <span className="font-semibold text-gray-200">Hi, {userData.name ? userData.name.split(' ')[0] : 'User'}</span>
-                  <span className="text-[9px] text-gray-400">Account</span>
+            {/* Profile / Sign In */}
+            {user && userData ? (
+              <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-5">
+                <div
+                  className="flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+                  onClick={() => router.push('/?section=profile')}
+                >
+                  {userData.avatarUrl ? (
+                    <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200">
+                      <User className="h-4 w-4" />
+                    </div>
+                  )}
+                  <span className="hidden sm:inline">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
                 </div>
+                
+                <span
+                  className="text-[13px] text-gray-500 hover:text-orange-500 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const auth = useAuth();
+                    auth.signOut?.();
+                  }}
+                >
+                  Sign Out
+                </span>
               </div>
             ) : (
-              <button 
-                onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }} 
-                className="bg-orange-400 hover:bg-orange-500 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
+              <button
+                onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
+                className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors"
               >
-                Sign In
+                Login
               </button>
             )}
           </div>

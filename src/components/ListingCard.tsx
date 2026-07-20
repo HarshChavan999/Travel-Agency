@@ -416,7 +416,7 @@ export default function ListingCard({
               {variant === 'user' ? (
                 <>
                   <Link href={`/package/${listing.id}`} className="block flex-1">
-                    <Button className="w-full h-[48px] bg-[#1961CA] hover:bg-[#1550a6] text-white font-medium text-[14px] rounded-xl shadow-sm transition-colors">
+                    <Button className="w-full h-[48px] bg-orange-400 hover:bg-orange-600 text-white font-medium text-[14px] rounded-xl shadow-sm transition-colors">
                       View Details
                     </Button>
                   </Link>
@@ -442,7 +442,7 @@ export default function ListingCard({
                 </>
               ) : (
                 <>
-                  <Button className="flex-1 h-[48px] bg-[#1961CA] hover:bg-[#1550a6] text-white font-medium text-[14px] rounded-xl shadow-sm transition-colors" onClick={() => onView?.(listing)}>
+                  <Button className="flex-1 h-[48px] bg-orange-500 hover:bg-orange-600 text-white font-medium text-[14px] rounded-xl shadow-sm transition-colors" onClick={() => onView?.(listing)}>
                     View Details
                   </Button>
                   <div className="flex flex-col gap-1.5 w-[88px]">
