@@ -47,22 +47,22 @@ service cloud.firestore {
                       request.auth.uid == "temp-admin-uid"; // Temporary for testing
     }
 
-    // Chat messages - users can read/write messages they're involved in
+    // Chat messages - users can read/write messages they're involved in, admins can read all
     match /chat_messages/{messageId} {
-      allow read: if isAuthenticated() &&
+      allow read: if isAdmin() || (isAuthenticated() &&
                      (request.auth.uid == resource.data.from_user_id ||
-                      request.auth.uid == resource.data.to_user_id);
+                      request.auth.uid == resource.data.to_user_id));
       allow write: if isAuthenticated() &&
                       request.auth.uid == request.resource.data.from_user_id;
       allow create: if isAuthenticated() &&
                        request.auth.uid == request.resource.data.from_user_id;
     }
 
-    // Messages collection - authenticated users can read/write messages they're involved in
+    // Messages collection - authenticated users can read/write messages they're involved in, admins can read all
     match /messages/{messageId} {
-      allow read: if isAuthenticated() &&
+      allow read: if isAdmin() || (isAuthenticated() &&
                      (request.auth.uid == resource.data.sender ||
-                      request.auth.uid == resource.data.receiverId);
+                      request.auth.uid == resource.data.receiverId));
       allow write: if isAuthenticated() &&
                       request.auth.uid == request.resource.data.sender;
       allow create: if isAuthenticated() &&

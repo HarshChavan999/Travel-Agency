@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuthInstance, getDbInstance, getStorageInstance } from '@/lib/firebase';
 
@@ -10,6 +10,8 @@ interface UserData {
   role: 'admin' | 'agency' | 'user';
   approved: boolean;
   name?: string;
+  email?: string;
+  authEmail?: string;
   companyName?: string;
   phone?: string;
   contactNumber?: string;
@@ -78,6 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const dbInstance = getDbInstance();
         if (dbInstance) {
           const docRef = doc(dbInstance, 'users', firebaseUser.uid);
+          
+          // Update online status immediately on login
+          updateDoc(docRef, { isOnline: true }).catch(console.error);
+
           docUnsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
               setUserData(docSnap.data() as UserData);
@@ -113,6 +119,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!data.approved) {
               throw new Error('Account not approved yet. Please wait for admin approval.');
             }
+            // Update online status on redirect login
+            updateDoc(userDocRef, { isOnline: true }).catch(console.error);
             setUserData(data);
           } else {
             // For Google sign-in, if no document exists, create one as agency (or check if it's admin email)
@@ -122,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: isAdmin ? 'admin' : 'agency',
               approved: isAdmin, // Auto-approve admin
               name: redirectResult.user.displayName || 'User',
+              isOnline: true,
               ...(isAdmin ? {} : { companyName: 'Pending Setup' }), // Only add companyName for agencies
             };
             await setDoc(userDocRef, userDataToSave);
@@ -152,6 +161,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    
+    const handleVisibilityChange = () => {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      const docRef = doc(dbInstance, 'users', user.uid);
+      if (document.visibilityState === 'visible') {
+        updateDoc(docRef, { isOnline: true }).catch(console.error);
+      } else {
+        updateDoc(docRef, { isOnline: false }).catch(console.error);
+      }
+    };
+    
+    const handleBeforeUnload = () => {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      const docRef = doc(dbInstance, 'users', user.uid);
+      updateDoc(docRef, { isOnline: false }).catch(console.error);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
+
   const signIn = async (email: string, password: string) => {
     try {
       console.log('🔐 Starting sign-in process for:', email);
@@ -180,6 +219,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (userDoc.exists()) {
         const data = userDoc.data() as UserData;
+        
+        // Ensure authEmail is updated
+        await updateDoc(userDocRef, { 
+          authEmail: userCredential.user.email || data.email || '' 
+        }).catch(console.error);
+
         console.log('👤 User data retrieved:', { role: data.role, approved: data.approved, name: data.name });
 
         if (!data.approved) {
@@ -265,6 +310,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Document exists:', userDoc.exists());
       if (userDoc.exists()) {
         const data = userDoc.data() as UserData;
+        
+        // Ensure authEmail is updated
+        await updateDoc(userDocRef, { 
+          authEmail: userCredential.user.email || data.email || '' 
+        }).catch(console.error);
+
         console.log('User data:', data);
         if (!data.approved) {
           throw new Error('Account not approved yet. Please wait for admin approval.');
@@ -278,6 +329,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: isAdmin ? 'admin' : 'agency',
           approved: isAdmin, // Auto-approve admin
           name: userCredential.user.displayName || 'User',
+          email: userCredential.user.email || '',
+          authEmail: userCredential.user.email || '',
           ...(isAdmin ? {} : { companyName: 'Pending Setup' }), // Only add companyName for agencies
         };
         await setDoc(userDocRef, userDataToSave);
@@ -294,9 +347,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    const authInstance = getAuthInstance();
-    if (authInstance) {
-      await firebaseSignOut(authInstance);
+    try {
+      if (user) {
+        const dbInstance = getDbInstance();
+        if (dbInstance) {
+          await updateDoc(doc(dbInstance, 'users', user.uid), { isOnline: false }).catch(console.error);
+        }
+      }
+      const authInstance = getAuthInstance();
+      if (authInstance) {
+        await firebaseSignOut(authInstance);
+      }
+    } catch (error) {
+      console.error('Error signing out:', error);
+      throw error;
     }
   };
 
@@ -323,11 +387,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!dbInstance) throw new Error('Database not initialized');
 
       // Save to Firestore
-      await setDoc(doc(dbInstance, 'users', user.uid), {
-        ...userDataInput,
+      const userDataToSave = {
         role,
-        approved: role === 'user', // Users are auto-approved
-        wishlist: [], // Initialize empty wishlist for new users
+        approved: role === 'user', // Auto-approve users, agencies need manual approval
+        name: userDataInput.name || 'User',
+        email: email,
+        authEmail: email,
+        isOnline: true,
+        ...userDataInput,
         ...(proofUrl && { proofUrl }),
         ...(role === 'agency' && {
           plan: 'free',
@@ -344,7 +411,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           ]
         })
-      });
+      };
+
+      await setDoc(doc(dbInstance, 'users', user.uid), userDataToSave);
     } catch (error: any) {
       // Handle specific Firebase errors with user-friendly messages
       if (error.code === 'auth/email-already-in-use') {

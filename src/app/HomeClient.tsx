@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import AgencyListingForm from '@/components/AgencyListingForm';
+import AdminChatViewer from '@/components/AdminChatViewer';
 import BulkUploadForm from '@/components/BulkUploadForm';
 import SearchFilters from '@/components/SearchFilters';
 import ListingCard from '@/components/ListingCard';
@@ -2299,6 +2300,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 >
                   Settings
                 </button>
+                <button
+                  onClick={() => setActiveSection('chats')}
+                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'chats'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  All Chats
+                </button>
               </div>
             </nav>
           </div>
@@ -2314,6 +2324,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   {activeSection === 'analytics' && 'Analytics & Reports'}
                   {activeSection === 'agencies' && 'All Agencies'}
                   {activeSection === 'settings' && 'Settings'}
+                  {activeSection === 'chats' && 'All Chats'}
                 </h1>
                 <div className="flex items-center space-x-4">
                   <span className="text-sm text-gray-600">Welcome, {userData.name}</span>
@@ -2445,7 +2456,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               </div>
                               <div>
                                 <h3 className="font-semibold">{agency.companyName}</h3>
-                                <p className="text-sm text-gray-600">{agency.name} • {agency.email || 'No email'}</p>
+                                <p className="text-sm text-gray-600">{agency.name} • {agency.authEmail || agency.email || 'No email'}</p>
                               </div>
                             </div>
                             <div className="flex space-x-2">
@@ -2551,7 +2562,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             </div>
                             <div>
                               <h3 className="font-semibold">{agency.companyName}</h3>
-                              <p className="text-sm text-gray-600">{agency.name} • {agency.email || 'No email'}</p>
+                              <p className="text-sm text-gray-600">{agency.name} • {agency.authEmail || agency.email || 'No email'}</p>
                               <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                                 Status: {agency.approved ? <span className="flex items-center gap-1 text-green-600 font-semibold"><CheckCircle className="h-3.5 w-3.5" /> Approved</span> : <span className="flex items-center gap-1 text-yellow-600 font-semibold"><Clock className="h-3.5 w-3.5" /> Pending</span>}
                               </div>
@@ -2609,7 +2620,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </div>
                           <div>
                             <p className="text-sm text-gray-600">Email</p>
-                            <p className="font-medium">{viewingAgency.email || 'No email provided'}</p>
+                            <p className="font-medium">{viewingAgency.authEmail || viewingAgency.email || 'No email provided'}</p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-600">Contact Number</p>
@@ -3270,6 +3281,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               );
             })()}
 
+              {activeSection === 'chats' && <AdminChatViewer />}
               {activeSection === 'settings' && (
                 <div className="space-y-6">
                   <Card>
@@ -3720,10 +3732,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               </div>
             )}
 
-            <main className={`${(userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist') ? 'w-full' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings')) ? 'pb-0' : 'pb-10'}`}>
+            <main className={`${(userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat') ? 'w-full' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings')) ? 'pb-0' : 'pb-10'}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
-              {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && (
-                <div className={`${userActiveSection === 'chat' ? 'mb-4 mt-4 shrink-0 px-6 max-w-7xl mx-auto' : 'mb-6 mt-6 px-6 max-w-7xl mx-auto'} flex justify-between items-center border-b pb-4 border-gray-200`}>
+              {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && userActiveSection !== 'chat' && (
+                <div className="mb-6 mt-6 px-6 max-w-7xl mx-auto flex justify-between items-center border-b pb-4 border-gray-200">
                   <div className="flex items-center gap-3">
                     {userActiveSection === 'wishlist' && (
                       <button
@@ -4792,11 +4804,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
 
                 {userActiveSection === 'chat' && (
-                <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 w-full mb-6 -mx-2 md:-mx-4">
+                <div className="flex flex-col md:flex-row flex-1 min-h-0 w-full bg-white">
                   {/* Left Column: Conversations List */}
-                  <div className="w-full md:w-80 flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full">
+                  <div className="w-full md:w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full z-10">
                     {/* Sidebar Header */}
-                    <div className="p-4 border-b border-gray-150 bg-white shrink-0">
+                    <div className="p-4 border-b border-gray-200 bg-white shrink-0">
                       <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                         <MessageSquare className="h-5 w-5 text-blue-600" /> Messages
                       </h3>
@@ -4883,11 +4895,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   </div>
 
                   {/* Right Column: Chat Content */}
-                  <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px]">
+                  <div className="flex-1 flex flex-col h-full bg-[#efeae2] bg-[radial-gradient(#d1ccc5_1.2px,transparent_1.2px)] [background-size:20px_20px]">
                     {currentChatAgency ? (
                       <div className="flex flex-col h-full relative">
                         {/* Conversation Header */}
-                        <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
+                        <div className="px-6 py-3 bg-[#f0f2f5] border-b border-gray-200 flex items-center justify-between z-10 shrink-0">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
                               {currentChatAgencyLogo ? (
@@ -4995,7 +5007,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             );
                           })()}
 
-                          <div className="p-4 flex items-center gap-3 relative">
+                          <div className="px-4 py-3 bg-[#f0f2f5] flex items-center gap-3 relative shrink-0">
                             {/* Emoji Visual Indicator */}
                           <div className="relative shrink-0">
                             <button 
@@ -5049,8 +5061,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </div>
                       </div>
                     ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-55/30">
-                        <div className="w-16 h-16 bg-white border border-gray-150 rounded-2xl flex items-center justify-center shadow-md mb-6">
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-[#f0f2f5]">
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-6">
                           <Plane className="h-8 w-8 text-blue-600" />
                         </div>
                         <h4 className="font-extrabold text-gray-900 text-sm mb-2">Your Inbox</h4>
