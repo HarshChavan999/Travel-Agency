@@ -2456,7 +2456,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               </div>
                               <div>
                                 <h3 className="font-semibold">{agency.companyName}</h3>
-                                <p className="text-sm text-gray-600">{agency.name} • {agency.authEmail || agency.email || 'No email'}</p>
+                                <p className="text-sm text-gray-600">{agency.name} • {agency.authEmail || agency.email || agency.contactEmail || 'No email'}</p>
                               </div>
                             </div>
                             <div className="flex space-x-2">
@@ -2562,7 +2562,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             </div>
                             <div>
                               <h3 className="font-semibold">{agency.companyName}</h3>
-                              <p className="text-sm text-gray-600">{agency.name} • {agency.authEmail || agency.email || 'No email'}</p>
+                              <p className="text-sm text-gray-600">{agency.name} • {agency.authEmail || agency.email || agency.contactEmail || 'No email'}</p>
                               <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                                 Status: {agency.approved ? <span className="flex items-center gap-1 text-green-600 font-semibold"><CheckCircle className="h-3.5 w-3.5" /> Approved</span> : <span className="flex items-center gap-1 text-yellow-600 font-semibold"><Clock className="h-3.5 w-3.5" /> Pending</span>}
                               </div>
@@ -2620,7 +2620,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </div>
                           <div>
                             <p className="text-sm text-gray-600">Email</p>
-                            <p className="font-medium">{viewingAgency.authEmail || viewingAgency.email || 'No email provided'}</p>
+                            <p className="font-medium">{viewingAgency.authEmail || viewingAgency.email || viewingAgency.contactEmail || 'No email provided'}</p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-600">Contact Number</p>

@@ -119,8 +119,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!data.approved) {
               throw new Error('Account not approved yet. Please wait for admin approval.');
             }
-            // Update online status on redirect login
-            updateDoc(userDocRef, { isOnline: true }).catch(console.error);
+            // Update online status and authEmail on redirect login
+            updateDoc(userDocRef, { 
+              isOnline: true,
+              authEmail: redirectResult.user.email || data.email || ''
+            }).catch(console.error);
             setUserData(data);
           } else {
             // For Google sign-in, if no document exists, create one as agency (or check if it's admin email)
@@ -130,6 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: isAdmin ? 'admin' : 'agency',
               approved: isAdmin, // Auto-approve admin
               name: redirectResult.user.displayName || 'User',
+              email: redirectResult.user.email || '',
+              authEmail: redirectResult.user.email || '',
               isOnline: true,
               ...(isAdmin ? {} : { companyName: 'Pending Setup' }), // Only add companyName for agencies
             };
