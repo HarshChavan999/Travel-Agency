@@ -41,7 +41,7 @@ export default function SearchFilters({
               </div>
             </div>
           </div>
-          <Button onClick={onSearch} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={onSearch} className="bg-orange-400 hover:bg-orange-500">
             Search Packages
           </Button>
         </div>

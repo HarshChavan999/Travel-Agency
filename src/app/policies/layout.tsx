@@ -180,7 +180,7 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
             ) : (
               <button 
                 onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }} 
-                className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
+                className="bg-orange-400 hover:bg-orange-500 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
               >
                 Sign In
               </button>

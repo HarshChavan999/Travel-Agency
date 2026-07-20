@@ -564,7 +564,7 @@ const packageType = watch('packageType');
                               : currentCategories.filter((c: string) => c !== category);
                             field.onChange(newCategories);
                           }}
-                          className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                          className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
                         />
                         <span>{category}</span>
                       </label>
@@ -596,7 +596,7 @@ const packageType = watch('packageType');
                                 : currentTypes.filter((t: string) => t !== type.value);
                               field.onChange(newTypes);
                             }}
-                            className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
                           />
                           <span>{type.label}</span>
                         </label>
@@ -791,7 +791,7 @@ const packageType = watch('packageType');
                         type="checkbox"
                         checked={!!field.value}
                         onChange={(e) => field.onChange(e.target.checked)}
-                        className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors animate-none"
+                        className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors animate-none"
                       />
                       <span className="text-sm font-medium">Mark as Trending Destination</span>
                     </label>
@@ -906,7 +906,7 @@ const packageType = watch('packageType');
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-orange-400 hover:bg-orange-500"
                 >
                   {isSubmitting ? 'Submitting...' : initialData ? 'Update Listing' : 'Submit for Approval'}
                 </Button>

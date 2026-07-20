@@ -25,7 +25,7 @@ const AlertDescription = ({ children, className }: any) => (
 const Progress = ({ value, className }: { value: number; className?: string }) => (
   <div className={`w-full bg-gray-200 rounded-full h-2.5 overflow-hidden ${className}`}>
     <div 
-      className="bg-blue-600 h-full transition-all duration-300" 
+      className="bg-orange-400 h-full transition-all duration-300" 
       style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
     />
   </div>
@@ -465,7 +465,7 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
                   <Button
                     type="button"
                     onClick={handleBulkUpload}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold px-6 py-5 rounded-2xl shadow-md transition-all flex items-center gap-2"
+                    className="bg-orange-400 hover:bg-orange-500 text-white font-extrabold px-6 py-5 rounded-2xl shadow-md transition-all flex items-center gap-2"
                   >
                     <CheckCircle className="h-5 w-5" />
                     Upload {validCount} Valid Packages

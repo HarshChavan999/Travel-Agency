@@ -457,13 +457,21 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view');
+      const action = params.get('action');
+      const agencyId = params.get('agencyId');
+      const agencyName = params.get('agencyName');
       const returnUrl = params.get('returnUrl');
       
       if (returnUrl) {
         sessionStorage.setItem('tripdm_return_url', returnUrl);
       }
 
-      if (view === 'compare') {
+      if (action === 'chat' && agencyId) {
+        setUserActiveSection('chat');
+        setCurrentChatAgency(agencyId);
+        setCurrentChatAgencyName(agencyName || 'Travel Agency');
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (view === 'compare') {
         setUserActiveSection('listings');
         setShowComparison(true);
         window.history.replaceState({}, '', window.location.pathname);
@@ -1411,47 +1419,63 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   }, [userActiveSection]);
 
   useEffect(() => {
-    if (userData?.role === 'admin') {
+    if (user && userData?.role === 'admin') {
       const fetchPending = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const q = query(collection(dbInstance, 'users'), where('approved', '==', false), where('role', '==', 'agency'));
-        const querySnapshot = await getDocs(q);
-        const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setPendingAgencies(agencies);
+        try {
+          const dbInstance = getDbInstance();
+          if (!dbInstance) return;
+          const q = query(collection(dbInstance, 'users'), where('approved', '==', false), where('role', '==', 'agency'));
+          const querySnapshot = await getDocs(q);
+          const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setPendingAgencies(agencies);
+        } catch (error) {
+          // Ignore cancelled requests on logout
+        }
       };
 
       const fetchAllAgencies = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const q = query(collection(dbInstance, 'users'), where('role', '==', 'agency'));
-        const querySnapshot = await getDocs(q);
-        const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllAgencies(agencies);
+        try {
+          const dbInstance = getDbInstance();
+          if (!dbInstance) return;
+          const q = query(collection(dbInstance, 'users'), where('role', '==', 'agency'));
+          const querySnapshot = await getDocs(q);
+          const agencies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setAllAgencies(agencies);
+        } catch (error) {
+          // Ignore cancelled requests on logout
+        }
       };
 
       const fetchPendingListings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const q = query(collection(dbInstance, 'listings'), where('approved', '==', false));
-        const querySnapshot = await getDocs(q);
-        const listings = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
-          const listingData = docSnapshot.data() as any;
-          // Get agency name
-          const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
-          const agencyName = agencyDoc.exists() ? (agencyDoc.data() as any).companyName : 'Unknown Agency';
-          return { id: docSnapshot.id, ...listingData, agencyName };
-        }));
-        setPendingListings(listings);
+        try {
+          const dbInstance = getDbInstance();
+          if (!dbInstance) return;
+          const q = query(collection(dbInstance, 'listings'), where('approved', '==', false));
+          const querySnapshot = await getDocs(q);
+          const listings = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
+            const listingData = docSnapshot.data() as any;
+            // Get agency name
+            const agencyDoc = await getDoc(doc(dbInstance, 'users', listingData.agencyId));
+            const agencyName = agencyDoc.exists() ? (agencyDoc.data() as any).companyName : 'Unknown Agency';
+            return { id: docSnapshot.id, ...listingData, agencyName };
+          }));
+          setPendingListings(listings);
+        } catch (error) {
+          // Ignore cancelled requests on logout
+        }
       };
 
       const fetchAllListings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const q = query(collection(dbInstance, 'listings'));
-        const querySnapshot = await getDocs(q);
-        const allListingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAgencyListings(allListingsData);
+        try {
+          const dbInstance = getDbInstance();
+          if (!dbInstance) return;
+          const q = query(collection(dbInstance, 'listings'));
+          const querySnapshot = await getDocs(q);
+          const allListingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setAgencyListings(allListingsData);
+        } catch (error) {
+          // Ignore cancelled requests on logout
+        }
       };
 
       fetchPending();
@@ -1459,7 +1483,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       fetchPendingListings();
       fetchAllListings();
     }
-  }, [userData]);
+  }, [user, userData]);
 
   useEffect(() => {
     if (user && userData?.role === 'user') {
@@ -1506,7 +1530,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     logoUrl,
                   });
                 } catch (error) {
-                  console.warn('Error fetching agency data for conversation:', error);
+                  // Ignore cancelled requests on logout
                   // Still add conversation with default name
                   conversationsMap.set(otherUserId, {
                     agencyId: otherUserId,
@@ -1626,8 +1650,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     unreadCount: 0, // Could implement read status
                   });
                 } catch (error) {
-                  console.warn('Error fetching user data for conversation:', error);
-                  // Still add conversation with default name
+                  // Ignore cancelled requests on logout
                   conversationsMap.set(otherUserId, {
                     userId: otherUserId,
                     userName: 'Unknown User',
@@ -1753,12 +1776,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     // Fetch agency's own listings
     if (user && userData?.role === 'agency') {
       const fetchAgencyListings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user.uid));
-        const querySnapshot = await getDocs(agencyListingsQuery);
-        const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAgencyListings(listingsData);
+        try {
+          const dbInstance = getDbInstance();
+          if (!dbInstance) return;
+          const agencyListingsQuery = query(collection(dbInstance, 'listings'), where('agencyId', '==', user.uid));
+          const querySnapshot = await getDocs(agencyListingsQuery);
+          const listingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setAgencyListings(listingsData);
+        } catch (error) {
+          // Ignore cancelled requests on logout
+        }
       };
       fetchAgencyListings();
     }
@@ -1768,14 +1795,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     // Fetch agency's bookings
     if (user && userData?.role === 'agency') {
       const fetchAgencyBookings = async () => {
-        const dbInstance = getDbInstance();
-        if (!dbInstance) return;
-        const bookingsQuery = query(collection(dbInstance, 'bookings'), where('agencyId', '==', user.uid));
-        const querySnapshot = await getDocs(bookingsQuery);
-        const bookingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // Sort bookings by createdAt in descending order (most recent first)
-        bookingsData.sort((a, b) => new Date((b as any).createdAt).getTime() - new Date((a as any).createdAt).getTime());
-        setAgencyBookings(bookingsData);
+        try {
+          const dbInstance = getDbInstance();
+          if (!dbInstance) return;
+          const bookingsQuery = query(collection(dbInstance, 'bookings'), where('agencyId', '==', user.uid));
+          const querySnapshot = await getDocs(bookingsQuery);
+          const bookingsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          // Sort bookings by createdAt in descending order (most recent first)
+          bookingsData.sort((a, b) => new Date((b as any).createdAt).getTime() - new Date((a as any).createdAt).getTime());
+          setAgencyBookings(bookingsData);
+        } catch (error) {
+          // Ignore cancelled requests on logout
+        }
       };
       fetchAgencyBookings();
     }
@@ -3567,7 +3598,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 ) : (
                   <button
                     onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
+                    className="bg-orange-400 hover:bg-orange-500 text-white border-0 shadow-lg px-6 py-2 h-auto text-sm font-bold tracking-wide rounded-full ml-2"
                   >
                     Sign In
                   </button>
@@ -5266,7 +5297,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         type="text"
                                         value={profileName}
                                         onChange={(e) => setProfileName(e.target.value)}
-                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-blue-500 p-3.5 text-sm shadow-sm"
+                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-orange-400 p-3.5 text-sm shadow-sm"
                                       />
                                     </div>
                                     <div>
@@ -5277,7 +5308,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         value={profilePhone}
                                         onChange={(e) => setProfilePhone(e.target.value)}
                                         placeholder="e.g. +91 9876543210"
-                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-blue-500 p-3.5 text-sm shadow-sm"
+                                        className="bg-white border-gray-200 text-gray-800 rounded-2xl focus-visible:ring-orange-400 p-3.5 text-sm shadow-sm"
                                       />
                                     </div>
                                   </div>
@@ -5366,7 +5397,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         placeholder="Full Name"
                                         value={newCoTraveller.name}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, name: e.target.value })}
-                                        className="bg-white rounded-2xl text-xs focus-visible:ring-blue-500 p-3 border-gray-200 shadow-sm"
+                                        className="bg-white rounded-2xl text-xs focus-visible:ring-orange-400 p-3 border-gray-200 shadow-sm"
                                       />
                                     </div>
                                     <div>
@@ -5376,7 +5407,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         placeholder="Phone"
                                         value={newCoTraveller.contact}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, contact: e.target.value })}
-                                        className="bg-white rounded-2xl text-xs focus-visible:ring-blue-500 p-3 border-gray-200 shadow-sm"
+                                        className="bg-white rounded-2xl text-xs focus-visible:ring-orange-400 p-3 border-gray-200 shadow-sm"
                                       />
                                     </div>
                                     <div>
@@ -5385,7 +5416,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         id="coRelation"
                                         value={newCoTraveller.relationship}
                                         onChange={(e) => setNewCoTraveller({ ...newCoTraveller, relationship: e.target.value })}
-                                        className="block w-full rounded-2xl border-gray-200 bg-white p-3 text-xs text-gray-800 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus-visible:ring-blue-500"
+                                        className="block w-full rounded-2xl border-gray-200 bg-white p-3 text-xs text-gray-800 shadow-sm focus:border-blue-500 focus:ring-orange-400 focus-visible:ring-orange-400"
                                       >
                                         <option>Spouse</option>
                                         <option>Child</option>
@@ -5424,7 +5455,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
                                         setShowAddCoTraveller(false);
                                       }}
-                                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-6 py-2.5 h-auto rounded-2xl border-none transition-all shadow-md font-bold"
+                                      className="bg-orange-400 hover:bg-orange-500 text-white text-xs px-6 py-2.5 h-auto rounded-2xl border-none transition-all shadow-md font-bold"
                                     >
                                       Add Traveler
                                     </Button>
@@ -5568,7 +5599,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               id="supportBooking"
                               value={supportBookingId}
                               onChange={(e) => setSupportBookingId(e.target.value)}
-                              className="mt-1.5 block w-full p-3 border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-xl text-sm font-medium transition-colors"
+                              className="mt-1.5 block w-full p-3 border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-orange-400 rounded-xl text-sm font-medium transition-colors"
                             >
                               <option value="">-- No booking linked / General dispute --</option>
                               {userBookings.map((b: any) => (
@@ -5591,7 +5622,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               id="supportReason"
                               value={supportReason}
                               onChange={(e) => setSupportReason(e.target.value)}
-                              className="mt-1.5 block w-full p-3 border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-xl text-sm font-medium transition-colors animate-none"
+                              className="mt-1.5 block w-full p-3 border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-orange-400 rounded-xl text-sm font-medium transition-colors animate-none"
                             >
                               <option value="Agency is not responding after payment">Agency is not responding after payment</option>
                               <option value="Promised service/itinerary was not provided">Promised service/itinerary was not provided</option>
@@ -5628,7 +5659,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               placeholder="Please provide full details of your interaction, including dates, agreed pricing, amount paid, and what exactly went wrong. Our team will read this description to start investigation."
                               value={supportDescription}
                               onChange={(e) => setSupportDescription(e.target.value)}
-                              className="mt-1.5 block w-full p-3 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-xl text-sm transition-colors"
+                              className="mt-1.5 block w-full p-3 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-orange-400 rounded-xl text-sm transition-colors"
                               required
                             />
                           </div>
@@ -5638,7 +5669,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             <Button
                               type="submit"
                               disabled={submittingSupportTicket}
-                              className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-colors border-none cursor-pointer"
+                              className="w-full sm:w-auto px-6 py-2.5 bg-orange-400 hover:bg-orange-500 text-white font-bold rounded-xl shadow-md transition-colors border-none cursor-pointer"
                             >
                               {submittingSupportTicket ? 'Submitting Ticket...' : 'Submit Support Ticket'}
                             </Button>
@@ -7197,7 +7228,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                       </div>
                                       <Button
                                         onClick={() => unlockCustomerChat(selectedConversation.userId, selectedConversation.userName)}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 border-none"
+                                        className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 border-none"
                                       >
                                         <Sparkles className="h-4 w-4" /> Unlock to Reply
                                       </Button>
@@ -7272,7 +7303,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               id="agencyName"
                               value={agencyCompanyName}
                               onChange={(e) => setAgencyCompanyName(e.target.value)}
-                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-blue-500 shadow-sm"
+                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-orange-400 shadow-sm"
                             />
                           </div>
                           <div>
@@ -7281,7 +7312,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               id="contactEmail"
                               value={agencyContactEmail}
                               onChange={(e) => setAgencyContactEmail(e.target.value)}
-                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-blue-500 shadow-sm"
+                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-orange-400 shadow-sm"
                             />
                           </div>
                         </div>
@@ -7290,7 +7321,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           <Label htmlFor="description" className="text-xs font-semibold text-gray-600 mb-1.5 block">Agency Description & Specialization</Label>
                           <textarea
                             id="description"
-                            className="w-full p-4 border border-gray-200 rounded-2xl text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                            className="w-full p-4 border border-gray-200 rounded-2xl text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 shadow-sm"
                             rows={4}
                             value={agencyDescription}
                             onChange={(e) => setAgencyDescription(e.target.value)}
@@ -7302,15 +7333,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           <h3 className="text-sm font-bold text-gray-900 mb-3">Notification Preferences</h3>
                           <div className="space-y-3 bg-gray-50/70 border border-gray-150 rounded-2xl p-5">
                             <label className="flex items-center gap-3 cursor-pointer">
-                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" defaultChecked />
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-orange-400" defaultChecked />
                               <span className="text-xs font-semibold text-gray-700">Email notifications for new user bookings & inquiries</span>
                             </label>
                             <label className="flex items-center gap-3 cursor-pointer">
-                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" defaultChecked />
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-orange-400" defaultChecked />
                               <span className="text-xs font-semibold text-gray-700">SMS notifications for urgent customer chat messages</span>
                             </label>
                             <label className="flex items-center gap-3 cursor-pointer">
-                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-orange-400" />
                               <span className="text-xs font-semibold text-gray-700">Marketing emails, seasonal promotions & platform updates</span>
                             </label>
                           </div>
@@ -7320,7 +7351,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           <Button
                             onClick={handleSaveAgencySettings}
                             disabled={savingAgencySettings}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-6 py-3 rounded-2xl shadow-md transition-all h-auto"
+                            className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-6 py-3 rounded-2xl shadow-md transition-all h-auto"
                           >
                             {savingAgencySettings ? 'Saving Settings...' : 'Save All Settings'}
                           </Button>
@@ -7496,7 +7527,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Free Plan */}
-                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-blue-500' : 'border-gray-200'
+                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-orange-400' : 'border-gray-200'
                               }`}>
                               <div>
                                 <div className="mb-2">
@@ -7524,7 +7555,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 disabled={userData?.plan === 'free' || !userData?.plan}
                                 className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'free' || !userData?.plan
                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
                                   }`}
                               >
                                 {userData?.plan === 'free' || !userData?.plan ? 'Current Plan' : 'Select Free Plan'}
@@ -7560,7 +7591,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 disabled={userData?.plan === 'starter'}
                                 className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'starter'
                                     ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
                                   }`}
                               >
                                 {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Standard'}
@@ -7596,7 +7627,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 disabled={userData?.plan === 'premium'}
                                 className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'premium'
                                     ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
                                   }`}
                               >
                                 {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
@@ -7632,7 +7663,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 disabled={userData?.plan === 'vip'}
                                 className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'vip'
                                     ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
                                   }`}
                               >
                                 {userData?.plan === 'vip' ? 'Current Plan' : 'Upgrade to VIP'}
@@ -7679,7 +7710,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   <Button
                                     onClick={() => buyCredits(pack.credits, pack.price)}
                                     disabled={!userData?.plan || userData.plan === 'free'}
-                                    className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
+                                    className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-orange-400 hover:bg-orange-500 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
                                   >
                                     Buy Pack
                                   </Button>
