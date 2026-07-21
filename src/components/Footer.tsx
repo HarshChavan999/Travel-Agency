@@ -4,7 +4,7 @@ import { MapPin } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-[#111827] text-white">
+    <footer className="w-full bg-[#111827] text-white relative z-10">
       {/* Top thin bar */}
       <div className="w-full h-8 bg-[#1f2937] border-t-2 border-blue-500"></div>
       

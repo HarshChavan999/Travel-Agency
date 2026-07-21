@@ -210,8 +210,27 @@ const subcategoryDescriptions: { [key: string]: string } = {
   'Long Weekend Escapes': 'Quick 2-3 day getaways'
 };
 
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2074&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1434394354979-a235cd36269d?q=80&w=2070&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1542332213-9b5a5a3fad35?q=80&w=2070&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?q=80&w=2070&auto=format&fit=crop',
+];
+
+
 export default function HomeClient({ initialListings = [], routeMode }: { initialListings?: any[], routeMode?: string }) {
   const { user, userData, loading, signIn, signInWithGoogle, signOut, register } = useAuth();
+  
+  const [currentHeroImage, setCurrentHeroImage] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentHeroImage((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -3459,7 +3478,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       return (
         <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
           {/* Top Navigation Bar */}
-          <header className="header-transition text-gray-900 z-[100] relative bg-white shadow-sm border-b border-gray-200 h-16 flex items-center">
+          <header className="header-transition text-gray-900 z-[100] sticky top-0 bg-white shadow-sm border-b border-gray-200 h-16 flex items-center">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
               {/* Logo & Search */}
               <div className="flex items-center gap-4 flex-1 w-full h-full">
@@ -3517,44 +3536,44 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Compare */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${showComparison ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${showComparison ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('listings');
                     setShowComparison(true);
                   }}
                 >
-                  Compare
+                  <Scale className="h-4 w-4 text-orange-400" /> Compare
                 </span>
 
                 {/* Wishlist */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${userActiveSection === 'wishlist' ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('wishlist');
                     setShowComparison(false);
                   }}
                 >
-                  Wishlist
+                  <Heart className="h-4 w-4 text-orange-500" /> Wishlist
                 </span>
 
                 {/* Messages */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${userActiveSection === 'chat' ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('chat');
                   }}
                 >
-                  Messages
+                  <MessageSquare className="h-4 w-4 text-orange-500" /> Messages
                 </span>
 
                 {/* Profile / Sign In */}
                 {user && userData ? (
                   <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-5">
                     <div
-                      className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-500 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
+                      className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
                       onClick={() => {
                         setFromSection(userActiveSection);
                         setUserActiveSection('profile');
@@ -3583,25 +3602,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 ) : (
                   <button
                     onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors"
+                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors flex items-center gap-1.5"
                   >
-                    Login
+                    <User className="h-4 w-4" /> Login
                   </button>
                 )}
               </div>
             </div>
           </header>
 
-          {/* Secondary Nav Bar */}
-          <nav className="bg-gray-50 border-b border-gray-200 shadow-sm z-10 hidden lg:block">
-            <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between text-sm text-gray-600 font-medium">
-              <div className="flex items-center gap-8">
-                <button className="flex items-center gap-1 hover:text-orange-500 transition-colors" onClick={() => setUserActiveSection('listings')}>
-
-                </button>
-              </div>
-            </div>
-          </nav>
 
           {/* Main Dashboard Scroll Area */}
           <div
@@ -3611,137 +3620,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             id="user-dashboard-scroll-container"
           >
             {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-              <div className="w-full bg-[#0F172A] py-20 px-6 relative z-40 mb-8 shadow-2xl mt-0 min-h-[480px] flex flex-col justify-center items-center">
-                {/* Background image overlay */}
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2074&auto=format&fit=crop')] bg-cover bg-center opacity-80"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#14161C] via-[#14161C]/60 to-black/30"></div>
-                {/* Floating decor particles removed for a cleaner look */}
-
-                <div className="max-w-5xl mx-auto w-full text-center relative z-10 text-white mt-4 flex flex-col items-center">
-                  <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-1.5 font-bold text-xs mb-5 rounded-full shadow-lg tracking-wide uppercase">
-                    <Sparkles className="h-4 w-4 text-yellow-400 animate-pulse" /> Premium Travel Partners
-                  </div>
-                  <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tight drop-shadow-2xl leading-none">
-                    Discover Your Next <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-400 drop-shadow-md">Adventure</span>
-                  </h1>
-                  <p className="text-sm md:text-base text-gray-300 font-medium tracking-wide drop-shadow-md max-w-xl mx-auto mb-8">
-                    Curated domestic and international tours crafted by experts.
-                  </p>
-
-                  {/* PREMIUM MAKEYMYTRIP-STYLE SEARCH WIDGET */}
-                  <div className="w-full max-w-4xl bg-white/10 backdrop-blur-md border border-white/25 shadow-2xl rounded-3xl p-6 md:p-8 text-left animate-in zoom-in-95 duration-300">
-                    {/* Widget Top Tab Row */}
-                    <div className="flex gap-4 mb-4 border-b border-white/10 pb-3 flex-wrap">
-                      {[
-                        // { id: 'all', label: 'All Packages' },
-                        { id: 'domestic', label: 'Domestic' },
-                        { id: 'international', label: 'International' }
-                      ].map(tab => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setHeroTypeSelect(tab.id as any)}
-                          className={`pb-2 text-sm font-bold transition-all relative px-1 flex items-center gap-1.5 ${
-                            heroTypeSelect === tab.id 
-                              ? 'text-orange-400 font-extrabold after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-orange-500' 
-                              : 'text-gray-300 hover:text-white'
-                          }`}
-                        >
-                          {getTabIcon(tab.id, "h-3.5 w-3.5")}
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Inputs Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                      {/* Destination Input */}
-                      <div className="flex flex-col gap-1.5 z-40">
-                        <label className="text-xs font-bold text-white/80 uppercase tracking-wider">Destination</label>
-                        <div className="relative">
-                          <AutocompleteSearch
-                            placeholder="Where are you planning to go?"
-                            value={heroSearchInput}
-                            onChange={(val) => setHeroSearchInput(val)}
-                            onSelect={(val) => {
-                              setHeroSearchInput(val);
-                            }}
-                            suggestions={allDestinations}
-                            inputClassName="w-full pl-9 pr-3 rounded-xl border-none text-black bg-white focus-visible:ring-2 focus-visible:ring-orange-500 h-11 text-xs"
-                            iconClassName="left-3 top-3.5"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Budget Selector */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-white/80 uppercase tracking-wider">
-                          Max Budget ({heroTypeSelect === 'all' ? 'INR/USD' : heroTypeSelect === 'international' ? 'USD' : 'INR'})
-                        </label>
-                        <select 
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const isIntl = heroTypeSelect === 'international';
-                            const isAll = heroTypeSelect === 'all';
-                            // If "all", we use the larger INR ranges to ensure filtering doesn't break for domestic packages
-                            if (val === 'all') setFilters(prev => ({ ...prev, priceRange: [0, 1000000] }));
-                            else if (val === 'budget') setFilters(prev => ({ ...prev, priceRange: isIntl ? [0, 3000] : [0, 30000] }));
-                            else if (val === 'mid') setFilters(prev => ({ ...prev, priceRange: isIntl ? [3000, 6000] : [30000, 60000] }));
-                            else if (val === 'luxury') setFilters(prev => ({ ...prev, priceRange: isIntl ? [6000, 100000] : [60000, 1000000] }));
-                          }}
-                          className="w-full rounded-xl border-none text-black bg-white px-3 h-11 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-orange-500 outline-none"
-                        >
-                          <option value="all">Any Budget</option>
-                          {heroTypeSelect === 'all' ? (
-                            <>
-                              <option value="budget">Budget (Under ₹30,000 / $3,000)</option>
-                              <option value="mid">Mid-Range (₹30k-60k / $3k-6k)</option>
-                              <option value="luxury">Luxury (Above ₹60k / $6k)</option>
-                            </>
-                          ) : heroTypeSelect === 'international' ? (
-                            <>
-                              <option value="budget">Budget (Under $3,000)</option>
-                              <option value="mid">Mid-Range ($3,000 - $6,000)</option>
-                              <option value="luxury">Luxury (Above $6,000)</option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="budget">Budget (Under ₹30,000)</option>
-                              <option value="mid">Mid-Range (₹30,000 - ₹60,000)</option>
-                              <option value="luxury">Luxury (Above ₹60,000)</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
-
-                      {/* Search Action Button */}
-                      <button
-                        onClick={() => {
-                          setSearchTerm(heroSearchInput);
-                          if (heroTypeSelect === 'domestic') {
-                            setSelectedCategoryFilter({ category: 'domestic', title: 'Domestic Packages' });
-                          } else if (heroTypeSelect === 'international') {
-                            setSelectedCategoryFilter({ category: 'international', title: 'International Packages' });
-                          } else {
-                            setSelectedCategoryFilter(null);
-                          }
-                          setDashboardViewMode('all');
-                          
-                          // Scroll down to active listings section
-                          setTimeout(() => {
-                            window.scrollTo({ top: 380, behavior: 'smooth' });
-                            const container = document.getElementById('user-dashboard-scroll-container');
-                            if (container) {
-                              container.scrollTo({ top: 380, behavior: 'smooth' });
-                            }
-                          }, 100);
-                        }}
-                        className="w-full bg-[#FF9900] hover:bg-[#E68A00] text-white rounded-xl h-11 text-xs font-black uppercase tracking-wider shadow-lg active:scale-[0.98] transition-all hover:scale-[1.01]"
-                      >
-                        <span className="flex items-center justify-center gap-2">Search Holidays <Plane className="h-4 w-4" /></span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div className="w-full bg-gray-50 fixed top-16 left-0 right-0 z-0 h-[400px] flex flex-col justify-center items-center overflow-hidden">
+                {/* Background image slider with fixed attachment for parallax */}
+                {HERO_IMAGES.map((img, index) => (
+                  <div 
+                    key={index}
+                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-90' : 'opacity-0'}`}
+                    style={{ backgroundImage: `url('${img}')` }}
+                  ></div>
+                ))}
+                {/* Gradient to fade into the gray-50 background below */}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-gray-50/40 to-transparent pointer-events-none"></div>
               </div>
             )}
 
@@ -3768,7 +3657,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
 
               {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-                <>
+                <div className="relative z-10 pt-[240px] w-full">
 
                   {/* Comparison Bar */}
                   {comparisonList.length > 0 && (
@@ -3818,7 +3707,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {/* Category Emoji Navigation Strip */}
-                  <div id="category-nav-strip" className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 overflow-x-auto horizontal-scroll-nav scrollbar-hide py-2.5 sticky top-0 z-[90] backdrop-blur-md">
+                  <div id="category-nav-strip" className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 overflow-x-auto horizontal-scroll-nav scrollbar-hide py-2.5 sticky top-16 z-[90] backdrop-blur-md">
                     <div className="flex gap-2 sm:gap-3.5 w-full justify-between items-center min-w-max px-2">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
@@ -4193,7 +4082,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                   )}
 
-                </>
+                </div>
               )}
 
               {showBookingForm && userActiveSection === 'listings' && (
@@ -7598,13 +7487,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   className="flex-1 bg-green-600 hover:bg-green-700 flex items-center justify-center gap-1.5"
                   onClick={() => {
                     // Share functionality
+                    const shareData = {
+                      title: `My Travel Booking - ${booking.listingTitle}`,
+                      text: `Booking Reference: ${booking.bookingReference}\nTravel Date: ${booking.travelDate || 'TBD'}`,
+                      url: window.location.href,
+                    };
                     if (navigator.share) {
-                      navigator.share({
-                        title: `My Travel Booking - ${booking.listingTitle}`,
-                        text: `Booking Reference: ${booking.bookingReference}\nTravel Date: ${booking.travelDate || 'TBD'}`,
-                      });
+                      navigator.share(shareData).catch((err) => console.error('Error sharing:', err));
                     } else {
-                      alert('Booking details copied to clipboard!');
+                      navigator.clipboard.writeText(shareData.url).then(() => {
+                        alert('Booking details link copied to clipboard!');
+                      });
                     }
                   }}
                 >
