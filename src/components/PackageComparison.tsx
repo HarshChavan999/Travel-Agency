@@ -160,6 +160,25 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: 'Package Comparison',
+      text: `Check out this travel package comparison!`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Comparison link copied to clipboard!');
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="w-full mx-auto space-y-6">
@@ -181,7 +200,11 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
               <p className="text-sm text-gray-500 mt-1 font-medium">Compare features, prices and inclusions side by side to find the best deal for you.</p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <Button variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 font-bold shadow-sm">
+              <Button 
+                variant="outline" 
+                className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 font-bold shadow-sm"
+                onClick={handleShare}
+              >
                 <Share2 className="w-4 h-4 mr-2" />
                 Share Comparison
               </Button>

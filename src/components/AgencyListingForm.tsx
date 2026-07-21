@@ -606,32 +606,35 @@ const packageType = watch('packageType');
                 />
               </div>
 
-              {/* <div className="space-y-4">
+              <div className="space-y-4">
                 <h3 className="text-lg font-semibold border-b pb-2">5. Meal Plan</h3>
                 <Controller
                   name="mealPlan"
                   control={control}
                   render={({ field }) => (
-                    <select
-                      {...field}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Select meal plan</option>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {mealPlans.map((plan) => (
-                        <option key={plan.value} value={plan.value}>
-                          {plan.label}
-                        </option>
+                        <label key={plan.value} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="radio"
+                            value={plan.value}
+                            checked={field.value === plan.value}
+                            onChange={(e) => field.onChange(e.target.value)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          />
+                          <span>{plan.label}</span>
+                        </label>
                       ))}
-                    </select>
+                    </div>
                   )}
                 />
-              </div> */}
+              </div>
             </div>
 
             {/* 6. Itinerary Builder */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold border-b pb-2">5. Itinerary Builder</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">6. Itinerary Builder</h3>
                 <Button type="button" onClick={addItineraryDay} className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
                   Add Day
@@ -692,7 +695,7 @@ const packageType = watch('packageType');
 
             {/* 6. Package Duration */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">6. Package Duration</h3>
+              <h3 className="text-lg font-semibold border-b pb-2">7. Package Duration</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Duration Summary</Label>
@@ -713,7 +716,7 @@ const packageType = watch('packageType');
 
             {/* 7. Starting Price */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">7. Starting Price</h3>
+              <h3 className="text-lg font-semibold border-b pb-2">8. Starting Price</h3>
               <Controller
                 name="cost"
                 control={control}
@@ -740,7 +743,7 @@ const packageType = watch('packageType');
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Experience Type */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">8. Experience Type</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">9. Experience Type</h3>
                 <Controller
                   name="experienceType"
                   control={control}
@@ -761,7 +764,7 @@ const packageType = watch('packageType');
 
               {/* Deals & Offers Category */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">9. Deals & Offers</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">10. Deals & Offers</h3>
                 <Controller
                   name="discountCategory"
                   control={control}
@@ -781,7 +784,7 @@ const packageType = watch('packageType');
 
               {/* Trending Status */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">10. Trending Package</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">11. Trending Package</h3>
                 <Controller
                   name="isTrending"
                   control={control}
@@ -804,7 +807,7 @@ const packageType = watch('packageType');
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Season Getaways */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">11. Seasonal Escapes</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">12. Seasonal Escapes</h3>
                 <Controller
                   name="season"
                   control={control}
@@ -825,7 +828,7 @@ const packageType = watch('packageType');
 
               {/* Festive & Event Specials */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">12. Festive & Event Specials</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">13. Festive & Event Specials</h3>
                 <Controller
                   name="eventType"
                   control={control}
@@ -848,7 +851,7 @@ const packageType = watch('packageType');
             {/* 13. Inclusions & Exclusions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">13. Inclusions</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">14. Inclusions</h3>
                 <Controller
                   name="inclusions"
                   control={control}
@@ -864,7 +867,7 @@ const packageType = watch('packageType');
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">14. Exclusions</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">15. Exclusions</h3>
                 <Controller
                   name="exclusions"
                   control={control}

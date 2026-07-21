@@ -110,13 +110,17 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
               <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-20 w-auto object-contain" />
             </div>
             
-            <div className="relative w-full max-w-xl hidden sm:block cursor-text" onClick={() => router.push('/')}>
+            <div className="relative w-full max-w-xl hidden sm:block">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <input 
                 type="text" 
                 placeholder="Search your Holiday Destination" 
-                className="w-full pl-10 pr-4 py-1.5 rounded-md text-black bg-gray-50 border border-gray-200 text-sm h-10 shadow-inner focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-                readOnly
+                className="w-full pl-10 pr-4 py-1.5 rounded-md text-black bg-gray-50 border border-gray-200 text-sm h-10 shadow-inner focus:outline-none focus:ring-2 focus:ring-orange-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    router.push('/');
+                  }
+                }}
               />
             </div>
           </div>
@@ -135,26 +139,26 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
 
             {/* Compare */}
             <span
-              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-400 flex items-center gap-1.5"
               onClick={() => router.push('/?section=compare')}
             >
-              Compare
+              <Scale className="h-4 w-4 text-orange-400" /> Compare
             </span>
 
             {/* Wishlist */}
             <span
-              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-400 flex items-center gap-1.5"
               onClick={() => router.push('/?section=wishlist')}
             >
-              Wishlist
+              <Heart className="h-4 w-4 text-orange-400" /> Wishlist
             </span>
 
             {/* Messages */}
             <span
-              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-400 flex items-center gap-1.5"
               onClick={() => router.push('/?section=chat')}
             >
-              Messages
+              <MessageSquare className="h-4 w-4 text-orange-400" /> Messages
             </span>
 
             {/* Profile / Sign In */}
@@ -188,9 +192,9 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
             ) : (
               <button
                 onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors"
+                className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors flex items-center gap-1.5"
               >
-                Login
+                <User className="h-4 w-4" /> Login
               </button>
             )}
           </div>

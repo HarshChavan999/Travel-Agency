@@ -71,6 +71,84 @@ const defaultAccommodations = [
   { city: "Shimla", hotels: ["Wildflower Hall", "The Oberoi Cecil", "Radisson Hotel Shimla"], nights: 2 }
 ];
 
+// Dummy Review Data
+const travellerImages = [
+  "https://images.unsplash.com/photo-1526772662000-2f8d80f56d36?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1501555088652-021faa106b9b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1533105079780-92b9be482077?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1506929562872-bb421503ef21?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+];
+
+const popularReviews = [
+  {
+    id: 1,
+    name: "Yadhunandan Srinivasan",
+    date: "Reviewed: 12 Jul 2023",
+    rating: 5.0,
+    booked: "Sikkim0407",
+    text: "Thanks to Thrillophilia in arranging such a compact and concise trip with covering all the main places to visit in the itinerary. We had a very pleasant stay both in Gangtok and Darjeeling. The coordination from Himavat was also very good and kept us up to date about our day to day activities.",
+    images: travellerImages
+  },
+  {
+    id: 2,
+    name: "Arun Nampoothiri",
+    date: "Reviewed: 05 Jun 2023",
+    rating: 4.0,
+    booked: "7skuP2706",
+    text: "The overall trip was good. If we divide the trip into 3 parts - Gangtok, Pelling & Darjeeling, we were quite happy with the first two. About Himavat, to be honest, we are impressed with the services. Information flow was smooth within the Whatsapp group created. Immediate actions were taken whenever we raised concerns. Also upon request, they did the toy train booking for us. So, a big appreciation for Himavat & all the team members. 👏👏👏",
+    images: travellerImages
+  },
+  {
+    id: 3,
+    name: "Sirisha",
+    date: "Reviewed: 14 May 2023",
+    rating: 5.0,
+    booked: "7mkuP0706 - KA",
+    text: "When we first thought of Meghalaya tour and saw the itinerary, we were a bit sceptical about the Nongriat trek. But we decided to try it anyways on recommendation from Thrillophilia operator. It proved to be the right decision. It was a once in a lifetime trip made smooth and hiccup-free by Thrillophilia starting from curating the itinerary we wanted to arranging a knowledgeable driver and a great guide for the trek. Especially, Surabhi had been extremely helpful. She was constantly in touch with us everyday, finding out if we were facing any problems at all, and making sure we were safe and comfortable. Many thanks to Thrillophilia team for... Read more",
+    images: travellerImages
+  }
+];
+
+const recentReviews = [
+  {
+    id: 1,
+    name: "Prosenjit Bose",
+    date: "Reviewed: 06 Apr 2024",
+    rating: 5.0,
+    booked: "Getaway to Sikkim with Piek Yak Ride",
+    travelledFrom: "Kolkata",
+    text: "Ami khub excited chilam er trip ta darun hoye gelo! Gangtok theke Darjeeling - puro North East experience khub bhalo laglo. Tea garden visit, Kanchenjunga view, ki bolbo aar! Cable car ride ta amader khub mojar laglo. Local food ektu ektu try korechi, sab delicious chilo!"
+  },
+  {
+    id: 2,
+    name: "Ritika Joshi",
+    date: "Reviewed: 04 Apr 2024",
+    rating: 5.0,
+    booked: "Getaway to Sikkim with Piek Yak Ride",
+    travelledFrom: "Mumbai",
+    text: "Gangtok Darjeeling tour bhai full paisa vasool tha! Rumtek Monastery mein shanti mili - Mumbai ki bheed bhaar bhool gayi. Darjeeling toy train ride ekdum filmy experience tha. Kanchenjunga morning view - goosebumps aaye literally! Local momos aur thukpa bhi khaya - ekdum mast!"
+  },
+  {
+    id: 3,
+    name: "Disha Vora",
+    date: "Reviewed: 22 Feb 2024",
+    rating: 5.0,
+    booked: "Getaway to Sikkim with Piek Yak Ride",
+    travelledFrom: "Mumbai",
+    text: "Coming from the busy streets of Mumbai, this North East escape was exactly what we needed. The calm surroundings of Lachen were mesmerizing, and gliding over its transparent waters was a one-of-a-kind experience. Waking up to serene river views at the campsite was truly special. In Shillong, the stays were cozy and thoughtfully designed, adding to the overall comfort. The entire trip was managed effortlessly, making it relaxing and full of memorable moments."
+  },
+  {
+    id: 4,
+    name: "Kunal Kandpal",
+    date: "Reviewed: 15 Feb 2024",
+    rating: 5.0,
+    booked: "Getaway to Sikkim with Piek Yak Ride",
+    travelledFrom: "Vadodara",
+    text: "Loved the night in the eco-lodge. The hotels were very comfortable and the travel coordination was seamless throughout the trip. The driver was very experienced on the mountain roads."
+  }
+];
+
 export default function PackageDetailView({ 
   listing, 
   onBack, 
@@ -88,6 +166,27 @@ export default function PackageDetailView({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const { addToComparison, isInComparison, canAddMore, comparisonList } = useComparison();
+
+  const handleShare = async () => {
+    const shareData = {
+      title: listing.title || 'Travel Package',
+      text: `Check out this amazing travel package: ${listing.title || 'Travel Package'}!`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        setCompareToastMessage('Link copied to clipboard!');
+        setShowCompareToast(true);
+        setTimeout(() => setShowCompareToast(false), 3000);
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+    }
+  };
 
   // Get all images from placesCovered
   const getAllImages = () => {
@@ -247,7 +346,7 @@ export default function PackageDetailView({
                   variant="outline" 
                   size="sm" 
                   className="flex items-center gap-2"
-                  onClick={() => alert('Share functionality coming soon!')}
+                  onClick={handleShare}
                 >
                   <Share2 className="h-4 w-4" />
                   Share
@@ -600,96 +699,7 @@ export default function PackageDetailView({
                 </div>
               </CardContent>
             </Card>
-
-            {/* Tour Inclusions */}
-            <Card>
-              <CardHeader className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  {/* <Check className="h-5 w-5" /> */}
-                  Tour Inclusion Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                {inclusions.length > 0 ? (
-                  <ul className="space-y-3">
-                    {inclusions.map((item: string, index: number) => (
-                      <li key={index} className="flex items-start gap-3">
-                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Check className="h-4 w-4 text-green-600" />
-                        </div>
-                        <span className="text-gray-700">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-center text-gray-500 py-4">
-                    <p>Inclusions will be listed here.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Tour Exclusions */}
-            <Card>
-              <CardHeader className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  {/* <X className="h-5 w-5" /> */}
-                  Tour Exclusion Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                {exclusions.length > 0 ? (
-                  <ul className="space-y-3">
-                    {exclusions.map((item: string, index: number) => (
-                      <li key={index} className="flex items-start gap-3">
-                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <X className="h-4 w-4 text-red-600" />
-                        </div>
-                        <span className="text-gray-700">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-center text-gray-500 py-4">
-                    <p>Exclusions will be listed here.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* FAQ Section */}
-            <Card>
-              <CardHeader className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <MessageCircle className="h-5 w-5" />
-                  More Frequent Questions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  {defaultFAQs.map((faq, index) => (
-                    <div key={index} className="border rounded-lg">
-                      <button 
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
-                        onClick={() => toggleFAQ(index)}
-                      >
-                        <span className="font-medium text-gray-900">{faq.question}</span>
-                        {expandedFAQs.includes(index) ? (
-                          <ChevronUp className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                        )}
-                      </button>
-                      {expandedFAQs.includes(index) && (
-                        <div className="px-4 pb-4">
-                          <p className="text-gray-600 leading-relaxed">{faq.answer}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            
           </div>
 
           {/* Right Column - Sidebar */}
@@ -774,6 +784,267 @@ export default function PackageDetailView({
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Full Width Sections */}
+        <div className="space-y-8 mt-8">
+            {/* End of Trip & What's Inside */}
+            <div className="flex flex-col items-center justify-center py-6">
+              <h2 
+                className="text-4xl text-orange-400 mb-6" 
+                style={{ fontFamily: "'Brush Script MT', 'Caveat', 'Great Vibes', cursive", transform: 'rotate(-2deg)' }}
+              >
+                End Of Trip
+              </h2>
+              <Card className="w-full shadow-sm border border-gray-200">
+                <CardHeader className="bg-white border-b pb-4">
+                  <CardTitle className="text-lg font-semibold text-gray-900">
+                    What's inside the package?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="flex flex-col md:flex-row">
+                    {/* Inclusions */}
+                    <div className="flex-1 p-6 md:border-r border-gray-100">
+                      <h3 className="font-semibold text-gray-900 mb-4">Inclusions</h3>
+                      {inclusions.length > 0 ? (
+                        <ul className="space-y-3">
+                          {inclusions.map((item: string, index: number) => (
+                            <li key={index} className="flex items-start gap-3">
+                              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                              </div>
+                              <span className="text-sm text-gray-600 leading-relaxed">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-gray-500">Inclusions will be listed here.</p>
+                      )}
+                    </div>
+                    {/* Exclusions */}
+                    <div className="flex-1 p-6">
+                      <h3 className="font-semibold text-gray-900 mb-4">Exclusions</h3>
+                      {exclusions.length > 0 ? (
+                        <ul className="space-y-3">
+                          {exclusions.map((item: string, index: number) => (
+                            <li key={index} className="flex items-start gap-3">
+                              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <X className="h-4 w-4 text-red-500" strokeWidth={3} />
+                              </div>
+                              <span className="text-sm text-gray-600 leading-relaxed">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-gray-500">Exclusions will be listed here.</p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Reviews Section */}
+            <div className="pt-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Reviews(254)</h2>
+              
+              {/* Reviews Overview */}
+              <div className="flex flex-col md:flex-row gap-8 mb-10">
+                {/* Overall Rating */}
+                <div className="flex flex-col items-center justify-center">
+                  <div className="flex text-green-600 mb-2">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Star key={star} className="h-6 w-6 fill-current" />
+                    ))}
+                  </div>
+                  <div className="text-5xl font-bold text-green-600 mb-1">4.6</div>
+                  <div className="text-sm text-gray-500 border-b border-green-600 text-green-600 cursor-pointer">From 70+ countries</div>
+                </div>
+
+                {/* Rating Breakdown */}
+                <div className="flex-1 flex flex-col justify-center space-y-2 border-l pl-8">
+                  {[
+                    { stars: 5, count: 207, percentage: 80 },
+                    { stars: 4, count: 147, percentage: 55 },
+                    { stars: 3, count: 12, percentage: 5 },
+                    { stars: 2, count: 0, percentage: 0 },
+                    { stars: 1, count: 0, percentage: 0 }
+                  ].map((row) => (
+                    <div key={row.stars} className="flex items-center gap-3">
+                      <div className="flex items-center w-8 text-sm text-gray-600">
+                        {row.stars} <Star className="h-3 w-3 fill-current text-yellow-400 ml-1" />
+                      </div>
+                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-orange-500 rounded-full" 
+                          style={{ width: `${row.percentage}%` }}
+                        ></div>
+                      </div>
+                      <div className="w-8 text-right text-sm text-gray-500">{row.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Traveller Image Gallery */}
+              <div className="mb-10">
+                <h3 className="font-bold text-gray-900 mb-4">Traveller Image Gallery</h3>
+                <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[300px]">
+                  <div className="col-span-2 row-span-2 relative rounded-xl overflow-hidden group">
+                    <img src={travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <button className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-md text-white border border-white/50 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
+                      View all (15)
+                    </button>
+                  </div>
+                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
+                    <img src={travellerImages[1]} alt="Traveller 2" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </div>
+                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
+                    <img src={travellerImages[2]} alt="Traveller 3" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </div>
+                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
+                    <img src={travellerImages[3]} alt="Traveller 4" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </div>
+                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
+                    <img src={travellerImages[4]} alt="Traveller 5" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Popular Reviews */}
+              <div className="mb-10">
+                <h3 className="font-bold text-xl text-gray-900 mb-1">Popular Reviews</h3>
+                <p className="text-sm text-gray-500 mb-4">Photos, ratings, and experiences shared by verified Thrillophilia travellers</p>
+                <div className="space-y-4">
+                  {popularReviews.map((review) => (
+                    <Card key={review.id} className="shadow-sm border-gray-200">
+                      <CardContent className="p-5">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                              <img src={`https://ui-avatars.com/api/?name=${review.name.replace(' ', '+')}&background=random`} alt={review.name} className="w-full h-full object-cover" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900 text-sm">{review.name}</h4>
+                              <p className="text-xs text-gray-500">{review.date}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
+                            <Star className="h-3 w-3 fill-current" /> {review.rating}/5
+                          </div>
+                        </div>
+                        <div className="text-xs text-orange-500 mb-3 flex items-center gap-1">
+                          <span className="text-gray-500">Booked:</span> {review.booked}
+                        </div>
+                        <p className="text-sm text-gray-600 mb-4 leading-relaxed line-clamp-3 md:line-clamp-none">
+                          {review.text}
+                        </p>
+                        {/* Review Images */}
+                        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+                          {review.images.slice(0, 5).map((img, i) => (
+                            <div key={i} className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden relative">
+                              <img src={img} alt={`Review ${review.id} image ${i+1}`} className="w-full h-full object-cover" />
+                              {i === 4 && review.images.length > 5 && (
+                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white cursor-pointer">
+                                  <span className="text-sm font-semibold">+{review.images.length - 5}</span>
+                                  <span className="text-xs">View all</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <div className="mt-6 flex justify-center">
+                  <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-50 font-semibold px-8 rounded-md">
+                    Load More reviews
+                  </Button>
+                </div>
+              </div>
+
+              {/* Recent Reviews */}
+              <div>
+                <h3 className="font-bold text-xl text-gray-900 mb-1">Recent Reviews</h3>
+                <p className="text-sm text-gray-500 mb-4">Reviews From Verified Travellers Who Booked Their Trips With Us</p>
+                <div className="space-y-4">
+                  {recentReviews.map((review) => (
+                    <Card key={review.id} className="shadow-sm border-gray-200">
+                      <CardContent className="p-5">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                              <img src={`https://ui-avatars.com/api/?name=${review.name.replace(' ', '+')}&background=random`} alt={review.name} className="w-full h-full object-cover" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900 text-sm">{review.name}</h4>
+                              <p className="text-xs text-gray-500">{review.date}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
+                            <Star className="h-3 w-3 fill-current" /> {review.rating}/5
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                          <div className="text-xs text-orange-500 flex items-center gap-1 cursor-pointer hover:underline">
+                            <span className="text-gray-500">Booked:</span> {review.booked} <ChevronRight className="h-3 w-3" />
+                          </div>
+                          {review.travelledFrom && (
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              Travelled From: <MapPin className="h-3 w-3" /> <span className="font-medium text-gray-700">{review.travelledFrom}</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {review.text}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <div className="mt-6 flex justify-center">
+                  <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-50 font-semibold px-8 rounded-md mb-8">
+                    Load More reviews (272+)
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* FAQ Section */}
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <MessageCircle className="h-5 w-5" />
+                  More Frequent Questions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-2">
+                  {defaultFAQs.map((faq, index) => (
+                    <div key={index} className="border rounded-lg">
+                      <button 
+                        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
+                        onClick={() => toggleFAQ(index)}
+                      >
+                        <span className="font-medium text-gray-900">{faq.question}</span>
+                        {expandedFAQs.includes(index) ? (
+                          <ChevronUp className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                        )}
+                      </button>
+                      {expandedFAQs.includes(index) && (
+                        <div className="px-4 pb-4">
+                          <p className="text-gray-600 leading-relaxed">{faq.answer}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
         </div>
       </div>
 
