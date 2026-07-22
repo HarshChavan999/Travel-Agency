@@ -1,0 +1,16 @@
+# Firebase App Hosting Configuration
+# https://firebase.google.com/docs/app-hosting/configure
+
+env:
+  - variable: FIREBASE_PROJECT_ID
+    value: travel-agent-management-29c27
+  - variable: FIREBASE_CLIENT_EMAIL
+    value: firebase-adminsdk-fbsvc@travel-agent-management-29c27.iam.gserviceaccount.com
+  - variable: FIREBASE_PRIVATE_KEY
+    secret: FIREBASE_PRIVATE_KEY
+  - variable: RAZORPAY_KEY_ID
+    secret: RAZORPAY_KEY_ID
+  - variable: RAZORPAY_KEY_SECRET
+    secret: RAZORPAY_KEY_SECRET
+  - variable: RAZORPAY_WEBHOOK_SECRET
+    secret: RAZORPAY_WEBHOOK_SECRET
