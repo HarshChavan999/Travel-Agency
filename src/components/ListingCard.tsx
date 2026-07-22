@@ -82,8 +82,8 @@ export default function ListingCard({
     : (listing.stateName || 'State not specified');
 
   const packageCode = listing.id ? listing.id.slice(-4).toUpperCase() : '1045';
-  const pickupLocation = listing.placesCovered?.[0]?.name?.trim() || listing.stateName || 'Delhi';
-  const dropLocation = listing.placesCovered?.[listing.placesCovered.length - 1]?.name?.trim() || listing.stateName || 'Delhi';
+  const pickupLocation = listing.pickUpLocation || listing.placesCovered?.[0]?.name?.trim() || listing.stateName || 'Delhi';
+  const dropLocation = listing.dropLocation || listing.placesCovered?.[listing.placesCovered.length - 1]?.name?.trim() || listing.stateName || 'Delhi';
   const cardTitle = (listing.packageType === 'international' ? listing.countryName : listing.stateName) || listing.title || `${packageType} Package`;
   const placesText = listing.placesCovered && listing.placesCovered.length > 0 
     ? listing.placesCovered.map((p: any) => p.name?.trim()).filter(Boolean).join(' | ') 

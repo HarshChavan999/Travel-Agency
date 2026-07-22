@@ -19,6 +19,7 @@ import Footer from '@/components/Footer';
 import AutocompleteSearch from '@/components/AutocompleteSearch';
 import WishlistView from '@/components/WishlistView';
 import AuthModal from '@/components/AuthModal';
+import FilterSidebar from '@/components/FilterSidebar';
 import UserProfile from '@/components/UserProfile';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { 
@@ -3707,8 +3708,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {/* Category Emoji Navigation Strip */}
-                  <div id="category-nav-strip" className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 overflow-x-auto horizontal-scroll-nav scrollbar-hide py-2.5 sticky top-16 z-[90] backdrop-blur-md">
-                    <div className="flex gap-2 sm:gap-3.5 w-full justify-between items-center min-w-max px-2">
+                  <div id="category-nav-strip" className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-md relative">
+                    <div className="flex gap-2 sm:gap-3.5 w-full justify-start items-center min-w-max px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
                         { id: 'all_packages', label: 'All Packages', type: 'all', filter: null },
@@ -3755,6 +3756,19 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </button>
                         );
                       })}
+                    </div>
+                    
+                    <div className="h-6 w-px bg-gray-300 mx-1 shrink-0"></div>
+                    
+                    <div className="relative shrink-0 flex items-center">
+                      <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 flex items-center gap-2 border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 shadow-sm"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Filter
+                      </button>
+                      <FilterSidebar isOpen={showFilters} onClose={() => setShowFilters(false)} />
                     </div>
                   </div>
 

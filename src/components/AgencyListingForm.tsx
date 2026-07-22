@@ -30,6 +30,8 @@ interface FormData {
   packageType: 'international' | 'domestic';
   countryName?: string;
   stateName?: string;
+  pickUpLocation: string;
+  dropLocation: string;
   placesCovered: Place[];
   tourCategories: string[];
   hotelTypes: string[];
@@ -168,6 +170,8 @@ const {
       packageType: 'domestic',
       countryName: '',
       stateName: '',
+      pickUpLocation: '',
+      dropLocation: '',
       placesCovered: [],
       tourCategories: [],
       hotelTypes: [],
@@ -472,6 +476,36 @@ const packageType = watch('packageType');
                   </div>
                 )}
               />
+            </div>
+
+            {/* Pick-up & Drop Locations */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Pick-up Location</h3>
+                <Controller
+                  name="pickUpLocation"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      placeholder="e.g., Delhi Airport, Mumbai Central"
+                      {...field}
+                    />
+                  )}
+                />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Drop Location</h3>
+                <Controller
+                  name="dropLocation"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      placeholder="e.g., Delhi Airport, Mumbai Central"
+                      {...field}
+                    />
+                  )}
+                />
+              </div>
             </div>
 
             {/* 2. Places Covered */}
