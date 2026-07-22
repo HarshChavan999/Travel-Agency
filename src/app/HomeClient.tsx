@@ -1863,6 +1863,20 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     }
   };
 
+  const handleDeletePackage = async (packageId: string) => {
+    if (!window.confirm('Are you sure you want to delete this package? This action cannot be undone.')) return;
+    
+    try {
+      const dbInstance = getDbInstance();
+      if (!dbInstance) return;
+      await deleteDoc(doc(dbInstance, 'listings', packageId));
+      alert('Package deleted successfully');
+    } catch (error) {
+      console.error('Error deleting package:', error);
+      alert('Failed to delete package. Please try again.');
+    }
+  };
+
   const approveListing = async (id: string) => {
     try {
       const dbInstance = getDbInstance();
@@ -2356,6 +2370,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   Listings
                 </button>
                 <button
+                  onClick={() => setActiveSection('manage_packages')}
+                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'manage_packages'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  Manage Packages
+                </button>
+                <button
                   onClick={() => setActiveSection('settings')}
                   className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'settings'
                       ? 'bg-blue-50 text-blue-700'
@@ -2387,6 +2410,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   {activeSection === 'listings' && 'Listing Approvals'}
                   {activeSection === 'analytics' && 'Analytics & Reports'}
                   {activeSection === 'agencies' && 'All Agencies'}
+                  {activeSection === 'manage_packages' && 'Manage Packages'}
                   {activeSection === 'settings' && 'Settings'}
                   {activeSection === 'chats' && 'All Chats'}
                 </h1>
@@ -2834,6 +2858,58 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         ))}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {activeSection === 'manage_packages' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Palmtree className="mr-2 h-5 w-5 text-blue-600" />
+                      Manage Agency Packages
+                    </CardTitle>
+                    <CardDescription>
+                      View and manage packages grouped by agency
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-8">
+                      {allAgencies.map(agency => {
+                        const agencyPkgs = agencyListings.filter(l => l.agencyId === agency.id);
+                        if (agencyPkgs.length === 0) return null;
+                        
+                        return (
+                          <div key={agency.id} className="border rounded-lg p-4 bg-gray-50">
+                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                              <Building className="h-5 w-5 text-gray-600" />
+                              {agency.companyName} 
+                              <span className="text-sm font-normal text-gray-500">({agencyPkgs.length} packages)</span>
+                            </h3>
+                            <div className="space-y-4">
+                              {agencyPkgs.map(pkg => (
+                                <div key={pkg.id} className="flex items-center justify-between p-3 bg-white border rounded-md shadow-sm">
+                                  <div>
+                                    <h4 className="font-semibold">{pkg.title || `${pkg.packageType === 'international' ? pkg.countryName : pkg.stateName} Package`}</h4>
+                                    <p className="text-sm text-gray-600">ID: {pkg.id} | Status: {pkg.approved ? 'Approved' : 'Pending'}</p>
+                                  </div>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm" 
+                                    onClick={() => handleDeletePackage(pkg.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" /> Delete
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {allAgencies.every(agency => agencyListings.filter(l => l.agencyId === agency.id).length === 0) && (
+                         <p className="text-gray-500 text-center py-8">No packages found for any agency.</p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               )}
