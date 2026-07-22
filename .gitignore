@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase admin keys
+/firebase-admin-key*.json
+/travel-agent-management-*.json
