@@ -397,7 +397,7 @@ export default function PackageDetailView({
                   </Badge>
                 ))}
                 <Badge variant="outline" className="text-gray-600">
-                  Code: {packageCode}
+                  {/* Code: {packageCode} */}
                 </Badge>
                 <div className="flex items-center gap-1 text-yellow-500">
                   <Star className="h-4 w-4 fill-current" />

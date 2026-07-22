@@ -264,6 +264,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [allAgencies, setAllAgencies] = useState<any[]>([]);
   const [pendingListings, setPendingListings] = useState<any[]>([]);
   const [agencyActiveSection, setAgencyActiveSection] = useState('listings');
+  const [pricingConfig, setPricingConfig] = useState({ starterPrice: 2000, premiumPrice: 5000, vipPrice: 10000, addonCreditPrice: 1 });
   const searchParams = useSearchParams();
   const sectionParam = searchParams.get('section');
   
@@ -277,6 +278,21 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       }
     }
   }, [sectionParam]);
+
+  useEffect(() => {
+    const fetchPricingConfig = async () => {
+      try {
+        const response = await fetch('/api/admin/get-config');
+        if (response.ok) {
+          const data = await response.json();
+          setPricingConfig(data);
+        }
+      } catch (e) {
+        console.error('Error fetching pricing config:', e);
+      }
+    };
+    fetchPricingConfig();
+  }, []);
 
   const [userActiveSection, setUserActiveSection] = useState('listings');  const [fromSection, setFromSection] = useState('listings');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -1056,94 +1072,206 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     }
   };
 
-  // Simulate client-side plans upgrade/downgrade
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const upgradePlan = async (targetPlan: 'free' | 'starter' | 'premium' | 'vip') => {
     if (!user || !userData) return;
-    const dbInstance = getDbInstance();
-    if (!dbInstance) return;
-
-    let initCredits = 0;
-    let cost = 0;
-    let desc = '';
-
+    
     if (targetPlan === 'free') {
-      initCredits = 100;
-      desc = 'Switched to Free Plan (100 credits)';
-    } else if (targetPlan === 'starter') {
-      initCredits = 2000;
-      cost = 2000;
-      desc = 'Upgraded to Standard Plan (2,000 credits / month, ₹2,000/yr)';
-    } else if (targetPlan === 'premium') {
-      initCredits = 5000;
-      cost = 5000;
-      desc = 'Upgraded to Premium Plan (5,000 credits / month, ₹5,000/yr)';
-    } else if (targetPlan === 'vip') {
-      initCredits = 10000;
-      cost = 10000;
-      desc = 'Upgraded to VIP Plan (10,000 credits / month, ₹10,000/yr)';
+      try {
+        const dbInstance = getDbInstance();
+        if (!dbInstance) return;
+        await updateDoc(doc(dbInstance, 'users', user.uid), {
+          plan: 'free',
+          credits: 100,
+          creditHistory: [{
+            id: 'TX-PL-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+            type: 'plan-change',
+            amount: 0,
+            description: 'Switched to Free Plan (100 credits)',
+            timestamp: Date.now()
+          }, ...(userData.creditHistory || [])]
+        });
+        alert(`Plan updated to FREE successfully!`);
+      } catch (e) {
+        console.error(e);
+      }
+      return;
     }
 
-    const txId = 'TX-PL-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-    const newTransaction = {
-      id: txId,
-      type: 'plan-change',
-      amount: cost,
-      description: desc,
-      timestamp: Date.now()
-    };
+    let cost = 0;
+    if (targetPlan === 'starter') cost = 2000;
+    else if (targetPlan === 'premium') cost = 5000;
+    else if (targetPlan === 'vip') cost = 10000;
+
+    const res = await loadRazorpayScript();
+    if (!res) {
+      alert('Razorpay SDK failed to load. Are you online?');
+      return;
+    }
 
     try {
-      await updateDoc(doc(dbInstance, 'users', user.uid), {
-        plan: targetPlan,
-        credits: initCredits,
-        creditHistory: [newTransaction, ...(userData.creditHistory || [])]
+      const response = await fetch('/api/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agencyId: user.uid,
+          targetPlan: targetPlan,
+          isAddon: false
+        })
       });
-      alert(`Plan updated to ${targetPlan.toUpperCase()} successfully!`);
-    } catch (e) {
-      console.error('Failed to change plan:', e);
-      alert('Failed to update subscription. Please try again.');
+      const order = await response.json();
+      if (order.error) throw new Error(order.error);
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+        amount: order.amount,
+        currency: order.currency,
+        name: "Travel Agency",
+        description: `Upgrade to ${targetPlan.toUpperCase()} Plan`,
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch('/api/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                agencyId: user.uid,
+                targetPlan: targetPlan,
+                isAddon: false
+              })
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              alert(`Payment verified! Your plan has been successfully updated to ${targetPlan.toUpperCase()}.`);
+              window.location.reload(); // Reload to reflect changes
+            } else {
+              alert('Payment verified on Razorpay, but failed to update plan: ' + verifyData.error);
+            }
+          } catch (e) {
+            console.error('Verification error', e);
+            alert('Failed to verify payment with our servers, but payment may have succeeded.');
+          }
+        },
+        prefill: {
+          name: userData.companyName || userData.name || '',
+          email: userData.email || '',
+        },
+        theme: {
+          color: "#3B82F6"
+        }
+      };
+
+      const rzp1 = new (window as any).Razorpay(options);
+      rzp1.on('payment.failed', function (response: any){
+        alert(response.error.description);
+      });
+      rzp1.open();
+    } catch (e: any) {
+      console.error('Failed to create order:', e);
+      alert('Failed to initialize payment. Please try again.');
     }
   };
 
-  // Simulate purchasing credits
   const buyCredits = async (amount: number, price: number) => {
     if (!user || !userData) return;
-    const dbInstance = getDbInstance();
-    if (!dbInstance) return;
-
+    
     if (userData.plan === 'free') {
       alert('Purchase not supported on Free Plan. Please upgrade to Starter or Premium plan.');
+      return;
+    }
+
+    const res = await loadRazorpayScript();
+    if (!res) {
+      alert('Razorpay SDK failed to load. Are you online?');
       return;
     }
 
     setIsPurchasingCredits(true);
     setPurchaseStatusText(`Connecting to secure gateway. Processing payment of ₹${price}...`);
 
-    setTimeout(async () => {
-      setPurchaseStatusText('Validating transaction with bank... Adding credits...');
+    try {
+      const response = await fetch('/api/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditsToBuy: amount,
+          agencyId: user.uid,
+          isAddon: true,
+          targetPlan: ''
+        })
+      });
+      const order = await response.json();
+      if (order.error) throw new Error(order.error);
+      setIsPurchasingCredits(false);
 
-      const txId = 'TX-TP-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-      const newTransaction = {
-        id: txId,
-        type: 'top-up',
-        amount: amount,
-        description: `Purchased Credit Pack (Add-on +${amount} credits)`,
-        timestamp: Date.now()
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+        amount: order.amount,
+        currency: order.currency,
+        name: "Travel Agency",
+        description: `Purchased Credit Pack (+${amount} credits)`,
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch('/api/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                agencyId: user.uid,
+                isAddon: true,
+                creditsToBuy: amount
+              })
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              alert(`Payment verified! ${amount} credits have been successfully added.`);
+              window.location.reload(); // Reload to reflect changes
+            } else {
+              alert('Payment verified on Razorpay, but failed to add credits: ' + verifyData.error);
+            }
+          } catch (e) {
+            console.error('Verification error', e);
+            alert('Failed to verify payment with our servers, but payment may have succeeded.');
+          }
+        },
+        prefill: {
+          name: userData.companyName || userData.name || '',
+          email: userData.email || '',
+        },
+        theme: {
+          color: "#3B82F6"
+        }
       };
 
-      try {
-        await updateDoc(doc(dbInstance, 'users', user.uid), {
-          credits: (userData.credits || 0) + amount,
-          creditHistory: [newTransaction, ...(userData.creditHistory || [])]
-        });
-        setIsPurchasingCredits(false);
-        alert(`Success! Added ${amount} credits to your account.`);
-      } catch (err) {
-        console.error('Payment error:', err);
-        setIsPurchasingCredits(false);
-        alert('Transaction failed. Please try again.');
-      }
-    }, 2500);
+      const rzp1 = new (window as any).Razorpay(options);
+      rzp1.on('payment.failed', function (response: any){
+        alert(response.error.description);
+      });
+      rzp1.open();
+    } catch (err) {
+      console.error('Payment error:', err);
+      setIsPurchasingCredits(false);
+      alert('Transaction failed to initialize. Please try again.');
+    }
   };
 
   // Reset helper for developers
@@ -2293,114 +2421,99 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         : [];
 
       return (
-        <div className="flex h-screen bg-gray-100">
+        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
           {/* Sidebar */}
-          <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll">
-            <div className="p-6 border-b">
-              <h2 className="text-2xl font-bold text-gray-800">Travel Agency</h2>
-              <p className="text-sm text-gray-600">Admin Dashboard</p>
+          <div className="w-64 bg-white border-r border-gray-200 flex flex-col z-20 shrink-0">
+            <div className="p-6 border-b border-gray-200 flex flex-col items-center text-center shrink-0">
+              <div className="w-20 h-20 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden mb-4 shrink-0">
+                <Building2 className="h-8 w-8 text-indigo-500" />
+              </div>
+              <div className="w-full">
+                <h2 className="text-base font-bold text-gray-900 truncate">Trip Dm</h2>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">Admin Dashboard</p>
+              </div>
             </div>
-            <nav className="p-4">
-              <div className="space-y-2">
-                {/* <button
-                  onClick={() => setAgencyActiveSection('listings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'listings'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                   Listings
-                </button> */}
+            <nav className="p-4 flex-1 overflow-y-auto sidebar-scroll">
+              <div className="space-y-1">
                 <button
                   onClick={() => setActiveSection('overview')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'overview'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'overview'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  Overview
+                  <HomeIcon className="h-4 w-4" /> Overview
                 </button>
-                <button
-                  onClick={() => setActiveSection('analytics')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'analytics'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  Analytics
-                </button>
+
                 <button
                   onClick={() => setActiveSection('agencies')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'agencies'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'agencies'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  Agencies
+                  <Building className="h-4 w-4" /> Agencies
                 </button>
                 <button
                   onClick={() => setActiveSection('listings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'listings'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'listings'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  Listings
+                  <ClipboardList className="h-4 w-4" /> Listings
                 </button>
                 <button
                   onClick={() => setActiveSection('manage_packages')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'manage_packages'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'manage_packages'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  Manage Packages
+                  <Package className="h-4 w-4" /> Manage Packages
                 </button>
                 <button
                   onClick={() => setActiveSection('settings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'settings'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'settings'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  Settings
+                  <Settings className="h-4 w-4" /> Settings
                 </button>
                 <button
                   onClick={() => setActiveSection('chats')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${activeSection === 'chats'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'chats'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  All Chats
+                  <MessageSquare className="h-4 w-4" /> All Chats
                 </button>
               </div>
             </nav>
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 dashboard-scroll mr-4 mt-4">
-            <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated">
-              <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {activeSection === 'dashboard' && 'Admin Dashboard'}
-                  {activeSection === 'approvals' && 'Agency Approvals'}
-                  {activeSection === 'listings' && 'Listing Approvals'}
-                  {activeSection === 'analytics' && 'Analytics & Reports'}
-                  {activeSection === 'agencies' && 'All Agencies'}
-                  {activeSection === 'manage_packages' && 'Manage Packages'}
-                  {activeSection === 'settings' && 'Settings'}
-                  {activeSection === 'chats' && 'All Chats'}
-                </h1>
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-600">Welcome, {userData.name}</span>
-                  <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
-                </div>
+          <div className="flex-1 flex flex-col min-w-0 bg-gray-50/50">
+            <header className="h-16 sticky top-0 z-10 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0">
+              <h1 className="text-xl font-semibold text-gray-900">
+                {activeSection === 'dashboard' && 'Admin Dashboard'}
+                {activeSection === 'approvals' && 'Agency Approvals'}
+                {activeSection === 'listings' && 'Listing Approvals'}
+
+                {activeSection === 'agencies' && 'All Agencies'}
+                {activeSection === 'manage_packages' && 'Manage Packages'}
+                {activeSection === 'settings' && 'Settings'}
+                {activeSection === 'chats' && 'All Chats'}
+              </h1>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">Welcome, {userData.name}</span>
+                <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
               </div>
             </header>
 
-            <main className="p-6">
+            <main className="flex-1 overflow-y-auto p-8 dashboard-scroll">
               {activeSection === 'overview' && (
                 <>
                   {/* Analytics Cards */}
@@ -2549,64 +2662,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 </Card>
               )}
 
-              {activeSection === 'analytics' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Revenue Analytics</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <p className="text-gray-500"> Revenue Chart Coming Soon</p>
-                        </div>
-                      </CardContent>
-                    </Card>
 
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>User Growth</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <p className="text-gray-500 flex items-center gap-2"><TrendingUp className="h-5 w-5 text-gray-400" /> Growth Chart Coming Soon</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>All Agencies</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {allAgencies.filter(a => a.approved).length === 0 ? (
-                          <p className="text-gray-500 text-center py-8">No approved agencies yet</p>
-                        ) : (
-                          allAgencies.filter(a => a.approved).slice(0, 5).map(agency => (
-                            <div key={agency.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <Building className="h-4 w-4 text-blue-600" />
-                                </div>
-                                <div>
-                                  <p className="font-medium">{agency.companyName}</p>
-                                  <p className="text-sm text-gray-600">{agencyListings.filter(l => l.agencyId === agency.id).length} listings</p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-blue-600">{agencyListings.filter(l => l.agencyId === agency.id && l.approved).length}</p>
-                                <p className="text-xs text-gray-500">Active</p>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
 
               {activeSection === 'agencies' && !viewingAgency && (
                 <Card>
@@ -3429,24 +3485,41 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       </div>
 
                       <div>
-                        <h3 className="text-lg font-semibold mb-4">Security Settings</h3>
-                        <div className="space-y-3">
-                          <label className="flex items-center">
-                            <input type="checkbox" className="mr-2" defaultChecked />
-                            <span className="text-sm">Require document verification for agencies</span>
-                          </label>
-                          <label className="flex items-center">
-                            <input type="checkbox" className="mr-2" defaultChecked />
-                            <span className="text-sm">Enable two-factor authentication</span>
-                          </label>
-                          <label className="flex items-center">
-                            <input type="checkbox" className="mr-2" defaultChecked />
-                            <span className="text-sm">Auto-approve agencies from trusted domains</span>
-                          </label>
+                        <h3 className="text-lg font-semibold mb-4 text-blue-700">Dynamic Pricing Configuration (INR)</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label>Starter Plan</Label>
+                            <Input type="number" value={pricingConfig.starterPrice} onChange={(e) => setPricingConfig({...pricingConfig, starterPrice: parseInt(e.target.value) || 0})} />
+                          </div>
+                          <div>
+                            <Label>Premium Plan</Label>
+                            <Input type="number" value={pricingConfig.premiumPrice} onChange={(e) => setPricingConfig({...pricingConfig, premiumPrice: parseInt(e.target.value) || 0})} />
+                          </div>
+                          <div>
+                            <Label>VIP Plan</Label>
+                            <Input type="number" value={pricingConfig.vipPrice} onChange={(e) => setPricingConfig({...pricingConfig, vipPrice: parseInt(e.target.value) || 0})} />
+                          </div>
+                          <div>
+                            <Label>Add-on (per cr)</Label>
+                            <Input type="number" value={pricingConfig.addonCreditPrice} onChange={(e) => setPricingConfig({...pricingConfig, addonCreditPrice: parseFloat(e.target.value) || 0})} />
+                          </div>
                         </div>
                       </div>
 
-                      <Button>Save Settings</Button>
+                      <Button onClick={async () => {
+                        try {
+                          const response = await fetch('/api/admin/save-config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(pricingConfig)
+                          });
+                          if (!response.ok) throw new Error('Failed to save configuration');
+                          alert('Pricing configuration saved successfully!');
+                        } catch (err) {
+                          alert('Error saving config.');
+                          console.error(err);
+                        }
+                      }}>Save Configuration</Button>
                     </CardContent>
                   </Card>
 
@@ -5612,10 +5685,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   // Agency Dashboard
   if (user && userData?.role === 'agency') {
     return (
-        <div className="flex h-screen bg-gray-100">
-          <div className="w-64 bg-white shadow-card rounded-3xl my-4 ml-4 overflow-hidden border border-gray-100 sidebar-scroll flex flex-col">
-            <div className="p-6 border-b bg-slate-50/50 flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden mb-3.5">
+        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+          <div className="w-64 bg-white border-r border-gray-200 flex flex-col z-20 shrink-0">
+            <div className="p-6 border-b border-gray-200 flex flex-col items-center text-center shrink-0">
+              <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden mb-4 shrink-0">
                 {(agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo) ? (
                   <img
                     src={agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo}
@@ -5627,123 +5700,95 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   <Building2 className="h-8 w-8 text-indigo-500" />
                 )}
               </div>
-              <h2 className="text-lg font-bold text-gray-900 leading-tight">{userData?.companyName || 'Travel Agency'}</h2>
-              <p className="text-xs text-gray-400 mt-1 font-medium">{userData?.companyName ? 'Travel Agency Partner' : 'Registered Agency'}</p>
+              <div className="w-full">
+                <h2 className="text-base font-bold text-gray-900 truncate">{userData?.companyName || 'Travel Agency'}</h2>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">{userData?.companyName ? 'Travel Agency Partner' : 'Registered Agency'}</p>
+              </div>
             </div>
-            <nav className="p-4 flex-1">
-              <div className="space-y-2">
+            
+            <nav className="p-4 flex-1 overflow-y-auto sidebar-scroll">
+              <div className="space-y-1">
                 <button
                   onClick={() => setAgencyActiveSection('listings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'listings'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'listings'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  Listings
+                  <ClipboardList className="h-4 w-4" /> Listings
                 </button>
-                {/* {<button
-                  onClick={() => setAgencyActiveSection('overview')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'overview'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  Overview
-                </button>} */}
-                {<button
-                  onClick={() => setAgencyActiveSection('analytics')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'analytics'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  Analytics
-                </button>}
-                {/* <button
-                  onClick={() => setAgencyActiveSection('bookings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${
-                    agencyActiveSection === 'bookings'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                   Bookings
-                </button> */}
-                {<button
-                  onClick={() => setAgencyActiveSection('revenue')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'revenue'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  Revenue
-                </button>}
-                {<button
+
+                <button
                   onClick={() => setAgencyActiveSection('chat')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'chat'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'chat'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  Customer Chat
-                </button>}
-                {<button
+                  <MessageSquare className="h-4 w-4" /> Customer Chat
+                </button>
+
+                <button
                   onClick={() => setAgencyActiveSection('credits')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'credits'
-                      ? 'bg-blue-50 text-blue-700 font-bold'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'credits'
+                      ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                   Plan & Credits
-                </button>}
-                {<button
+                  <CreditCard className="h-4 w-4" /> Plan & Credits
+                </button>
+
+                <button
                   onClick={() => setAgencyActiveSection('settings')}
-                  className={`w-full text-left px-4 py-2 rounded-lg ${agencyActiveSection === 'settings'
-                      ? 'bg-blue-50 text-blue-700 font-bold'
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'settings'
+                      ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                   Settings
-                </button>}
+                   <Settings className="h-4 w-4" /> Settings
+                </button>
               </div>
             </nav>
+            
+            {userData?.approved && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">
+                      Plan: <span className="text-blue-600">{userData?.plan || 'Free'}</span>
+                    </p>
+                    <p className="text-xs font-semibold text-gray-900">
+                      {`${userData?.credits ?? 0} Credits`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setAgencyActiveSection('credits')}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                  >
+                    Upgrade
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className={`flex-1 dashboard-scroll mr-4 mt-4 ${
-            agencyActiveSection === 'chat' ? 'overflow-hidden flex flex-col h-[calc(100vh-32px)]' : ''
-          }`}>
-            <header className="sticky top-0 z-10 bg-white shadow-card rounded-3xl p-6 mb-4 border border-gray-100 gpu-accelerated shrink-0">
-              <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {agencyActiveSection === 'overview' && 'Agency Overview'}
-                  {agencyActiveSection === 'listings' && 'Travel Listings'}
-                  {agencyActiveSection === 'analytics' && 'Agency Analytics'}
-                  {agencyActiveSection === 'bookings' && 'Booking Management'}
-                  {agencyActiveSection === 'revenue' && 'Revenue Dashboard'}
-                  {agencyActiveSection === 'chat' && 'Customer Chat'}
-                  {agencyActiveSection === 'credits' && 'Plan & Credits'}
-                  {agencyActiveSection === 'settings' && 'Agency Settings'}
-                </h1>
-                <div className="flex items-center space-x-4">
-                  {userData?.approved && (
-                    <div className="flex items-center gap-3 mr-4 border-r pr-4 border-gray-205">
-                      <div className="text-right">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                          Plan: <span className="text-blue-600 font-black">{userData?.plan || 'Free'}</span>
-                        </p>
-                        <p className="text-xs font-black text-gray-700">
-                          {`${userData?.credits ?? 0} Credits`}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData?.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
-                  <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
-                </div>
+          <div className="flex-1 flex flex-col min-w-0 bg-gray-50/50">
+            <header className="h-16 sticky top-0 z-10 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0">
+              <h1 className="text-xl font-semibold text-gray-900">
+                {agencyActiveSection === 'overview' && 'Agency Overview'}
+                {agencyActiveSection === 'listings' && 'Travel Listings'}
+                {agencyActiveSection === 'bookings' && 'Booking Management'}
+                {agencyActiveSection === 'chat' && 'Customer Chat'}
+                {agencyActiveSection === 'credits' && 'Plan & Credits'}
+                {agencyActiveSection === 'settings' && 'Agency Settings'}
+              </h1>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData?.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
+                <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
               </div>
             </header>
 
-            <main className={`p-6 ${agencyActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0' : ''}`}>
+            <main className={`overflow-y-auto dashboard-scroll ${agencyActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 p-0' : 'flex-1 p-8'}`}>
               {userData?.approved ? (
                 <>
                   {agencyActiveSection === 'overview' && (
@@ -5843,13 +5888,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           className="flex items-center gap-2"
                         >
                           <Upload className="h-4 w-4" /> Bulk Import CSV
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => setAgencyActiveSection('chat')}
-                          className="flex items-center gap-2"
-                        >
-                          <MessageSquare className="h-4 w-4" /> Chat
                         </Button>
                       </div>
 
@@ -5998,182 +6036,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </CardContent>
                         </Card>
                       )}
-                    </div>
-                  )}
-
-                  {agencyActiveSection === 'analytics' && (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="flex items-center">
-                              <div className="p-2 bg-green-100 rounded-lg">
-                                <DollarSign className="h-6 w-6 text-green-600" />
-                              </div>
-                              <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                  ₹{agencyBookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="flex items-center">
-                              <div className="p-2 bg-blue-100 rounded-lg">
-                                <BarChart3 className="h-6 w-6 text-blue-600" />
-                              </div>
-                              <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                  {agencyBookings.length > 0 ? ((agencyBookings.filter(b => b.status === 'confirmed').length / agencyBookings.length) * 100).toFixed(1) : 0}%
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="flex items-center">
-                              <div className="p-2 bg-purple-100 rounded-lg">
-                                <Star className="h-6 w-6 text-purple-600" />
-                              </div>
-                              <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-600">Avg Rating</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                  {agencyListings.length > 0 ?
-                                    (agencyListings.reduce((sum, l) => sum + (l.rating || 0), 0) / agencyListings.length).toFixed(1) :
-                                    'N/A'}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="flex items-center">
-                              <div className="p-2 bg-orange-100 rounded-lg">
-                                <Users className="h-6 w-6 text-orange-600" />
-                              </div>
-                              <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-600">Total Customers</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                  {new Set(agencyBookings.map(b => b.userId)).size}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-blue-600" /> Popular Destinations</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {agencyListings.length > 0 ? (
-                                // Group listings by destination and count
-                                Object.entries(
-                                  agencyListings.reduce((acc: Record<string, number>, listing) => {
-                                    const dest = listing.destination || 'Unknown';
-                                    acc[dest] = (acc[dest] || 0) + 1;
-                                    return acc;
-                                  }, {} as Record<string, number>)
-                                )
-                                  .sort(([, a], [, b]) => b - a)
-                                  .slice(0, 5)
-                                  .map(([destination, count]) => (
-                                    <div key={destination} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                      <span className="font-medium">{destination}</span>
-                                      <span className="text-sm text-gray-600">{count} listings</span>
-                                    </div>
-                                  ))
-                              ) : (
-                                <p className="text-gray-500 text-center py-8">No listings yet</p>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-green-600" /> Performance Metrics</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <p className="font-medium">Approved Listings</p>
-                                  <p className="text-sm text-gray-600">Ready for customers</p>
-                                </div>
-                                <span className="text-lg font-bold text-green-600">
-                                  {agencyListings.filter(l => l.approved).length}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                                <div>
-                                  <p className="font-medium">Pending Listings</p>
-                                  <p className="text-sm text-gray-600">Awaiting approval</p>
-                                </div>
-                                <span className="text-lg font-bold text-yellow-600">
-                                  {agencyListings.filter(l => !l.approved).length}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <p className="font-medium">Active Chats</p>
-                                  <p className="text-sm text-gray-600">Customer conversations</p>
-                                </div>
-                                <span className="text-lg font-bold text-blue-600">
-                                  {agencyConversations.length}
-                                </span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Recent Activity</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {agencyBookings.length > 0 ? (
-                              agencyBookings.slice(0, 5).map((booking) => (
-                                <div key={booking.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                  <div>
-                                    <p className="font-medium">{booking.listingTitle}</p>
-                                    <p className="text-sm text-gray-600">
-                                      {booking.userName} • ${booking.totalAmount} • {booking.status}
-                                    </p>
-                                  </div>
-                                  <span className="text-xs text-gray-500">
-                                    {new Date(booking.createdAt?.toDate?.() || booking.createdAt).toLocaleDateString()}
-                                  </span>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-center py-8">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                  <BarChart3 className="h-8 w-8 text-blue-600" />
-                                </div>
-                                <h3 className="text-lg font-semibold mb-2">No Activity Yet</h3>
-                                <p className="text-gray-600">
-                                  Your booking and customer activity will appear here once you start receiving inquiries.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
                     </div>
                   )}
 
@@ -6329,184 +6191,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       </Card>
                     </div>
                   )}
-
-                  {agencyActiveSection === 'revenue' && (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-green-600">
-                                ₹{agencyBookings
-                                  .filter(b => {
-                                    const bookingDate = new Date(b.createdAt?.toDate?.() || b.createdAt);
-                                    const now = new Date();
-                                    return bookingDate.getMonth() === now.getMonth() && bookingDate.getFullYear() === now.getFullYear();
-                                  })
-                                  .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
-                                  .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                              <p className="text-sm text-gray-600">This Month</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-blue-600">
-                                ₹{agencyBookings
-                                  .filter(b => {
-                                    const bookingDate = new Date(b.createdAt?.toDate?.() || b.createdAt);
-                                    const now = new Date();
-                                    return bookingDate.getFullYear() === now.getFullYear();
-                                  })
-                                  .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
-                                  .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                              <p className="text-sm text-gray-600">This Year</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-purple-600">{agencyBookings.length}</p>
-                              <p className="text-sm text-gray-600">Total Bookings</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-6">
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-yellow-600">
-                                {agencyListings.length > 0 ?
-                                  (agencyListings.reduce((sum, l) => sum + (l.rating || 0), 0) / agencyListings.length).toFixed(1) :
-                                  'N/A'}
-                              </p>
-                              <p className="text-sm text-gray-600">Avg Rating</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-green-600" /> Revenue Breakdown</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <p className="font-medium">Total Revenue</p>
-                                  <p className="text-sm text-gray-600">Lifetime earnings</p>
-                                </div>
-                                <span className="text-lg font-bold text-green-600">
-                                  ₹{agencyBookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <p className="font-medium">Confirmed Bookings Revenue</p>
-                                  <p className="text-sm text-gray-600">From confirmed bookings</p>
-                                </div>
-                                <span className="text-lg font-bold text-blue-600">
-                                  ₹{agencyBookings
-                                    .filter(b => b.status === 'confirmed')
-                                    .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
-                                    .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                                <div>
-                                  <p className="font-medium">Pending Revenue</p>
-                                  <p className="text-sm text-gray-600">From pending bookings</p>
-                                </div>
-                                <span className="text-lg font-bold text-yellow-600">
-                                  ₹{agencyBookings
-                                    .filter(b => b.status === 'pending')
-                                    .reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0)
-                                    .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-blue-600" /> Monthly Performance</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {agencyBookings.length > 0 ? (
-                                // Group bookings by month and calculate revenue
-                                Object.entries(
-                                  agencyBookings.reduce((acc: Record<string, number>, booking) => {
-                                    const date = new Date(booking.createdAt?.toDate?.() || booking.createdAt);
-                                    const monthKey = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-                                    acc[monthKey] = (acc[monthKey] || 0) + parseFloat(booking.totalAmount || 0);
-                                    return acc;
-                                  }, {} as Record<string, number>)
-                                )
-                                  .sort(([, a], [, b]) => b - a)
-                                  .slice(0, 6)
-                                  .map(([month, revenue]) => (
-                                    <div key={month} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                      <span className="font-medium">{month}</span>
-                                      <span className="text-sm font-semibold text-green-600">₹{revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    </div>
-                                  ))
-                              ) : (
-                                <div className="text-center py-8">
-                                  <p className="text-gray-500">No revenue data yet</p>
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Recent Transactions</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {agencyBookings.length > 0 ? (
-                              agencyBookings.slice(0, 5).map((booking) => (
-                                <div key={booking.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                  <div>
-                                    <p className="font-medium">{booking.listingTitle}</p>
-                                    <p className="text-sm text-gray-600">
-                                      {booking.userName} • {new Date(booking.createdAt?.toDate?.() || booking.createdAt).toLocaleDateString('en-IN')}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="font-semibold text-green-600">₹{parseFloat(booking.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p className={`text-xs ${booking.status === 'confirmed' ? 'text-green-600' : 'text-yellow-600'}`}>
-                                      {booking.status === 'confirmed' ? <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-green-600" /> Confirmed</span> : <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-yellow-600" /> Pending</span>}
-                                    </p>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-center py-8">
-                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                  <DollarSign className="h-8 w-8 text-green-600" />
-                                </div>
-                                <p className="text-gray-500">No transactions yet</p>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
-
                   {agencyActiveSection === 'chat' && (
                     <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 min-w-0 w-full mb-6">
                       {/* Left Column: Conversations List */}
@@ -6587,31 +6271,46 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         {selectedConversation ? (
                           <div className="flex flex-col h-full relative min-w-0 overflow-hidden">
                             {/* Conversation Header */}
-                            <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
-                                  {selectedConversation.userName ? selectedConversation.userName.slice(0, 2).toUpperCase() : 'US'}
+                            {(() => {
+                              const unlockRecord = (userData?.unlockedUsers as any[] || []).find((u: any) => typeof u === 'string' ? u === selectedConversation.userId : u.userId === selectedConversation.userId);
+                              const isUnlocked = unlockRecord ? (typeof unlockRecord === 'string' ? true : (unlockRecord as any).expiresAt > Date.now()) : false;
+                              const daysRemaining = (isUnlocked && unlockRecord && typeof unlockRecord !== 'string') 
+                                ? Math.ceil(((unlockRecord as any).expiresAt - Date.now()) / (1000 * 60 * 60 * 24)) 
+                                : null;
+
+                              return (
+                                <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
+                                      {selectedConversation.userName ? selectedConversation.userName.slice(0, 2).toUpperCase() : 'US'}
+                                    </div>
+                                    <div>
+                                      <h4 className="font-bold text-xs text-gray-900">{selectedConversation.userName}</h4>
+                                      <span className="text-[9px] text-gray-500 font-medium flex items-center gap-2 mt-0.5">
+                                        <span>Customer ID: {selectedConversation.userId.slice(0, 8)}</span>
+                                        {daysRemaining !== null && (
+                                          <span className="flex items-center gap-1 text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 font-bold">
+                                            <Clock className="w-3 h-3" /> {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Close/Back Button */}
+                                  <button 
+                                    onClick={() => {
+                                      hasManuallyClosedChatRef.current = true;
+                                      setSelectedConversation(null);
+                                    }}
+                                    className="text-gray-400 hover:text-gray-650 p-1.5 hover:bg-gray-100 rounded-xl transition-all"
+                                    title="Close Chat"
+                                  >
+                                    ✕
+                                  </button>
                                 </div>
-                                <div>
-                                  <h4 className="font-bold text-xs text-gray-900">{selectedConversation.userName}</h4>
-                                  <span className="text-[9px] text-gray-500 font-medium flex items-center gap-1">
-                                    Customer ID: {selectedConversation.userId.slice(0, 8)}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              {/* Close/Back Button */}
-                              <button 
-                                onClick={() => {
-                                  hasManuallyClosedChatRef.current = true;
-                                  setSelectedConversation(null);
-                                }}
-                                className="text-gray-400 hover:text-gray-650 p-1.5 hover:bg-gray-100 rounded-xl transition-all"
-                                title="Close Chat"
-                              >
-                                ✕
-                              </button>
-                            </div>
+                              );
+                            })()}
 
                             {/* Messages Area */}
                             <div className="flex-1 p-6 space-y-4 chat-scroll overflow-y-auto overflow-x-hidden w-full min-w-0">
@@ -6648,7 +6347,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 const record = (unlockedUsersList || []).find((u: any) => typeof u === 'string' ? u === targetId : u.userId === targetId);
                                 if (!record) return false;
                                 if (typeof record === 'string') return true;
-                                return record.expiresAt > Date.now();
+                                return (record as any).expiresAt > Date.now();
                               };
                               const isUnlocked = checkIsUnlocked(userData?.unlockedUsers || [], selectedConversation.userId);
                               const isFreePlan = (userData?.role as string) === 'agency' && (userData?.plan === 'free' || !userData?.plan);
@@ -7113,7 +6812,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 </div>
                                 <h3 className="text-sm font-bold text-gray-900 mb-0.5">Standard Plan</h3>
                                 <div className="flex items-baseline gap-1 my-1.5">
-                                  <span className="text-lg font-extrabold text-gray-900">₹2,000</span>
+                                  <span className="text-lg font-extrabold text-gray-900">₹{pricingConfig.starterPrice.toLocaleString('en-IN')}</span>
                                   <span className="text-[9px] text-gray-500 font-medium">/ year</span>
                                 </div>
                                 <p className="text-[10px] text-gray-650 mb-4 leading-relaxed">Best for active agencies replying to holiday inquiries.</p>
@@ -7149,7 +6848,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 </div>
                                 <h3 className="text-sm font-bold text-gray-900 mb-0.5">Premium Plan</h3>
                                 <div className="flex items-baseline gap-1 my-1.5">
-                                  <span className="text-lg font-extrabold text-gray-900">₹5,000</span>
+                                  <span className="text-lg font-extrabold text-gray-900">₹{pricingConfig.premiumPrice.toLocaleString('en-IN')}</span>
                                   <span className="text-[9px] text-gray-500 font-medium">/ year</span>
                                 </div>
                                 <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">For frequent high-volume agency messaging needs.</p>
@@ -7185,7 +6884,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 </div>
                                 <h3 className="text-sm font-bold text-gray-900 mb-0.5">VIP Plan</h3>
                                 <div className="flex items-baseline gap-1 my-1.5">
-                                  <span className="text-lg font-extrabold text-gray-900">₹10,000</span>
+                                  <span className="text-lg font-extrabold text-gray-900">₹{pricingConfig.vipPrice.toLocaleString('en-IN')}</span>
                                   <span className="text-[9px] text-gray-500 font-medium">/ year</span>
                                 </div>
                                 <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Ultimate package for top agencies wanting maximum visibility.</p>
