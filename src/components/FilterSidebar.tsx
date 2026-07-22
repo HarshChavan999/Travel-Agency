@@ -21,13 +21,13 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
         className="fixed inset-0 z-[100]"
         onClick={onClose}
       />
-      <div className="absolute right-0 top-full mt-3 w-[360px] max-w-[90vw] bg-white z-[101] shadow-[0_8px_30px_rgb(0,0,0,0.15)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 rounded-xl border border-gray-200">
+      <div className="absolute right-0 top-full mt-2 w-[320px] max-w-[90vw] bg-white z-[101] shadow-[0_8px_30px_rgb(0,0,0,0.15)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 rounded-xl border border-gray-200">
         
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto max-h-[60vh] p-5 space-y-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto max-h-[60vh] p-4 space-y-4 scrollbar-thin">
           
           {/* Duration */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-baseline gap-1">
               <h3 className="text-[13px] font-semibold text-gray-900">Duration (in Nights)</h3>
               <span className="text-[11px] text-gray-500">.(1N - 7N)</span>
@@ -39,12 +39,11 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                 max="7"
                 value={duration}
                 onChange={(e) => setDuration(parseInt(e.target.value))}
-                className="w-full h-[3px] rounded-lg appearance-none cursor-pointer"
+                className="w-full h-[3px] rounded-lg appearance-none cursor-pointer bg-gray-200"
                 style={{
                   background: `linear-gradient(to right, #81d4fa ${(duration - 1) / 6 * 100}%, #e0f2fe ${(duration - 1) / 6 * 100}%)`
                 }}
               />
-              <div className="absolute top-[5px] w-[14px] h-[14px] bg-white border border-gray-300 rounded-full pointer-events-none shadow-sm" style={{ left: `calc(${(duration - 1) / 6 * 100}% - 7px)` }}></div>
             </div>
           </div>
           
@@ -53,7 +52,7 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
 
 
           {/* Budget */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex items-baseline gap-1">
               <h3 className="text-[13px] font-semibold text-gray-900">Budget (per person)</h3>
               <span className="text-[11px] text-gray-500">.(₹2,000 - ₹77,000)</span>
@@ -66,12 +65,11 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                 step="1000"
                 value={budget}
                 onChange={(e) => setBudget(parseInt(e.target.value))}
-                className="w-full h-[3px] rounded-lg appearance-none cursor-pointer"
+                className="w-full h-[3px] rounded-lg appearance-none cursor-pointer bg-gray-200"
                 style={{
                   background: `linear-gradient(to right, #81d4fa ${(budget - 2000) / 75000 * 100}%, #e0f2fe ${(budget - 2000) / 75000 * 100}%)`
                 }}
               />
-              <div className="absolute top-[5px] w-[14px] h-[14px] bg-white border border-gray-300 rounded-full pointer-events-none shadow-sm" style={{ left: `calc(${(budget - 2000) / 75000 * 100}% - 7px)` }}></div>
             </div>
             <div className="flex flex-wrap gap-2">
               {[
@@ -83,7 +81,7 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                 <button
                   key={opt.val}
                   onClick={() => setBudgetCategory(budgetCategory === opt.val ? null : opt.val)}
-                  className={`px-3 py-1.5 border rounded text-[12px] transition-colors ${
+                  className={`px-2 py-1 border rounded text-[11px] transition-colors ${
                     budgetCategory === opt.val
                       ? 'border-[#008cff] text-[#008cff] bg-[#f0f9ff]'
                       : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
@@ -98,7 +96,7 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
           <hr className="border-gray-100" />
 
           {/* Hotel Category */}
-          <div className="space-y-3 pb-4">
+          <div className="space-y-2 pb-2">
             <h3 className="text-[13px] font-semibold text-gray-900">Hotel Category</h3>
             <div className="flex flex-wrap gap-2">
               {[
@@ -110,7 +108,7 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                 <button
                   key={opt.val}
                   onClick={() => setHotelCategory(hotelCategory === opt.val ? null : opt.val)}
-                  className={`px-3 py-1.5 border rounded text-[12px] transition-colors flex items-center justify-center min-w-[60px] ${
+                  className={`px-2 py-1 border rounded text-[11px] transition-colors flex items-center justify-center min-w-[50px] ${
                     hotelCategory === opt.val
                       ? 'border-[#008cff] text-[#008cff] bg-[#f0f9ff]'
                       : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
@@ -124,9 +122,9 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
         </div>
 
         {/* Footer with Apply button */}
-        <div className="p-4 border-t border-gray-100 bg-white flex justify-end">
+        <div className="p-3 border-t border-gray-100 bg-white flex justify-end">
           <Button 
-            className="w-24 h-9 bg-[#008cff] hover:bg-[#0077e6] text-white font-bold text-[13px] rounded tracking-wide shadow-sm"
+            className="w-20 h-8 bg-[#008cff] hover:bg-[#0077e6] text-white font-bold text-[12px] rounded tracking-wide shadow-sm"
             onClick={onClose}
           >
             APPLY

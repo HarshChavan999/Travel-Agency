@@ -1008,49 +1008,27 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     if (!dbInstance) return;
 
     const currentPlan = userData.plan || 'free';
-    const currentFreeChats = userData.freeChats ?? 0;
     const currentCredits = userData.credits ?? 0;
     const unlockedList = userData.unlockedUsers || [];
 
-    let updatedFreeChats = currentFreeChats;
     let updatedCredits = currentCredits;
     let costAmount = 0;
-    let costType = 'free-chat';
 
     // Determine cost
-    if (currentPlan === 'free') {
-      if (currentFreeChats <= 0) {
-        alert('Insufficient free chats. Please upgrade your plan.');
-        return;
-      }
-      updatedFreeChats = currentFreeChats - 1;
-      costAmount = 1;
-      costType = 'deduction';
-    } else if (currentPlan === 'starter') {
-      if (currentCredits < 200) {
-        alert('Insufficient credits. Please purchase a top-up pack or change your plan.');
-        return;
-      }
-      updatedCredits = currentCredits - 200;
-      costAmount = 200;
-      costType = 'deduction';
+    if (currentPlan === 'free' || currentPlan === 'starter') {
+      costAmount = 50;
     } else if (currentPlan === 'premium') {
-      if (currentCredits < 175) {
-        alert('Insufficient credits. Please purchase a top-up pack.');
-        return;
-      }
-      updatedCredits = currentCredits - 175;
-      costAmount = 175;
-      costType = 'deduction';
+      costAmount = 40;
     } else if (currentPlan === 'vip') {
-      if (currentCredits < 150) {
-        alert('Insufficient credits. Please purchase a top-up pack.');
-        return;
-      }
-      updatedCredits = currentCredits - 150;
-      costAmount = 150;
-      costType = 'deduction';
+      costAmount = 30;
     }
+
+    if (currentCredits < costAmount) {
+      alert('Insufficient credits. Please purchase a top-up pack or change your plan.');
+      return;
+    }
+
+    updatedCredits = currentCredits - costAmount;
 
     const txId = 'TX-CH-' + Math.random().toString(36).substr(2, 9).toUpperCase();
     const newTransaction = {
@@ -1060,12 +1038,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       description: `Unlocked chat connection with traveler: ${userName}`,
       timestamp: Date.now()
     };
+    
+    const expiryTimestamp = Date.now() + 15 * 24 * 60 * 60 * 1000; // 15 days
+    const unlockRecord = { userId: userId, expiresAt: expiryTimestamp };
 
     try {
       await updateDoc(doc(dbInstance, 'users', user.uid), {
-        freeChats: updatedFreeChats,
         credits: updatedCredits,
-        unlockedUsers: [...unlockedList, userId],
+        unlockedUsers: [...unlockedList, unlockRecord],
         creditHistory: [newTransaction, ...(userData.creditHistory || [])]
       });
 
@@ -1083,13 +1063,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     if (!dbInstance) return;
 
     let initCredits = 0;
-    let initFreeChats = 0;
     let cost = 0;
     let desc = '';
 
     if (targetPlan === 'free') {
-      initFreeChats = 2;
-      desc = 'Switched to Free Plan (2 Free Chats / month)';
+      initCredits = 100;
+      desc = 'Switched to Free Plan (100 credits)';
     } else if (targetPlan === 'starter') {
       initCredits = 2000;
       cost = 2000;
@@ -1117,7 +1096,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       await updateDoc(doc(dbInstance, 'users', user.uid), {
         plan: targetPlan,
         credits: initCredits,
-        freeChats: initFreeChats,
         creditHistory: [newTransaction, ...(userData.creditHistory || [])]
       });
       alert(`Plan updated to ${targetPlan.toUpperCase()} successfully!`);
@@ -1175,16 +1153,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     if (!dbInstance) return;
 
     let initCredits = 0;
-    let initFreeChats = 0;
-    if (targetPlan === 'free') initFreeChats = 2;
+    if (targetPlan === 'free') initCredits = 100;
     else if (targetPlan === 'starter') initCredits = 2000;
-    else if (targetPlan === 'premium') initFreeChats = 20;
+    else if (targetPlan === 'premium') initCredits = 5000;
+    else if (targetPlan === 'vip') initCredits = 10000;
 
     const txId = 'TX-RST-' + Math.random().toString(36).substr(2, 9).toUpperCase();
     const newTransaction = {
       id: txId,
       type: 'reset',
-      amount: initCredits || initFreeChats,
+      amount: initCredits,
       description: `Developer Reset to ${targetPlan.toUpperCase()}`,
       timestamp: Date.now()
     };
@@ -1193,7 +1171,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       await updateDoc(doc(getDbInstance()!, 'users', user.uid), {
         plan: targetPlan,
         credits: initCredits,
-        freeChats: initFreeChats,
         unlockedUsers: [],
         creditHistory: [newTransaction]
       });
@@ -3812,15 +3789,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               if (item.type === 'categories') {
                                 setDashboardViewMode('categories');
                                 setSelectedCategoryFilter(null);
-                                const nav = document.getElementById('category-nav-strip');
-                                if (nav) window.scrollTo({ top: nav.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
                               } else {
                                 setDashboardViewMode('all');
                                 setSelectedCategoryFilter(item.filter);
-                                setTimeout(() => {
-                                  const nav = document.getElementById('category-nav-strip');
-                                  if (nav) window.scrollTo({ top: nav.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
-                                }, 50);
                               }
                             }}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 flex items-center gap-2 shrink-0 ${
@@ -5761,7 +5732,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           Plan: <span className="text-blue-600 font-black">{userData?.plan || 'Free'}</span>
                         </p>
                         <p className="text-xs font-black text-gray-700">
-                          {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` : `${userData?.freeChats ?? 0} Free Replies`}
+                          {`${userData?.credits ?? 0} Credits`}
                         </p>
                       </div>
                     </div>
@@ -5840,6 +5811,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         <Button
                           variant={showListingForm ? 'default' : 'outline'}
                           onClick={() => {
+                            const currentPlan = userData?.plan || 'free';
+                            const maxListings = currentPlan === 'free' ? 2 : currentPlan === 'starter' ? 10 : currentPlan === 'premium' ? 50 : 10000;
+                            if (agencyListings.length >= maxListings) {
+                              alert(`Listing limit reached for your current plan (${maxListings} max). Please upgrade to add more listings.`);
+                              return;
+                            }
                             setShowListingForm(true);
                             setShowBulkUpload(false);
                             setEditingListing(null);
@@ -5852,6 +5829,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         <Button
                           variant={showBulkUpload ? 'default' : 'outline'}
                           onClick={() => {
+                            const currentPlan = userData?.plan || 'free';
+                            const maxListings = currentPlan === 'free' ? 2 : currentPlan === 'starter' ? 10 : currentPlan === 'premium' ? 50 : 10000;
+                            if (agencyListings.length >= maxListings) {
+                              alert(`Listing limit reached for your current plan (${maxListings} max). Please upgrade to add more listings.`);
+                              return;
+                            }
                             setShowBulkUpload(true);
                             setShowListingForm(false);
                             setEditingListing(null);
@@ -6661,7 +6644,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                             {/* Message Input / Unlock Box */}
                             {(() => {
-                              const isUnlocked = (userData?.unlockedUsers || []).includes(selectedConversation.userId);
+                              const checkIsUnlocked = (unlockedUsersList: any[], targetId: string) => {
+                                const record = (unlockedUsersList || []).find((u: any) => typeof u === 'string' ? u === targetId : u.userId === targetId);
+                                if (!record) return false;
+                                if (typeof record === 'string') return true;
+                                return record.expiresAt > Date.now();
+                              };
+                              const isUnlocked = checkIsUnlocked(userData?.unlockedUsers || [], selectedConversation.userId);
                               const isFreePlan = (userData?.role as string) === 'agency' && (userData?.plan === 'free' || !userData?.plan);
                               const hasPhoneInInput = isFreePlan && agencyChatInput.replace(/\D/g, '').length >= 10;
                               return isUnlocked ? (
@@ -6767,7 +6756,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                       </h4>
                                       <p className="text-xs text-gray-500">
                                         To reply to this traveler, you need to unlock the conversation. Cost: {
-                                          userData?.plan === 'starter' ? '200 Credits' : '1 Free Reply'
+                                          userData?.plan === 'vip' ? '30 Credits' : 
+                                          userData?.plan === 'premium' ? '40 Credits' : 
+                                          '50 Credits'
                                         }.
                                       </p>
                                     </div>
@@ -6775,7 +6766,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                       <div className="text-right hidden md:block">
                                         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Your Balance</p>
                                         <p className="text-xs font-black text-gray-700">
-                                          {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` : `${userData?.freeChats ?? 0} Free Replies`}
+                                          {`${userData?.credits ?? 0} Credits`}
                                         </p>
                                       </div>
                                       <Button
@@ -6958,9 +6949,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               <div className="space-y-3">
                                 <div>
                                   <p className="text-2xl font-extrabold text-gray-900">
-                                    {userData?.plan === 'starter' ? `${userData?.credits ?? 0} Credits` :
-                                      userData?.plan === 'premium' ? `${userData?.freeChats ?? 0} Free Replies` :
-                                        `${userData?.freeChats ?? 0} Free Replies`}
+                                    {`${userData?.credits ?? 0} Credits`}
                                   </p>
                                   <p className="text-[10px] text-gray-500 mt-0.5">Cycle balance remaining</p>
                                 </div>
@@ -6971,7 +6960,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-gray-500">Unlocked Travelers</span>
-                                    <span className="font-semibold text-gray-800">{(userData?.unlockedUsers || []).length} Travelers</span>
+                                    <span className="font-semibold text-gray-800">
+                                      {(userData?.unlockedUsers || []).filter((u: any) => typeof u === 'string' || u.expiresAt > Date.now()).length} Travelers
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -6984,14 +6975,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               <div className="space-y-0.5">
                                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Per Reply Cost</p>
                                 <h4 className="text-sm font-bold text-gray-900">
-                                  {userData?.plan === 'free' && '1 Free Reply'}
-                                  {userData?.plan === 'starter' && '200 Credits'}
-                                  {userData?.plan === 'premium' && '1 Free Reply'}
+                                  {userData?.plan === 'free' && '50 Credits'}
+                                  {userData?.plan === 'starter' && '50 Credits'}
+                                  {userData?.plan === 'premium' && '40 Credits'}
+                                  {userData?.plan === 'vip' && '30 Credits'}
                                 </h4>
                                 <p className="text-[10px] text-gray-500 leading-snug">
-                                  {userData?.plan === 'premium' && '150 cr after free replies deplete'}
-                                  {userData?.plan === 'free' && 'Unlock uses 1 free reply'}
-                                  {userData?.plan === 'starter' && 'Deducted per unlock'}
+                                  Deducted per unlock
                                 </p>
                               </div>
                               <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
@@ -7224,53 +7214,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </div>
                         </div>
 
-                        {/* Add-on Credit Packages */}
-                        <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                            <div>
-                              <h3 className="text-sm font-bold text-gray-900">Buy Add-on Credits</h3>
-                              <p className="text-[10px] text-gray-550">Need more credits? Buy extra packs instantly (Requires Starter or Premium plan).</p>
-                            </div>
-                            <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-555 mt-2 sm:mt-0 font-medium">
-                              Plan: {userData?.plan || 'free'}
-                            </Badge>
-                          </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {[
-                              { name: 'Starter Pack', credits: 500, price: 100, desc: 'Ideal for 2 extra replies' },
-                              { name: 'Growth Pack', credits: 1000, price: 180, desc: 'Best Value! 5 replies (Starter)', recommended: true },
-                              { name: 'Pro Pack', credits: 2500, price: 400, desc: 'For heavy messaging needs' }
-                            ].map((pack) => (
-                              <div
-                                key={pack.name}
-                                className={`border rounded-2xl p-4 flex flex-col justify-between relative bg-slate-50/50 hover:bg-slate-50 transition-all ${pack.recommended ? 'border-amber-400 ring-1 ring-amber-400' : 'border-gray-200'
-                                  }`}
-                              >
-                                {pack.recommended && (
-                                  <span className="absolute -top-2 right-3 bg-amber-400 text-amber-950 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
-                                    Best Value
-                                  </span>
-                                )}
-                                <div className="mb-3">
-                                  <h4 className="font-bold text-xs text-gray-900">{pack.name}</h4>
-                                  <p className="text-base font-extrabold text-blue-600 my-1">+{pack.credits} Credits</p>
-                                  <p className="text-[10px] text-gray-500 leading-snug">{pack.desc}</p>
-                                </div>
-                                <div className="pt-3 border-t flex items-center justify-between gap-2">
-                                  <span className="font-extrabold text-xs text-gray-800">₹{pack.price}</span>
-                                  <Button
-                                    onClick={() => buyCredits(pack.credits, pack.price)}
-                                    disabled={!userData?.plan || userData.plan === 'free'}
-                                    className="text-[10px] font-bold px-3 py-1.5 h-auto rounded-lg bg-orange-400 hover:bg-orange-500 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed border-none"
-                                  >
-                                    Buy Pack
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
 
                         {/* Transaction History Logs */}
                         <div className="bg-white border border-gray-200 shadow-sm rounded-3xl p-6">
