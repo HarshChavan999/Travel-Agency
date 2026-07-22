@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (dbInstance) {
           const docRef = doc(dbInstance, 'users', firebaseUser.uid);
           
-          // Update online status immediately on login
+          // Update online status immediately on login (fails silently if doc not created yet)
           updateDoc(docRef, { isOnline: true }).catch(console.error);
 
           docUnsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -130,13 +130,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',').map(email => email.trim()) || [];
             const isAdmin = adminEmails.includes(redirectResult.user.email || '');
             const userDataToSave = {
-              role: isAdmin ? 'admin' : 'agency',
-              approved: isAdmin, // Auto-approve admin
+              role: isAdmin ? 'admin' : 'user',
+              approved: true, // Auto-approve all users
               name: redirectResult.user.displayName || 'User',
               email: redirectResult.user.email || '',
               authEmail: redirectResult.user.email || '',
               isOnline: true,
-              ...(isAdmin ? {} : { companyName: 'Pending Setup' }), // Only add companyName for agencies
+              ...(isAdmin ? {} : {}), // Removed companyName
             };
             await setDoc(userDocRef, userDataToSave);
             setUserData(userDataToSave as UserData);
@@ -173,11 +173,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const dbInstance = getDbInstance();
       if (!dbInstance) return;
       const docRef = doc(dbInstance, 'users', user.uid);
-      if (document.visibilityState === 'visible') {
-        updateDoc(docRef, { isOnline: true }).catch(console.error);
-      } else {
-        updateDoc(docRef, { isOnline: false }).catch(console.error);
-      }
+        if (document.visibilityState === 'visible') {
+          updateDoc(docRef, { isOnline: true }).catch(console.error);
+        } else {
+          updateDoc(docRef, { isOnline: false }).catch(console.error);
+        }
     };
     
     const handleBeforeUnload = () => {
@@ -331,12 +331,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',').map(email => email.trim()) || [];
         const isAdmin = adminEmails.includes(userCredential.user.email || '');
         const userDataToSave = {
-          role: isAdmin ? 'admin' : 'agency',
-          approved: isAdmin, // Auto-approve admin
+          role: isAdmin ? 'admin' : 'user',
+          approved: isAdmin ? true : true, // Auto-approve admin AND regular users
           name: userCredential.user.displayName || 'User',
           email: userCredential.user.email || '',
           authEmail: userCredential.user.email || '',
-          ...(isAdmin ? {} : { companyName: 'Pending Setup' }), // Only add companyName for agencies
+          ...(isAdmin ? {} : {}), // Removed companyName for normal users
         };
         await setDoc(userDocRef, userDataToSave);
         setUserData(userDataToSave as UserData);

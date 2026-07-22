@@ -141,7 +141,7 @@ const categoriesConfig = [
   {
     id: 'domestic',
     title: 'Domestic Packages',
-    subcategories: ['Kashmir', 'Himachal', 'South', 'Rajasthan'],
+    subcategories: ['Kashmir', 'Himachal', 'South', 'Rajasthan', 'North East'],
     linkText: 'See more'
   },
   {
@@ -185,6 +185,7 @@ const subcategoryDescriptions: { [key: string]: string } = {
   'Himachal': 'Queen of Hills',
   'South': 'Backwaters & Temples',
   'Rajasthan': 'Land of Kings',
+  'North East': 'Explore the Seven Sisters',
   'Dubai': 'Modern Oasis',
   'Europe': 'Classic Romance',
   'Bali': 'Tropical Heaven',
@@ -370,7 +371,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   }, [listings]);
 
   const [filters, setFilters] = useState({
-    priceRange: [0, 10000] as [number, number],
+    priceRange: [0, 500000] as [number, number],
     duration: '',
     type: '',
     rating: 0,
@@ -601,6 +602,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         if (subcategory === 'Himachal') return state.includes('himachal');
         if (subcategory === 'South') return state.includes('kerala') || state.includes('karnataka') || state.includes('tamil') || state.includes('south') || state.includes('goa') || state.includes('andhra');
         if (subcategory === 'Rajasthan') return state.includes('rajasthan');
+        if (subcategory === 'North East') return state.includes('assam') || state.includes('meghalaya') || state.includes('sikkim') || state.includes('arunachal') || state.includes('nagaland') || state.includes('manipur') || state.includes('mizoram') || state.includes('tripura') || state.includes('north east');
       }
 
       if (category === 'international') {
@@ -3568,7 +3570,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setDashboardViewMode('categories');
                     setSearchTerm('');
                     setFilters({
-                      priceRange: [0, 10000],
+                      priceRange: [0, 500000],
                       duration: '',
                       type: '',
                       rating: 0,

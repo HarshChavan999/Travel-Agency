@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { optimizeImageUrl, preloadImage } from '@/lib/imageOptimization';
+import { getDbInstance } from '@/lib/firebase';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { 
   Star, 
   Share2, 
@@ -28,7 +33,8 @@ import {
   AlertCircle,
   Building2,
   ShieldCheck,
-  Banknote
+  Banknote,
+  Plus
 } from 'lucide-react';
 
 interface PackageDetailViewProps {
@@ -71,83 +77,68 @@ const defaultAccommodations = [
   { city: "Shimla", hotels: ["Wildflower Hall", "The Oberoi Cecil", "Radisson Hotel Shimla"], nights: 2 }
 ];
 
-// Dummy Review Data
-const travellerImages = [
-  "https://images.unsplash.com/photo-1526772662000-2f8d80f56d36?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1501555088652-021faa106b9b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-  "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-  "https://images.unsplash.com/photo-1533105079780-92b9be482077?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-  "https://images.unsplash.com/photo-1506929562872-bb421503ef21?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
-];
+// Pure Real Review Data Processor (No Static / Mock Reviews)
+function getReviewsData(listing: any, userDbReviews: any[]) {
+  const packageTitle = listing?.title || 'Travel Package';
+  const embeddedReviews = Array.isArray(listing?.reviews) ? listing.reviews : [];
+  
+  // Combine real user reviews from Firestore database & embedded listing reviews
+  const allRawUserReviews = [...userDbReviews, ...embeddedReviews];
 
-const popularReviews = [
-  {
-    id: 1,
-    name: "Yadhunandan Srinivasan",
-    date: "Reviewed: 12 Jul 2023",
-    rating: 5.0,
-    booked: "Sikkim0407",
-    text: "Thanks to Thrillophilia in arranging such a compact and concise trip with covering all the main places to visit in the itinerary. We had a very pleasant stay both in Gangtok and Darjeeling. The coordination from Himavat was also very good and kept us up to date about our day to day activities.",
-    images: travellerImages
-  },
-  {
-    id: 2,
-    name: "Arun Nampoothiri",
-    date: "Reviewed: 05 Jun 2023",
-    rating: 4.0,
-    booked: "7skuP2706",
-    text: "The overall trip was good. If we divide the trip into 3 parts - Gangtok, Pelling & Darjeeling, we were quite happy with the first two. About Himavat, to be honest, we are impressed with the services. Information flow was smooth within the Whatsapp group created. Immediate actions were taken whenever we raised concerns. Also upon request, they did the toy train booking for us. So, a big appreciation for Himavat & all the team members. 👏👏👏",
-    images: travellerImages
-  },
-  {
-    id: 3,
-    name: "Sirisha",
-    date: "Reviewed: 14 May 2023",
-    rating: 5.0,
-    booked: "7mkuP0706 - KA",
-    text: "When we first thought of Meghalaya tour and saw the itinerary, we were a bit sceptical about the Nongriat trek. But we decided to try it anyways on recommendation from Thrillophilia operator. It proved to be the right decision. It was a once in a lifetime trip made smooth and hiccup-free by Thrillophilia starting from curating the itinerary we wanted to arranging a knowledgeable driver and a great guide for the trek. Especially, Surabhi had been extremely helpful. She was constantly in touch with us everyday, finding out if we were facing any problems at all, and making sure we were safe and comfortable. Many thanks to Thrillophilia team for... Read more",
-    images: travellerImages
-  }
-];
+  const formattedUserReviews = allRawUserReviews.map((r, i) => ({
+    id: r.id || `user-rev-${i}`,
+    name: r.name || r.userName || "Verified Traveller",
+    date: r.createdAt 
+      ? `Reviewed: ${new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` 
+      : (r.date ? `Reviewed: ${r.date}` : "Reviewed recently"),
+    rating: Number(r.rating) || 5.0,
+    booked: packageTitle,
+    travelledFrom: r.travelledFrom || "",
+    text: r.comment || r.text || r.reviewText || "",
+    images: r.photos || r.images || []
+  }));
 
-const recentReviews = [
-  {
-    id: 1,
-    name: "Prosenjit Bose",
-    date: "Reviewed: 06 Apr 2024",
-    rating: 5.0,
-    booked: "Getaway to Sikkim with Piek Yak Ride",
-    travelledFrom: "Kolkata",
-    text: "Ami khub excited chilam er trip ta darun hoye gelo! Gangtok theke Darjeeling - puro North East experience khub bhalo laglo. Tea garden visit, Kanchenjunga view, ki bolbo aar! Cable car ride ta amader khub mojar laglo. Local food ektu ektu try korechi, sab delicious chilo!"
-  },
-  {
-    id: 2,
-    name: "Ritika Joshi",
-    date: "Reviewed: 04 Apr 2024",
-    rating: 5.0,
-    booked: "Getaway to Sikkim with Piek Yak Ride",
-    travelledFrom: "Mumbai",
-    text: "Gangtok Darjeeling tour bhai full paisa vasool tha! Rumtek Monastery mein shanti mili - Mumbai ki bheed bhaar bhool gayi. Darjeeling toy train ride ekdum filmy experience tha. Kanchenjunga morning view - goosebumps aaye literally! Local momos aur thukpa bhi khaya - ekdum mast!"
-  },
-  {
-    id: 3,
-    name: "Disha Vora",
-    date: "Reviewed: 22 Feb 2024",
-    rating: 5.0,
-    booked: "Getaway to Sikkim with Piek Yak Ride",
-    travelledFrom: "Mumbai",
-    text: "Coming from the busy streets of Mumbai, this North East escape was exactly what we needed. The calm surroundings of Lachen were mesmerizing, and gliding over its transparent waters was a one-of-a-kind experience. Waking up to serene river views at the campsite was truly special. In Shillong, the stays were cozy and thoughtfully designed, adding to the overall comfort. The entire trip was managed effortlessly, making it relaxing and full of memorable moments."
-  },
-  {
-    id: 4,
-    name: "Kunal Kandpal",
-    date: "Reviewed: 15 Feb 2024",
-    rating: 5.0,
-    booked: "Getaway to Sikkim with Piek Yak Ride",
-    travelledFrom: "Vadodara",
-    text: "Loved the night in the eco-lodge. The hotels were very comfortable and the travel coordination was seamless throughout the trip. The driver was very experienced on the mountain roads."
+  const totalReviewsCount = formattedUserReviews.length;
+
+  // Calculate real average rating
+  let avgRating = 0;
+  if (totalReviewsCount > 0) {
+    const totalSum = formattedUserReviews.reduce((acc, r) => acc + r.rating, 0);
+    avgRating = Math.round((totalSum / totalReviewsCount) * 10) / 10;
   }
-];
+
+  // Calculate real rating breakdown
+  const breakdownCounts: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  formattedUserReviews.forEach(r => {
+    const star = Math.min(5, Math.max(1, Math.round(r.rating)));
+    breakdownCounts[star] = (breakdownCounts[star] || 0) + 1;
+  });
+
+  const ratingBreakdown = [5, 4, 3, 2, 1].map(stars => {
+    const count = breakdownCounts[stars] || 0;
+    const percentage = totalReviewsCount > 0 ? Math.round((count / totalReviewsCount) * 100) : 0;
+    return { stars, count, percentage };
+  });
+
+  // Extract traveller photos uploaded in real reviews
+  const travellerImages: string[] = [];
+  formattedUserReviews.forEach(r => {
+    if (Array.isArray(r.images) && r.images.length > 0) {
+      travellerImages.push(...r.images);
+    }
+  });
+
+  return {
+    packageTitle,
+    userReviews: formattedUserReviews,
+    totalReviewsCount,
+    avgRating,
+    ratingBreakdown,
+    travellerImages
+  };
+}
+
+
 
 export default function PackageDetailView({ 
   listing, 
@@ -164,6 +155,106 @@ export default function PackageDetailView({
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Review specific states
+  const [userDbReviews, setUserDbReviews] = useState<any[]>([]);
+  const [showWriteReviewModal, setShowWriteReviewModal] = useState(false);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
+  const [newReview, setNewReview] = useState({
+    name: '',
+    travelledFrom: '',
+    rating: 5,
+    tripType: 'Family',
+    comment: '',
+    photoUrl: ''
+  });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  useEffect(() => {
+    const fetchPackageReviews = async () => {
+      const listingId = listing?.id || listing?.docId;
+      if (!listingId) return;
+
+      try {
+        // Try server API route first (bypasses client firestore security rules)
+        const res = await fetch(`/api/reviews?listingId=${encodeURIComponent(listingId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.reviews)) {
+            setUserDbReviews(data.reviews);
+            return;
+          }
+        }
+
+        // Fallback to client Firestore query if needed
+        const db = getDbInstance();
+        if (db) {
+          const q = query(
+            collection(db, 'reviews'),
+            where('listingId', '==', listingId)
+          );
+          const querySnapshot = await getDocs(q);
+          const fetched: any[] = [];
+          querySnapshot.forEach((doc) => {
+            fetched.push({ id: doc.id, ...doc.data() });
+          });
+          setUserDbReviews(fetched);
+        }
+      } catch (error) {
+        console.error('Error fetching package reviews:', error);
+      }
+    };
+
+    fetchPackageReviews();
+  }, [listing?.id, listing?.docId]);
+
+  const handleAddReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReview.comment.trim()) return;
+
+    setIsSubmittingReview(true);
+    const listingId = listing?.id || listing?.docId || 'default-package';
+    
+    const reviewData = {
+      listingId,
+      name: newReview.name.trim() || 'Verified Traveller',
+      travelledFrom: newReview.travelledFrom.trim() || 'Guest',
+      rating: newReview.rating,
+      tripType: newReview.tripType || 'Family',
+      comment: newReview.comment.trim(),
+      photos: newReview.photoUrl.trim() ? [newReview.photoUrl.trim()] : [],
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      // Try server API endpoint first to bypass client permission restrictions
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewData)
+      });
+
+      if (!res.ok) {
+        const db = getDbInstance();
+        if (db) {
+          await addDoc(collection(db, 'reviews'), reviewData);
+        }
+      }
+    } catch (error) {
+      console.warn('API review submission fallback:', error);
+    } finally {
+      // Always update UI state immediately
+      setUserDbReviews(prev => [reviewData, ...prev]);
+      setShowWriteReviewModal(false);
+      setNewReview({ name: '', travelledFrom: '', rating: 5, tripType: 'Family', comment: '', photoUrl: '' });
+      setCompareToastMessage('Thank you! Your review has been submitted.');
+      setShowCompareToast(true);
+      setTimeout(() => setShowCompareToast(false), 3000);
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const reviewsData = getReviewsData(listing, userDbReviews);
   
   const { addToComparison, isInComparison, canAddMore, comparisonList } = useComparison();
 
@@ -749,8 +840,7 @@ export default function PackageDetailView({
                     </div>
                   </div>
                   <Button 
-                    variant="outline" 
-                    className="w-full"
+                    className="w-full bg-orange-600 hover:bg-orange-600 text-white shadow-sm"
                     onClick={() => {
                       console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
                       onChat(listing);
@@ -761,17 +851,7 @@ export default function PackageDetailView({
                   </Button>
                 </CardContent>
               </Card>
-
-              {/* Price Card */}
-              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-                <CardContent className="p-4">
-                  <p className="text-sm opacity-90">Starting from</p>
-                  <p className="text-3xl font-bold my-2">
-                    {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
-                  </p>
-                  <p className="text-sm opacity-90">per person</p>
-                </CardContent>
-              </Card>
+              
 
               {/* Back Button */}
               <Button 
@@ -847,37 +927,60 @@ export default function PackageDetailView({
 
             {/* Reviews Section */}
             <div className="pt-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Reviews(254)</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Reviews ({reviewsData.totalReviewsCount})
+                </h2>
+                <Button 
+                  onClick={() => setShowWriteReviewModal(true)}
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-medium flex items-center gap-2 rounded-lg shadow-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Write a Review
+                </Button>
+              </div>
               
               {/* Reviews Overview */}
               <div className="flex flex-col md:flex-row gap-8 mb-10">
                 {/* Overall Rating */}
                 <div className="flex flex-col items-center justify-center">
-                  <div className="flex text-green-600 mb-2">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <Star key={star} className="h-6 w-6 fill-current" />
-                    ))}
-                  </div>
-                  <div className="text-5xl font-bold text-green-600 mb-1">4.6</div>
-                  <div className="text-sm text-gray-500 border-b border-green-600 text-green-600 cursor-pointer">From 70+ countries</div>
+                  {reviewsData.totalReviewsCount > 0 ? (
+                    <>
+                      <div className="flex text-green-600 mb-2">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star key={star} className={`h-6 w-6 ${reviewsData.avgRating >= star ? 'fill-current' : 'text-gray-300'}`} />
+                        ))}
+                      </div>
+                      <div className="text-5xl font-bold text-green-600 mb-1">
+                        {reviewsData.avgRating.toFixed(1)}
+                      </div>
+                      <div className="text-sm text-gray-500 border-b border-green-600 text-green-600 cursor-pointer">
+                        Based on {reviewsData.totalReviewsCount} review{reviewsData.totalReviewsCount > 1 ? 's' : ''}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex text-gray-300 mb-2">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star key={star} className="h-6 w-6 text-gray-300" />
+                        ))}
+                      </div>
+                      <div className="text-2xl font-bold text-gray-400 mb-1">No ratings</div>
+                      <div className="text-xs text-gray-400">Be the first to rate</div>
+                    </>
+                  )}
                 </div>
 
                 {/* Rating Breakdown */}
                 <div className="flex-1 flex flex-col justify-center space-y-2 border-l pl-8">
-                  {[
-                    { stars: 5, count: 207, percentage: 80 },
-                    { stars: 4, count: 147, percentage: 55 },
-                    { stars: 3, count: 12, percentage: 5 },
-                    { stars: 2, count: 0, percentage: 0 },
-                    { stars: 1, count: 0, percentage: 0 }
-                  ].map((row) => (
+                  {reviewsData.ratingBreakdown.map((row) => (
                     <div key={row.stars} className="flex items-center gap-3">
                       <div className="flex items-center w-8 text-sm text-gray-600">
                         {row.stars} <Star className="h-3 w-3 fill-current text-yellow-400 ml-1" />
                       </div>
                       <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-orange-500 rounded-full" 
+                          className="h-full bg-orange-500 rounded-full transition-all" 
                           style={{ width: `${row.percentage}%` }}
                         ></div>
                       </div>
@@ -887,128 +990,257 @@ export default function PackageDetailView({
                 </div>
               </div>
 
-              {/* Traveller Image Gallery */}
-              <div className="mb-10">
-                <h3 className="font-bold text-gray-900 mb-4">Traveller Image Gallery</h3>
-                <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[300px]">
-                  <div className="col-span-2 row-span-2 relative rounded-xl overflow-hidden group">
-                    <img src={travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    <button className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-md text-white border border-white/50 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
-                      View all (15)
-                    </button>
-                  </div>
-                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
-                    <img src={travellerImages[1]} alt="Traveller 2" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  </div>
-                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
-                    <img src={travellerImages[2]} alt="Traveller 3" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  </div>
-                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
-                    <img src={travellerImages[3]} alt="Traveller 4" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  </div>
-                  <div className="col-span-1 row-span-1 rounded-xl overflow-hidden group">
-                    <img src={travellerImages[4]} alt="Traveller 5" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  </div>
-                </div>
-              </div>
+              {/* Standard Travel Platform Inline Review Form */}
+              {showWriteReviewModal && (
+                <Card className="mb-10 border-orange-200 bg-orange-50/20 shadow-md rounded-2xl overflow-hidden animate-in fade-in zoom-in-95">
+                  <CardHeader className="bg-white border-b border-orange-100 p-5">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                          <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                          Write a Review for {reviewsData.packageTitle}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-gray-500 mt-1">
+                          Share your authentic travel experience to guide future travellers
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowWriteReviewModal(false)}
+                        className="text-gray-400 hover:text-gray-700"
+                      >
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 bg-white space-y-6">
+                    <form onSubmit={handleAddReviewSubmit} className="space-y-6">
+                      {/* Rating Selector */}
+                      <div className="bg-gray-50 p-4 rounded-xl border">
+                        <Label className="text-sm font-semibold text-gray-800">Overall Rating</Label>
+                        <div className="flex items-center gap-4 mt-2">
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                type="button"
+                                key={star}
+                                onClick={() => setNewReview({ ...newReview, rating: star })}
+                                className="p-1 hover:scale-110 transition-transform focus:outline-none"
+                              >
+                                <Star className={`h-8 w-8 ${newReview.rating >= star ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                              </button>
+                            ))}
+                          </div>
+                          <Badge className="bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1">
+                            {newReview.rating === 5 ? '5.0 - Excellent' :
+                             newReview.rating === 4 ? '4.0 - Very Good' :
+                             newReview.rating === 3 ? '3.0 - Average' :
+                             newReview.rating === 2 ? '2.0 - Fair' : '1.0 - Poor'}
+                          </Badge>
+                        </div>
+                      </div>
 
-              {/* Popular Reviews */}
-              <div className="mb-10">
-                <h3 className="font-bold text-xl text-gray-900 mb-1">Popular Reviews</h3>
-                <p className="text-sm text-gray-500 mb-4">Photos, ratings, and experiences shared by verified Thrillophilia travellers</p>
-                <div className="space-y-4">
-                  {popularReviews.map((review) => (
-                    <Card key={review.id} className="shadow-sm border-gray-200">
-                      <CardContent className="p-5">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                              <img src={`https://ui-avatars.com/api/?name=${review.name.replace(' ', '+')}&background=random`} alt={review.name} className="w-full h-full object-cover" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900 text-sm">{review.name}</h4>
-                              <p className="text-xs text-gray-500">{review.date}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
-                            <Star className="h-3 w-3 fill-current" /> {review.rating}/5
-                          </div>
-                        </div>
-                        <div className="text-xs text-orange-500 mb-3 flex items-center gap-1">
-                          <span className="text-gray-500">Booked:</span> {review.booked}
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4 leading-relaxed line-clamp-3 md:line-clamp-none">
-                          {review.text}
-                        </p>
-                        {/* Review Images */}
-                        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-                          {review.images.slice(0, 5).map((img, i) => (
-                            <div key={i} className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden relative">
-                              <img src={img} alt={`Review ${review.id} image ${i+1}`} className="w-full h-full object-cover" />
-                              {i === 4 && review.images.length > 5 && (
-                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white cursor-pointer">
-                                  <span className="text-sm font-semibold">+{review.images.length - 5}</span>
-                                  <span className="text-xs">View all</span>
-                                </div>
-                              )}
-                            </div>
+                      {/* Travel Type Selector */}
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-800">Who did you travel with?</Label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {['Family', 'Couples', 'Friends', 'Solo', 'Business'].map((type) => (
+                            <button
+                              type="button"
+                              key={type}
+                              onClick={() => setNewReview({ ...newReview, tripType: type })}
+                              className={`px-4 py-2 text-xs font-medium rounded-full border transition-colors ${newReview.tripType === type ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
+                            >
+                              {type}
+                            </button>
                           ))}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                <div className="mt-6 flex justify-center">
-                  <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-50 font-semibold px-8 rounded-md">
-                    Load More reviews
-                  </Button>
-                </div>
-              </div>
+                      </div>
 
-              {/* Recent Reviews */}
-              <div>
-                <h3 className="font-bold text-xl text-gray-900 mb-1">Recent Reviews</h3>
-                <p className="text-sm text-gray-500 mb-4">Reviews From Verified Travellers Who Booked Their Trips With Us</p>
-                <div className="space-y-4">
-                  {recentReviews.map((review) => (
-                    <Card key={review.id} className="shadow-sm border-gray-200">
-                      <CardContent className="p-5">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                              <img src={`https://ui-avatars.com/api/?name=${review.name.replace(' ', '+')}&background=random`} alt={review.name} className="w-full h-full object-cover" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900 text-sm">{review.name}</h4>
-                              <p className="text-xs text-gray-500">{review.date}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
-                            <Star className="h-3 w-3 fill-current" /> {review.rating}/5
-                          </div>
+                      {/* Name & Origin City */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="rev-name" className="text-xs font-semibold text-gray-700">Your Full Name *</Label>
+                          <Input
+                            id="rev-name"
+                            required
+                            placeholder="e.g. Amit Kumar"
+                            value={newReview.name}
+                            onChange={(e) => setNewReview({ ...newReview, name: e.target.value })}
+                            className="mt-1"
+                          />
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                          <div className="text-xs text-orange-500 flex items-center gap-1 cursor-pointer hover:underline">
-                            <span className="text-gray-500">Booked:</span> {review.booked} <ChevronRight className="h-3 w-3" />
+                        <div>
+                          <Label htmlFor="rev-city" className="text-xs font-semibold text-gray-700">City / Origin *</Label>
+                          <Input
+                            id="rev-city"
+                            required
+                            placeholder="e.g. Mumbai, Delhi, London..."
+                            value={newReview.travelledFrom}
+                            onChange={(e) => setNewReview({ ...newReview, travelledFrom: e.target.value })}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Detailed Review */}
+                      <div>
+                        <Label htmlFor="rev-comment" className="text-xs font-semibold text-gray-700">Detailed Review *</Label>
+                        <Textarea
+                          id="rev-comment"
+                          required
+                          rows={4}
+                          placeholder="Tell us about your experience: hotel stay, sightseeing highlights, driver/guide assistance, and overall value..."
+                          value={newReview.comment}
+                          onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                          className="mt-1 leading-relaxed"
+                        />
+                      </div>
+
+                      {/* Photo Attachment URL */}
+                      <div>
+                        <Label htmlFor="rev-photo" className="text-xs font-semibold text-gray-700">Attach Trip Photo URL (Optional)</Label>
+                        <Input
+                          id="rev-photo"
+                          placeholder="https://images.unsplash.com/..."
+                          value={newReview.photoUrl}
+                          onChange={(e) => setNewReview({ ...newReview, photoUrl: e.target.value })}
+                          className="mt-1 text-xs"
+                        />
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowWriteReviewModal(false)}
+                          className="px-6"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={isSubmittingReview || !newReview.comment.trim() || !newReview.name.trim()}
+                          className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 shadow-sm"
+                        >
+                          {isSubmittingReview ? 'Posting Review...' : 'Submit Review'}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Traveller Image Gallery (Only if users uploaded review photos) */}
+              {reviewsData.travellerImages.length > 0 && (
+                <div className="mb-10">
+                  <h3 className="font-bold text-gray-900 mb-4">Traveller Image Gallery</h3>
+                  <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[300px]">
+                    <div 
+                      className="col-span-2 row-span-2 relative rounded-xl overflow-hidden group cursor-pointer"
+                      onClick={() => setSelectedGalleryImage(reviewsData.travellerImages[0])}
+                    >
+                      <img src={reviewsData.travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      {reviewsData.travellerImages.length > 1 && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedGalleryImage(reviewsData.travellerImages[0]);
+                          }}
+                          className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-md text-white border border-white/50 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                        >
+                          View all ({reviewsData.travellerImages.length})
+                        </button>
+                      )}
+                    </div>
+                    {reviewsData.travellerImages.slice(1, 5).map((img, idx) => (
+                      <div 
+                        key={idx} 
+                        className="col-span-1 row-span-1 rounded-xl overflow-hidden group cursor-pointer"
+                        onClick={() => setSelectedGalleryImage(img)}
+                      >
+                        <img src={img} alt={`Traveller ${idx + 2}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Real User Reviews List */}
+              <div className="mb-10">
+                {reviewsData.totalReviewsCount > 0 ? (
+                  <div className="space-y-4">
+                    {reviewsData.userReviews.map((review: any) => (
+                      <Card key={review.id} className="shadow-sm border-gray-200">
+                        <CardContent className="p-5">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden">
+                                {review.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900 text-sm">{review.name}</h4>
+                                <p className="text-xs text-gray-500">{review.date}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
+                              <Star className="h-3 w-3 fill-current" /> {review.rating}/5
+                            </div>
                           </div>
-                          {review.travelledFrom && (
-                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                              Travelled From: <MapPin className="h-3 w-3" /> <span className="font-medium text-gray-700">{review.travelledFrom}</span>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <div className="text-xs text-orange-500 flex items-center gap-1">
+                              <span className="text-gray-500">Booked:</span> {review.booked}
+                            </div>
+                            {review.travelledFrom && (
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                Travelled From: <MapPin className="h-3 w-3" /> <span className="font-medium text-gray-700">{review.travelledFrom}</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            {review.text}
+                          </p>
+                          {/* Review Images */}
+                          {review.images && review.images.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto pt-3 pb-1 hide-scrollbar">
+                              {review.images.map((img: string, i: number) => (
+                                <div 
+                                  key={i} 
+                                  className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden relative cursor-pointer"
+                                  onClick={() => setSelectedGalleryImage(img)}
+                                >
+                                  <img src={img} alt={`Review image ${i+1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                                </div>
+                              ))}
                             </div>
                           )}
-                        </div>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          {review.text}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                <div className="mt-6 flex justify-center">
-                  <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-50 font-semibold px-8 rounded-md mb-8">
-                    Load More reviews (272+)
-                  </Button>
-                </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  /* Empty state when no reviews exist */
+                  <Card className="border-dashed border-2 border-gray-300 bg-gray-50/50 p-8 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center">
+                        <MessageCircle className="h-6 w-6" />
+                      </div>
+                      <h4 className="font-bold text-gray-800 text-base">No reviews yet for this package</h4>
+                      <p className="text-xs text-gray-500 max-w-md">
+                        Have you travelled on this trip? Be the first traveller to write an authentic review!
+                      </p>
+                      <Button 
+                        onClick={() => setShowWriteReviewModal(true)}
+                        className="bg-orange-500 hover:bg-orange-600 text-white font-medium mt-2 flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Write a Review
+                      </Button>
+                    </div>
+                  </Card>
+                )}
               </div>
             </div>
 
@@ -1116,6 +1348,21 @@ export default function PackageDetailView({
                 <p className="text-lg">No photos available for this package.</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Traveller Photo Lightbox Modal */}
+      {selectedGalleryImage && (
+        <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 animate-in fade-in">
+          <button
+            onClick={() => setSelectedGalleryImage(null)}
+            className="absolute top-6 right-6 text-white hover:text-gray-300 bg-white/10 p-2 rounded-full transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl">
+            <img src={selectedGalleryImage} alt="Traveller photo" className="w-full h-full object-contain" />
           </div>
         </div>
       )}

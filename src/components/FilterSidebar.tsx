@@ -50,27 +50,7 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
           
           <hr className="border-gray-100" />
 
-          {/* Flights */}
-          <div className="space-y-3">
-            <h3 className="text-[13px] font-semibold text-gray-900">Flights</h3>
-            <div className="flex flex-wrap gap-2">
-              {['With Flights', 'Without Flights'].map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setFlightPreference(flightPreference === opt ? null : opt)}
-                  className={`px-3 py-1.5 border rounded text-[12px] transition-colors ${
-                    flightPreference === opt
-                      ? 'border-[#008cff] text-[#008cff] bg-[#f0f9ff]'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
-                  }`}
-                >
-                  {opt} <span className="text-gray-400 font-normal ml-0.5">{opt === 'With Flights' ? '(67)' : '(75)'}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
-          <hr className="border-gray-100" />
 
           {/* Budget */}
           <div className="space-y-4">

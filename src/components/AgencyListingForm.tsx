@@ -425,7 +425,7 @@ const packageType = watch('packageType');
                             onChange={(e) => setValue('countryName', e.target.value)}
                             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           />
-                          {countryName && (
+                          {countryName && !countries.includes(countryName) && (
                             <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
                               {countries
                                 .filter(country => country.toLowerCase().includes(countryName.toLowerCase()))
@@ -455,7 +455,7 @@ const packageType = watch('packageType');
                             onChange={(e) => setValue('stateName', e.target.value)}
                             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           />
-                          {stateName && (
+                          {stateName && !indianStates.includes(stateName) && (
                             <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
                               {indianStates
                                 .filter(state => state.toLowerCase().includes(stateName.toLowerCase()))
