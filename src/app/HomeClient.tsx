@@ -4134,11 +4134,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                               else if (category === 'experiences') {
                                 if (subcategory) {
-                                  const exp = (listing.experienceType || '').toLowerCase();
-                                  if (subcategory === 'Trekking' && exp !== 'trekking') return false;
-                                  if (subcategory === 'Snow Enjoyment' && exp !== 'snow') return false;
-                                  if (subcategory === 'Adventure' && exp !== 'adventure') return false;
-                                  if (subcategory === 'Water Sports' && exp !== 'water-sports') return false;
+                                  let expArray: string[] = [];
+                                  if (Array.isArray(listing.experienceType)) {
+                                    expArray = listing.experienceType.map((e: any) => (e || '').toLowerCase());
+                                  } else if (typeof listing.experienceType === 'string' && listing.experienceType) {
+                                    expArray = [listing.experienceType.toLowerCase()];
+                                  }
+
+                                  if (subcategory === 'Trekking' && !expArray.includes('trekking')) return false;
+                                  if (subcategory === 'Snow Enjoyment' && !expArray.includes('snow') && !expArray.includes('snow enjoyment')) return false;
+                                  if (subcategory === 'Adventure' && !expArray.includes('adventure')) return false;
+                                  if (subcategory === 'Water Sports' && !expArray.includes('water-sports') && !expArray.includes('water sports')) return false;
                                 }
                               }
                             }
