@@ -663,11 +663,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       }
 
       if (category === 'experiences') {
-        const exp = (listing.experienceType || '').toLowerCase();
-        if (subcategory === 'Trekking') return exp === 'trekking';
-        if (subcategory === 'Snow Enjoyment') return exp === 'snow';
-        if (subcategory === 'Adventure') return exp === 'adventure';
-        if (subcategory === 'Water Sports') return exp === 'water-sports';
+        let expArray: string[] = [];
+        if (Array.isArray(listing.experienceType)) {
+          expArray = listing.experienceType.map((e: string) => e.toLowerCase());
+        } else if (typeof listing.experienceType === 'string' && listing.experienceType) {
+          expArray = [listing.experienceType.toLowerCase()];
+        }
+        
+        if (subcategory === 'Trekking') return expArray.includes('trekking');
+        if (subcategory === 'Snow Enjoyment') return expArray.includes('snow') || expArray.includes('snow enjoyment');
+        if (subcategory === 'Adventure') return expArray.includes('adventure');
+        if (subcategory === 'Water Sports') return expArray.includes('water-sports') || expArray.includes('water sports');
       }
 
       return false;
@@ -3371,14 +3377,24 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             </div>
                           </div>
 
-                          {viewingAdminListing.mealPlan && viewingAdminListing.mealPlan !== 'no-meal' && (
+                          {viewingAdminListing.mealPlan && (
                             <div>
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Meal Plan</span>
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 capitalize">
                                 <Utensils className="h-3 w-3" />
-                                {viewingAdminListing.mealPlan === 'breakfast' ? 'Breakfast Included' :
-                                  viewingAdminListing.mealPlan === 'breakfast-dinner' ? 'Breakfast & Dinner' :
-                                    viewingAdminListing.mealPlan === 'all-meals' ? 'All Meals' : viewingAdminListing.mealPlan}
+                                {Array.isArray(viewingAdminListing.mealPlan)
+                                  ? (viewingAdminListing.mealPlan.length > 0
+                                      ? viewingAdminListing.mealPlan.map((m: string) => {
+                                          if (m === 'breakfast-dinner') return 'Breakfast & Dinner';
+                                          if (m === 'all-meals') return 'All Meals';
+                                          if (m === 'no-meal') return 'No Meal';
+                                          return m.charAt(0).toUpperCase() + m.slice(1);
+                                        }).join(' & ')
+                                      : 'No Meals')
+                                  : (viewingAdminListing.mealPlan === 'breakfast' ? 'Breakfast Included' :
+                                      viewingAdminListing.mealPlan === 'breakfast-dinner' ? 'Breakfast & Dinner' :
+                                        viewingAdminListing.mealPlan === 'all-meals' ? 'All Meals' : 
+                                          (viewingAdminListing.mealPlan === 'no-meal' ? 'No Meals' : viewingAdminListing.mealPlan))}
                               </span>
                             </div>
                           )}
@@ -3387,13 +3403,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             <div>
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Recommended Season</span>
                               <span className="text-xs font-bold text-slate-700 capitalize">
-                                {viewingAdminListing.season ? `${viewingAdminListing.season} season` : 'Any season'}
+                                {viewingAdminListing.season ? (viewingAdminListing.season === 'all-seasons' ? 'All Seasons' : `${viewingAdminListing.season} season`) : 'Any season'}
                               </span>
                             </div>
                             <div>
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Activity Genre</span>
                               <span className="text-xs font-bold text-slate-700 capitalize">
-                                {viewingAdminListing.experienceType || 'Standard tour'}
+                                {Array.isArray(viewingAdminListing.experienceType) && viewingAdminListing.experienceType.length > 0
+                                  ? viewingAdminListing.experienceType.join(' | ')
+                                  : (typeof viewingAdminListing.experienceType === 'string' && viewingAdminListing.experienceType
+                                      ? viewingAdminListing.experienceType
+                                      : 'Standard tour')}
                               </span>
                             </div>
                           </div>

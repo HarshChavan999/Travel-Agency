@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Upload, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, Upload, ClipboardList, X } from 'lucide-react';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -35,15 +35,15 @@ interface FormData {
   placesCovered: Place[];
   tourCategories: string[];
   hotelTypes: string[];
-  mealPlan: 'no-meal' | 'breakfast' | 'breakfast-dinner' | 'all-meals';
+  mealPlan: string[];
   itinerary: ItineraryDay[];
-  inclusions: string;
-  exclusions: string;
+  inclusions: string[];
+  exclusions: string[];
   cost: string;
-  experienceType?: 'trekking' | 'snow' | 'adventure' | 'water-sports' | '';
+  experienceType?: string[];
   discountCategory?: 'none' | '10-off' | '50-off' | 'flash-deals' | '';
   isTrending?: boolean;
-  season?: 'summer' | 'monsoon' | 'winter' | 'spring' | '';
+  season?: 'summer' | 'monsoon' | 'winter' | 'spring' | 'all-seasons' | '';
   eventType?: 'new-year' | 'diwali' | 'summer-vacation' | 'weekend' | '';
 }
 
@@ -166,21 +166,51 @@ const {
     setValue,
     formState: { errors }
   } = useForm<FormData>({
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      ...initialData,
+      placesCovered: initialData.placesCovered && initialData.placesCovered.length > 0 ? [{
+        id: 'photos',
+        name: '',
+        images: [],
+        imageUrls: initialData.placesCovered.reduce((acc: string[], p: any) => [...acc, ...(p.imageUrls || [])], [])
+      }] : [{ id: 'photos', name: '', images: [], imageUrls: [] }],
+      mealPlan: Array.isArray(initialData.mealPlan)
+        ? initialData.mealPlan
+        : (initialData.mealPlan === 'breakfast'
+          ? ['breakfast']
+          : (initialData.mealPlan === 'breakfast-dinner'
+            ? ['breakfast-dinner']
+            : (initialData.mealPlan === 'all-meals'
+              ? ['all-meals']
+              : (initialData.mealPlan === 'no-meal'
+                ? ['no-meal']
+                : [])))),
+      inclusions: typeof (initialData.inclusions as any) === 'string'
+        ? (initialData.inclusions as any).split('\n').filter((item: string) => item.trim() !== '')
+        : (Array.isArray(initialData.inclusions) ? initialData.inclusions : ['']),
+      exclusions: typeof (initialData.exclusions as any) === 'string'
+        ? (initialData.exclusions as any).split('\n').filter((item: string) => item.trim() !== '')
+        : (Array.isArray(initialData.exclusions) ? initialData.exclusions : ['']),
+      experienceType: Array.isArray(initialData.experienceType)
+        ? initialData.experienceType
+        : (initialData.experienceType && typeof initialData.experienceType === 'string'
+            ? [initialData.experienceType]
+            : [])
+    } : {
       packageType: 'domestic',
       countryName: '',
       stateName: '',
       pickUpLocation: '',
       dropLocation: '',
-      placesCovered: [],
+      placesCovered: [{ id: 'photos', name: '', images: [], imageUrls: [] }],
       tourCategories: [],
       hotelTypes: [],
-      mealPlan: 'no-meal',
+      mealPlan: [],
       itinerary: [],
-      inclusions: '',
-      exclusions: '',
+      inclusions: [''],
+      exclusions: [''],
       cost: '',
-      experienceType: '',
+      experienceType: [],
       discountCategory: 'none',
       isTrending: false,
       season: '',
@@ -188,11 +218,77 @@ const {
     }
   });
 
-const packageType = watch('packageType');
+  const packageType = watch('packageType');
   const placesCovered = watch('placesCovered') || [];
   const itinerary = watch('itinerary') || [];
   const countryName = watch('countryName');
   const stateName = watch('stateName');
+  const inclusions = watch('inclusions') || [''];
+  const exclusions = watch('exclusions') || [''];
+  const experienceType = watch('experienceType') || [];
+  
+  const [experienceInput, setExperienceInput] = useState('');
+  const [isExperienceDropdownOpen, setIsExperienceDropdownOpen] = useState(false);
+  const experienceDropdownRef = useRef<HTMLDivElement>(null);
+  
+  const PRESET_EXPERIENCES = ['Trekking', 'Snow', 'Adventure', 'Water Sports', 'Wildlife', 'Cultural', 'Sightseeing'];
+
+  const filteredExperiences = PRESET_EXPERIENCES.filter(
+    (exp) => exp.toLowerCase().includes(experienceInput.toLowerCase()) && !experienceType.includes(exp)
+  );
+
+  const addExperience = (exp: string) => {
+    if (exp.trim() && !experienceType.includes(exp.trim())) {
+      setValue('experienceType', [...experienceType, exp.trim()]);
+    }
+    setExperienceInput('');
+    setIsExperienceDropdownOpen(false);
+  };
+
+  const removeExperience = (expToRemove: string) => {
+    setValue('experienceType', experienceType.filter((exp: string) => exp !== expToRemove));
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (experienceDropdownRef.current && !experienceDropdownRef.current.contains(event.target as Node)) {
+        setIsExperienceDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const addInclusion = () => {
+    setValue('inclusions', [...inclusions, '']);
+  };
+
+  const removeInclusion = (index: number) => {
+    const updated = inclusions.filter((_, i) => i !== index);
+    setValue('inclusions', updated.length > 0 ? updated : ['']);
+  };
+
+  const updateInclusion = (index: number, value: string) => {
+    const updated = [...inclusions];
+    updated[index] = value;
+    setValue('inclusions', updated);
+  };
+
+  const addExclusion = () => {
+    setValue('exclusions', [...exclusions, '']);
+  };
+
+  const removeExclusion = (index: number) => {
+    const updated = exclusions.filter((_, i) => i !== index);
+    setValue('exclusions', updated.length > 0 ? updated : ['']);
+  };
+
+  const updateExclusion = (index: number, value: string) => {
+    const updated = [...exclusions];
+    updated[index] = value;
+    setValue('exclusions', updated);
+  };
 
   const addPlace = () => {
     const newPlace: Place = {
@@ -211,7 +307,8 @@ const packageType = watch('packageType');
 
   const updatePlace = (index: number, field: keyof Place, value: any) => {
     const newPlaces = [...placesCovered];
-    newPlaces[index] = { ...newPlaces[index], [field]: value };
+    const defaultPlace: Place = { id: 'photos', name: '', images: [], imageUrls: [] };
+    newPlaces[index] = { ...(newPlaces[index] || defaultPlace), [field]: value };
     setValue('placesCovered', newPlaces);
   };
 
@@ -254,7 +351,7 @@ const packageType = watch('packageType');
       const place = places[placeIndex];
       const placeImages = place.images;
 
-      if (placeImages.length > 0) {
+      if (placeImages && placeImages.length > 0) {
         const imageUrls: string[] = [];
 
         for (let imgIndex = 0; imgIndex < placeImages.length; imgIndex++) {
@@ -270,7 +367,7 @@ const packageType = watch('packageType');
             const totalProgress = Math.round(((placeIndex * 100) + ((imgIndex + 1) / placeImages.length * 100)) / places.length);
             setUploadProgress(prev => ({
               ...prev,
-              [`${place.name}-${file.name}`]: totalProgress
+              [`${file.name}`]: totalProgress
             }));
           } catch (error) {
             console.error('Error uploading image:', error);
@@ -278,10 +375,10 @@ const packageType = watch('packageType');
           }
         }
 
-        // Update the place with image URLs
+        // Update the place with image URLs (combine existing and new)
         updatedPlaces[placeIndex] = {
           ...place,
-          imageUrls,
+          imageUrls: [...(place.imageUrls || []), ...imageUrls],
           images: [] // Clear File objects to avoid Firebase error
         };
       }
@@ -313,6 +410,12 @@ const packageType = watch('packageType');
         ...data,
         placesCovered: placesWithImages,
         itinerary: data.itinerary,
+        inclusions: Array.isArray(data.inclusions)
+          ? data.inclusions.filter((item: string) => item.trim() !== '').join('\n')
+          : (data.inclusions || ''),
+        exclusions: Array.isArray(data.exclusions)
+          ? data.exclusions.filter((item: string) => item.trim() !== '').join('\n')
+          : (data.exclusions || ''),
         photos: mainPhoto ? [mainPhoto] : [], // Add main photo for backward compatibility
         agencyId,
         approved: false, // Requires admin approval
@@ -369,23 +472,32 @@ const packageType = watch('packageType');
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-blue-600" />
+    <div className="min-h-screen bg-slate-50/50 p-4 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-8">
+        {/* Modern Header */}
+        <div className="flex flex-col gap-2 mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+            <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl shadow-sm">
+              <ClipboardList className="h-6 w-6" />
+            </div>
             {initialData ? 'Edit Travel Package' : 'Create New Travel Package'}
-          </CardTitle>
-          <CardDescription>
-            Fill in all the details to create or update your travel package listing
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          </h1>
+          <p className="text-slate-500 text-base">
+            Fill in all the details below to configure your travel package listing.
+          </p>
+        </div>
+
+        {/* Form Container */}
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-10 space-y-12">
 
             {/* 1. Package Type */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">1. Package Type</h3>
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      1
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Type</h3>
+  </div>
               <Controller
                 name="packageType"
                 control={control}
@@ -423,7 +535,7 @@ const packageType = watch('packageType');
                             placeholder="Enter country name"
                             value={countryName}
                             onChange={(e) => setValue('countryName', e.target.value)}
-                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                           />
                           {countryName && !countries.includes(countryName) && (
                             <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
@@ -453,7 +565,7 @@ const packageType = watch('packageType');
                             placeholder="Enter state name"
                             value={stateName}
                             onChange={(e) => setValue('stateName', e.target.value)}
-                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                           />
                           {stateName && !indianStates.includes(stateName) && (
                             <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
@@ -481,7 +593,10 @@ const packageType = watch('packageType');
             {/* Pick-up & Drop Locations */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Pick-up Location</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="h-4 w-1 rounded-full bg-blue-500"></div>
+    <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Pick-up Location</h3>
+  </div>
                 <Controller
                   name="pickUpLocation"
                   control={control}
@@ -494,7 +609,10 @@ const packageType = watch('packageType');
                 />
               </div>
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Drop Location</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="h-4 w-1 rounded-full bg-blue-500"></div>
+    <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Drop Location</h3>
+  </div>
                 <Controller
                   name="dropLocation"
                   control={control}
@@ -508,78 +626,96 @@ const packageType = watch('packageType');
               </div>
             </div>
 
-            {/* 2. Places Covered */}
+            {/* 2. Package Photos */}
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold border-b pb-2">2. Places Covered</h3>
-                <Button type="button" onClick={addPlace} className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Place
-                </Button>
-              </div>
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      2
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Photos (Our Photos)</h3>
+  </div>
               
-              {placesCovered.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                  <p className="text-gray-500">No places added yet. Click "Add Place" to start.</p>
+              <div className="space-y-4">
+                {/* Upload Button */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 cursor-pointer relative transition-all hover:border-orange-400">
+                  <input
+                    id="package-photos-upload"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const currentPlace = placesCovered[0] || { id: 'photos', name: '', images: [], imageUrls: [] };
+                      updatePlace(0, 'images', [...(currentPlace.images || []), ...files]);
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <Upload className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm font-semibold text-gray-700">Click or drag images to upload</p>
+                  <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 5MB</p>
                 </div>
-              ) : (
-                placesCovered.map((place, index) => (
-                  <Card key={place.id} className="border-l-4 border-blue-400">
-                    <CardContent className="p-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-medium">Place {index + 1}</h4>
-                        <Button
+
+                {/* Previews and Existing Photos */}
+                {((placesCovered[0]?.imageUrls?.length || 0) + (placesCovered[0]?.images?.length || 0)) > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4 border p-4 rounded-xl bg-gray-50/50">
+                    {/* Existing uploaded images */}
+                    {placesCovered[0]?.imageUrls?.map((url, idx) => (
+                      <div key={`existing-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border bg-white group shadow-sm">
+                        <img src={url} alt={`Package photo ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
                           type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => removePlace(index)}
-                          className="flex items-center gap-1"
+                          onClick={() => {
+                            const currentUrls = placesCovered[0].imageUrls || [];
+                            const updatedUrls = currentUrls.filter((_, i) => i !== idx);
+                            updatePlace(0, 'imageUrls', updatedUrls);
+                          }}
+                          className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         >
-                          <Trash2 className="h-3 w-3" />
-                          Remove
-                        </Button>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor={`placeName-${index}`}>Place Name</Label>
-                          <Input
-                            id={`placeName-${index}`}
-                            placeholder="Enter place name"
-                            value={place.name}
-                            onChange={(e) => updatePlace(index, 'name', e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor={`placeImages-${index}`}>Upload Images</Label>
-                          <div className="flex items-center space-x-2">
-                            <Input
-                              id={`placeImages-${index}`}
-                              type="file"
-                              multiple
-                              accept="image/*"
-                              onChange={(e) => {
-                                const files = Array.from(e.target.files || []);
-                                updatePlace(index, 'images', files);
-                              }}
-                              className="flex-1"
-                            />
-                            <div className="text-xs text-gray-500">
-                              {place.images.length} files selected
-                            </div>
+                          <div className="bg-red-600 text-white p-2 rounded-full transform scale-90 group-hover:scale-100 transition-transform duration-200">
+                            <Trash2 className="h-4 w-4" />
                           </div>
-                        </div>
+                        </button>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+                    ))}
+
+                    {/* Newly selected image files */}
+                    {placesCovered[0]?.images?.map((file, idx) => {
+                      const previewUrl = URL.createObjectURL(file);
+                      return (
+                        <div key={`new-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border bg-white group shadow-sm">
+                          <img src={previewUrl} alt={`New package photo ${idx + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <span className="text-[10px] text-white font-bold bg-orange-500/90 px-2 py-0.5 rounded-full shadow-sm">New</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentFiles = placesCovered[0].images || [];
+                              const updatedFiles = currentFiles.filter((_, i) => i !== idx);
+                              updatePlace(0, 'images', updatedFiles);
+                            }}
+                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          >
+                            <div className="bg-red-600 text-white p-2 rounded-full transform scale-90 group-hover:scale-100 transition-transform duration-200">
+                              <Trash2 className="h-4 w-4" />
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 3. Tour Category */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">3. Tour Category</h3>
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      3
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Tour Category</h3>
+  </div>
 <Controller
                 name="tourCategories"
                 control={control}
@@ -611,7 +747,12 @@ const packageType = watch('packageType');
             {/* 4. Hotel & Meal Details */}
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">4. Hotel Type</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      4
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Hotel Type</h3>
+  </div>
 <Controller
                   name="hotelTypes"
                   control={control}
@@ -641,7 +782,12 @@ const packageType = watch('packageType');
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">5. Meal Plan</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      5
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Meal Plan</h3>
+  </div>
                 <Controller
                   name="mealPlan"
                   control={control}
@@ -650,11 +796,17 @@ const packageType = watch('packageType');
                       {mealPlans.map((plan) => (
                         <label key={plan.value} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                           <input
-                            type="radio"
-                            value={plan.value}
-                            checked={field.value === plan.value}
-                            onChange={(e) => field.onChange(e.target.value)}
-                            className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            type="checkbox"
+                            checked={(field.value || []).includes(plan.value)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const currentPlans = field.value || [];
+                              const newPlans = checked
+                                ? [...currentPlans, plan.value]
+                                : currentPlans.filter((p: string) => p !== plan.value);
+                              field.onChange(newPlans);
+                            }}
+                            className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
                           />
                           <span>{plan.label}</span>
                         </label>
@@ -668,7 +820,12 @@ const packageType = watch('packageType');
             {/* 6. Itinerary Builder */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold border-b pb-2">6. Itinerary Builder</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      6
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Itinerary Builder</h3>
+  </div>
                 <Button type="button" onClick={addItineraryDay} className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
                   Add Day
@@ -729,7 +886,12 @@ const packageType = watch('packageType');
 
             {/* 6. Package Duration */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">7. Package Duration</h3>
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      7
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Duration</h3>
+  </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Duration Summary</Label>
@@ -750,7 +912,12 @@ const packageType = watch('packageType');
 
             {/* 7. Starting Price */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">8. Starting Price</h3>
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      8
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Starting Price</h3>
+  </div>
               <Controller
                 name="cost"
                 control={control}
@@ -777,35 +944,95 @@ const packageType = watch('packageType');
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Experience Type */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">9. Experience Type</h3>
-                <Controller
-                  name="experienceType"
-                  control={control}
-                  render={({ field }) => (
-                    <select
-                      {...field}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Select experience type</option>
-                      <option value="trekking">Trekking</option>
-                      <option value="snow">Snow Enjoyment</option>
-                      <option value="adventure">Adventure</option>
-                      <option value="water-sports">Water Sports</option>
-                    </select>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      9
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Experience Type</h3>
+  </div>
+                <div className="space-y-3" ref={experienceDropdownRef}>
+                  {/* Selected Badges */}
+                  {experienceType.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {experienceType.map((exp: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1 bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium border border-orange-200 shadow-sm">
+                          {exp}
+                          <button
+                            type="button"
+                            onClick={() => removeExperience(exp)}
+                            className="hover:bg-orange-200 rounded-full p-0.5 transition-colors focus:outline-none"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                />
+
+                  {/* Input with Dropdown */}
+                  <div className="relative">
+                    <Input
+                      placeholder="Type to add or search..."
+                      value={experienceInput}
+                      onChange={(e) => setExperienceInput(e.target.value)}
+                      onFocus={() => setIsExperienceDropdownOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (experienceInput.trim()) {
+                            addExperience(experienceInput);
+                          }
+                        }
+                      }}
+                      className="w-full"
+                    />
+                    
+                    {isExperienceDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {filteredExperiences.length > 0 ? (
+                          filteredExperiences.map((exp) => (
+                            <div
+                              key={exp}
+                              className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm transition-colors"
+                              onClick={() => addExperience(exp)}
+                            >
+                              {exp}
+                            </div>
+                          ))
+                        ) : (
+                          experienceInput.trim() && (
+                            <div
+                              className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm text-orange-600 transition-colors flex items-center gap-2"
+                              onClick={() => addExperience(experienceInput)}
+                            >
+                              <Plus className="h-4 w-4" /> Add "{experienceInput}"
+                            </div>
+                          )
+                        )}
+                        {filteredExperiences.length === 0 && !experienceInput.trim() && (
+                          <div className="px-4 py-2 text-sm text-gray-500 italic">No more options</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Deals & Offers Category */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">10. Deals & Offers</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      10
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Deals & Offers</h3>
+  </div>
                 <Controller
                   name="discountCategory"
                   control={control}
                   render={({ field }) => (
                     <select
                       {...field}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                     >
                       <option value="none">Standard Price (No Offer)</option>
                       <option value="10-off">10% Off</option>
@@ -818,7 +1045,12 @@ const packageType = watch('packageType');
 
               {/* Trending Status */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">11. Trending Package</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      11
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Trending Package</h3>
+  </div>
                 <Controller
                   name="isTrending"
                   control={control}
@@ -841,20 +1073,26 @@ const packageType = watch('packageType');
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Season Getaways */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">12. Seasonal Escapes</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      12
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Seasonal Escapes</h3>
+  </div>
                 <Controller
                   name="season"
                   control={control}
                   render={({ field }) => (
                     <select
                       {...field}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                     >
                       <option value="">Select season</option>
                       <option value="summer">Summer Retreat (May - Jul)</option>
                       <option value="monsoon">Monsoon Magic (Aug - Oct)</option>
                       <option value="winter">Winter Wonderland (Nov - Jan)</option>
                       <option value="spring">Spring Getaway (Feb - Apr)</option>
+                      <option value="all-seasons">All Seasons</option>
                     </select>
                   )}
                 />
@@ -862,14 +1100,19 @@ const packageType = watch('packageType');
 
               {/* Festive & Event Specials */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">13. Festive & Event Specials</h3>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+      13
+    </div>
+    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Festive & Event Specials</h3>
+  </div>
                 <Controller
                   name="eventType"
                   control={control}
                   render={({ field }) => (
                     <select
                       {...field}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                     >
                       <option value="">Select festival/event</option>
                       <option value="new-year">New Year & Christmas Specials</option>
@@ -884,36 +1127,68 @@ const packageType = watch('packageType');
 
             {/* 13. Inclusions & Exclusions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Inclusions */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">14. Inclusions</h3>
-                <Controller
-                  name="inclusions"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea
-                      placeholder="List what is included in the package (e.g., accommodation, transport, meals, activities)"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      rows={6}
-                    />
-                  )}
-                />
+                <div className="flex justify-between items-center border-b pb-2">
+                  <h3 className="text-lg font-semibold">14. Inclusions</h3>
+                  <Button type="button" size="sm" onClick={addInclusion} className="flex items-center gap-1">
+                    <Plus className="h-3 w-3" /> Add Item
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {inclusions.map((item, index) => (
+                    <div key={`inclusion-${index}`} className="flex items-center gap-2">
+                      <Input
+                        placeholder="e.g. 3 Star hotel stay, daily breakfast..."
+                        value={item}
+                        onChange={(e) => updateInclusion(index, e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeInclusion(index)}
+                        disabled={inclusions.length <= 1 && item === ''}
+                        className="h-10 w-10 shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
+              {/* Exclusions */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">15. Exclusions</h3>
-                <Controller
-                  name="exclusions"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea
-                      placeholder="List what is NOT included in the package (e.g., personal expenses, optional activities, tips)"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      rows={6}
-                    />
-                  )}
-                />
+                <div className="flex justify-between items-center border-b pb-2">
+                  <h3 className="text-lg font-semibold">15. Exclusions</h3>
+                  <Button type="button" size="sm" onClick={addExclusion} className="flex items-center gap-1">
+                    <Plus className="h-3 w-3" /> Add Item
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {exclusions.map((item, index) => (
+                    <div key={`exclusion-${index}`} className="flex items-center gap-2">
+                      <Input
+                        placeholder="e.g. Laundry, personal tips, flights..."
+                        value={item}
+                        onChange={(e) => updateExclusion(index, e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeExclusion(index)}
+                        disabled={exclusions.length <= 1 && item === ''}
+                        className="h-10 w-10 shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -949,9 +1224,8 @@ const packageType = watch('packageType');
                 </Button>
               </div>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+                  </form>
+      </div>
     </div>
   );
 }

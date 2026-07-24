@@ -9,13 +9,13 @@ import { useComparison } from '@/contexts/ComparisonContext';
 import { optimizeImageUrl, preloadImage } from '@/lib/imageOptimization';
 import { getDbInstance } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { 
-  Star, 
-  Share2, 
-  Scale, 
-  Heart, 
-  MapPin, 
-  Calendar, 
+import {
+  Star,
+  Share2,
+  Scale,
+  Heart,
+  MapPin,
+  Calendar,
 
   ChevronRight,
   ChevronLeft,
@@ -34,7 +34,8 @@ import {
   Building2,
   ShieldCheck,
   Banknote,
-  Plus
+  Plus,
+  Utensils
 } from 'lucide-react';
 
 interface PackageDetailViewProps {
@@ -81,15 +82,15 @@ const defaultAccommodations = [
 function getReviewsData(listing: any, userDbReviews: any[]) {
   const packageTitle = listing?.title || 'Travel Package';
   const embeddedReviews = Array.isArray(listing?.reviews) ? listing.reviews : [];
-  
+
   // Combine real user reviews from Firestore database & embedded listing reviews
   const allRawUserReviews = [...userDbReviews, ...embeddedReviews];
 
   const formattedUserReviews = allRawUserReviews.map((r, i) => ({
     id: r.id || `user-rev-${i}`,
     name: r.name || r.userName || "Verified Traveller",
-    date: r.createdAt 
-      ? `Reviewed: ${new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` 
+    date: r.createdAt
+      ? `Reviewed: ${new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
       : (r.date ? `Reviewed: ${r.date}` : "Reviewed recently"),
     rating: Number(r.rating) || 5.0,
     booked: packageTitle,
@@ -138,18 +139,61 @@ function getReviewsData(listing: any, userDbReviews: any[]) {
   };
 }
 
+// Helper to format hotel types beautifully
+const getFormattedHotelTypes = (types: any) => {
+  if (!types) return 'Standard';
+  if (Array.isArray(types)) {
+    if (types.length === 0) return 'Standard';
+    return types.map((h: string) => {
+      if (typeof h !== 'string') return String(h);
+      return h.charAt(0).toUpperCase() + h.slice(1).toLowerCase();
+    }).join(' | ');
+  }
+  if (typeof types === 'string') {
+    return types.split(',')
+      .map(t => t.trim())
+      .filter(Boolean)
+      .map(t => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase())
+      .join(' | ');
+  }
+  return 'Standard';
+};
 
+// Helper to format meal plans beautifully
+const getFormattedMealPlan = (plan: any) => {
+  const formatSingle = (m: string) => {
+    if (m === 'breakfast-dinner') return 'Breakfast & Dinner';
+    if (m === 'all-meals') return 'All Meals';
+    if (m === 'no-meal') return 'No Meal';
+    return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+  };
 
-export default function PackageDetailView({ 
-  listing, 
-  onBack, 
-  onBook, 
+  if (!plan) return 'No Meals';
+  if (Array.isArray(plan)) {
+    if (plan.length === 0) return 'No Meals';
+    return plan.map((m: string) => formatSingle(m)).join(' | ');
+  }
+  if (typeof plan === 'string') {
+    return plan.split(',')
+      .map(t => t.trim())
+      .filter(Boolean)
+      .map(m => formatSingle(m))
+      .join(' | ');
+  }
+  return 'No Meals';
+};
+
+export default function PackageDetailView({
+  listing,
+  onBack,
+  onBook,
   onChat,
   onWishlist,
-  isWishlisted 
+  isWishlisted
 }: PackageDetailViewProps) {
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'inclusions'>('itinerary');
   const [activeImageTab, setActiveImageTab] = useState<'sightseeing' | 'hotel' | 'video'>('sightseeing');
-  const [expandedDays, setExpandedDays] = useState<number[]>([1]);
+  const [expandedDays, setExpandedDays] = useState<number[]>([]);
   const [expandedFAQs, setExpandedFAQs] = useState<number[]>([]);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showCompareToast, setShowCompareToast] = useState(false);
@@ -214,7 +258,7 @@ export default function PackageDetailView({
 
     setIsSubmittingReview(true);
     const listingId = listing?.id || listing?.docId || 'default-package';
-    
+
     const reviewData = {
       listingId,
       name: newReview.name.trim() || 'Verified Traveller',
@@ -255,8 +299,11 @@ export default function PackageDetailView({
   };
 
   const reviewsData = getReviewsData(listing, userDbReviews);
-  
+
   const { addToComparison, isInComparison, canAddMore, comparisonList } = useComparison();
+
+  const duration = listing.itinerary?.length || listing.duration || 0;
+  const nights = duration > 0 ? duration - 1 : 0;
 
   const handleShare = async () => {
     const shareData = {
@@ -314,28 +361,38 @@ export default function PackageDetailView({
   }, [allImages]);
 
   // Parse inclusions and exclusions into arrays
-  const parseList = (text: string) => {
-    if (!text) return [];
-    return text.split('\n').filter(item => item.trim() !== '');
+  const parseList = (input: any) => {
+    if (!input) return [];
+    if (Array.isArray(input)) return input.filter(item => typeof item === 'string' && item.trim() !== '');
+    return String(input).split('\n').filter(item => item.trim() !== '');
   };
 
   const inclusions = parseList(listing.inclusions);
   const exclusions = parseList(listing.exclusions);
 
   const toggleDay = (day: number) => {
-    setExpandedDays(prev => 
-      prev.includes(day) 
+    setExpandedDays(prev =>
+      prev.includes(day)
         ? prev.filter(d => d !== day)
         : [...prev, day]
     );
   };
 
   const toggleFAQ = (index: number) => {
-    setExpandedFAQs(prev => 
-      prev.includes(index) 
+    setExpandedFAQs(prev =>
+      prev.includes(index)
         ? prev.filter(i => i !== index)
         : [...prev, index]
     );
+  };
+
+  // Get unique places to display based on itinerary fallback
+  const getDisplayPlaces = () => {
+    const covered = listing.placesCovered?.map((p: any) => p.name?.trim()).filter(Boolean) || [];
+    if (covered.length > 0) return covered;
+    // Fallback to itinerary place names
+    const itineraryPlaces = listing.itinerary?.map((d: any) => d.placeName?.trim()).filter(Boolean) || [];
+    return Array.from(new Set(itineraryPlaces));
   };
 
   // Generate breadcrumb
@@ -357,8 +414,27 @@ export default function PackageDetailView({
   // Generate package code
   const packageCode = `PKG${listing.id?.slice(-4).toUpperCase() || '0000'}`;
 
-  // Get tour categories
-  const categories = listing.tourCategories || ['Family'];
+  // Gather all tags for the badge row
+  const tags: string[] = [];
+
+  // Categories
+  if (Array.isArray(listing.tourCategories) && listing.tourCategories.length > 0) {
+    listing.tourCategories.forEach((c: string) => tags.push(`${c} Tour`));
+  } else {
+    tags.push('Family Tour');
+  }
+
+  // Experience Types
+  if (Array.isArray(listing.experienceType)) {
+    tags.push(...listing.experienceType);
+  } else if (typeof listing.experienceType === 'string' && listing.experienceType) {
+    tags.push(listing.experienceType);
+  }
+
+  // Season
+  if (listing.season) {
+    tags.push(listing.season === 'all-seasons' ? 'All Seasons' : `${listing.season} Season`);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -385,18 +461,18 @@ export default function PackageDetailView({
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 {listing.title || 'Travel Package'}
               </h1>
-              
+
               {/* Tags Row */}
               <div className="flex flex-wrap items-center gap-3 mb-3">
-                {categories.map((category: string, index: number) => (
-                  <Badge 
-                    key={index} 
-                    className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200"
+                {tags.map((tag: string, index: number) => (
+                  <Badge
+                    key={index}
+                    className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200 rounded-none capitalize"
                   >
-                    {category} Tour
+                    {tag}
                   </Badge>
                 ))}
-                <Badge variant="outline" className="text-gray-600">
+                <Badge variant="outline" className="text-gray-600 rounded-none">
                   {/* Code: {packageCode} */}
                 </Badge>
                 <div className="flex items-center gap-1 text-yellow-500">
@@ -411,11 +487,11 @@ export default function PackageDetailView({
 
               {/* Location tags */}
               <div className="flex flex-wrap gap-2 text-sm text-gray-600">
-                {listing.placesCovered?.map((place: any, index: number) => (
+                {getDisplayPlaces().map((name: string, index: number, arr: string[]) => (
                   <span key={index} className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
-                    {place.name}
-                    {index < listing.placesCovered.length - 1 && <span className="mx-1">|</span>}
+                    {name}
+                    {index < arr.length - 1 && <span className="mx-1">|</span>}
                   </span>
                 ))}
               </div>
@@ -424,28 +500,28 @@ export default function PackageDetailView({
             {/* Action Buttons */}
             <div className="flex flex-col items-end gap-3">
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded-lg group transition-all"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded-none group transition-all"
                   onClick={onBack}
                 >
                   <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
                   Back
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-2"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 rounded-none"
                   onClick={handleShare}
                 >
                   <Share2 className="h-4 w-4" />
                   Share
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className={`flex items-center gap-2 ${isInComparison(listing.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : ''}`}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`flex items-center gap-2 rounded-none ${isInComparison(listing.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : ''}`}
                   onClick={() => {
                     if (isInComparison(listing.id)) {
                       setCompareToastMessage('This package is already in your comparison list!');
@@ -499,17 +575,17 @@ export default function PackageDetailView({
                     </>
                   )}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className={`flex items-center gap-2 ${isWishlisted ? 'text-red-500 border-red-200 bg-red-50' : ''}`}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`flex items-center gap-2 rounded-none ${isWishlisted ? 'text-red-500 border-red-200 bg-red-50' : ''}`}
                   onClick={() => onWishlist?.(listing.id)}
                 >
                   <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
                   Wishlist
                 </Button>
               </div>
-              
+
               {/* <Button 
                 className="bg-gray-500 hover:bg-gray-600 text-white px-8"
                 onClick={() => onBook(listing)}
@@ -526,21 +602,21 @@ export default function PackageDetailView({
         {/* Photo Gallery Section - Thrillophilia Style */}
         <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-2 mb-8 h-[300px] sm:h-[400px] lg:h-[460px]">
           {/* Main Photo */}
-          <div className="lg:col-span-8 h-full relative group rounded-l-xl lg:rounded-l-2xl overflow-hidden">
+          <div className="lg:col-span-8 h-full relative group rounded-none lg:rounded-none overflow-hidden">
             {allImages.length > 0 ? (
               <div className="relative w-full h-full overflow-hidden">
-                <div 
+                <div
                   className="flex w-full h-full transition-transform duration-300 ease-out"
                   style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
                 >
                   {allImages.map((imgUrl, idx) => (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       className="w-full h-full shrink-0 relative cursor-pointer overflow-hidden"
                       onClick={() => setShowAllPhotos(true)}
                     >
-                      <img 
-                        src={optimizeImageUrl(imgUrl, { width: 1200, quality: 85, format: 'auto', cacheBust: false })} 
+                      <img
+                        src={optimizeImageUrl(imgUrl, { width: 1200, quality: 85, format: 'auto', cacheBust: false })}
                         alt={`${listing.title} photo ${idx + 1}`}
                         className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                         loading={idx === 0 ? "eager" : "lazy"}
@@ -549,7 +625,7 @@ export default function PackageDetailView({
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Navigation Arrows */}
                 {allImages.length > 1 && (
                   <>
@@ -558,50 +634,49 @@ export default function PackageDetailView({
                         e.stopPropagation();
                         setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
                       }}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-none p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
                       aria-label="Previous image"
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </button>
-                    
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
                       }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-none p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
                       aria-label="Next image"
                     >
                       <ChevronRight className="h-5 w-5" />
                     </button>
                   </>
                 )}
-                
+
                 {/* Dot Indicators for Mobile */}
                 {allImages.length > 1 && (
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex lg:hidden gap-1.5 bg-black/30 backdrop-blur-[2px] px-2.5 py-1.5 rounded-full opacity-100 transition-all duration-200 z-20">
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex lg:hidden gap-1.5 bg-black/30 backdrop-blur-[2px] px-2.5 py-1.5 rounded-none opacity-100 transition-all duration-200 z-20">
                     {allImages.map((_, idx) => (
                       <span
                         key={idx}
-                        className={`h-1.5 rounded-full transition-all duration-200 ${
-                          idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
-                        }`}
+                        className={`h-1.5 rounded-none transition-all duration-200 ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+                          }`}
                       />
                     ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200 cursor-pointer" onClick={() => setShowAllPhotos(true)}>
+              <div className="w-full h-full flex items-center justify-center bg-gray-200 cursor-pointer rounded-none" onClick={() => setShowAllPhotos(true)}>
                 <Camera className="h-16 w-16 text-gray-400" />
                 <span className="ml-2 text-gray-500">No photos available</span>
               </div>
             )}
-            
+
             {/* Desktop View All Button overlay on Main Image if side photos aren't shown, 
                 or just keep mobile view all button */}
             <div className="lg:hidden absolute bottom-14 right-4 z-20">
-              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded-lg h-9 text-xs">
+              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded-none h-9 text-xs">
                 <Camera className="h-4 w-4" />
                 All
               </Button>
@@ -614,22 +689,22 @@ export default function PackageDetailView({
               const imgIndex = idx;
               const hasImage = imgIndex < allImages.length;
               const image = hasImage ? allImages[imgIndex] : null;
-              
+
               return (
-                <div 
-                  key={idx} 
-                  className={`relative overflow-hidden group cursor-pointer bg-gray-100 ${idx === 2 ? 'rounded-tr-2xl' : ''} ${idx === 4 ? 'rounded-br-2xl' : ''}`}
+                <div
+                  key={idx}
+                  className={`relative overflow-hidden group cursor-pointer bg-gray-100 ${idx === 2 ? 'rounded-none' : ''} ${idx === 4 ? 'rounded-none' : ''}`}
                   onClick={() => setShowAllPhotos(true)}
                 >
                   {hasImage && image ? (
-                    <img 
-                      src={optimizeImageUrl(image, { width: 600, quality: 85, format: 'auto' })} 
+                    <img
+                      src={optimizeImageUrl(image, { width: 600, quality: 85, format: 'auto' })}
                       alt={`${listing.title} ${idx + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 rounded-none"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gray-100"></div>
+                    <div className="w-full h-full bg-gray-100 rounded-none"></div>
                   )}
                 </div>
               );
@@ -638,7 +713,7 @@ export default function PackageDetailView({
 
           {/* Desktop View All Button (Floating at bottom right) */}
           <div className="hidden lg:block absolute bottom-4 right-4 z-10">
-            <Button onClick={() => setShowAllPhotos(true)} className="bg-white text-black hover:bg-gray-100 flex items-center gap-2 shadow-md rounded-lg font-semibold px-4 py-2 border border-gray-200">
+            <Button onClick={() => setShowAllPhotos(true)} className="bg-white text-black hover:bg-gray-100 flex items-center gap-2 shadow-md rounded-none font-semibold px-4 py-2 border border-gray-200">
               <Camera className="h-4 w-4" />
               View All Images
             </Button>
@@ -646,247 +721,143 @@ export default function PackageDetailView({
         </div>
 
         {/* Package Summary Bar */}
-        <div className="bg-white rounded-xl shadow-sm border p-4 mb-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
+        <div className="mb-8 pt-2 pb-6 border-b border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            
+            {/* Duration Box */}
+            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
+              
               <div>
-                <p className="text-sm text-gray-500">Duration</p>
-                <p className="font-semibold">{listing.itinerary?.length || 0}D / {listing.itinerary?.length > 0 ? listing.itinerary.length - 1 : 0}N</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider  mb-0.5">Duration</p>
+                <p className="font-bold text-gray-900 text-sm leading-tight">{duration}D / {nights}N</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <MapPin className="h-6 w-6 text-green-600" />
-              </div>
+
+            {/* Places Box */}
+            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
+             
               <div>
-                <p className="text-sm text-gray-500">Places</p>
-                <p className="font-semibold">{listing.placesCovered?.length || 0} Cities</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Places</p>
+                <p className="font-bold text-gray-900 text-sm leading-tight">{getDisplayPlaces().length || 0} Cities</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Building2 className="h-6 w-6 text-purple-600" />
-              </div>
+
+            {/* Hotel Type Box */}
+            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
+             
               <div>
-                <p className="text-sm text-gray-500">Hotel Type</p>
-                <p className="font-semibold capitalize">{listing.hotelTypes?.[0] || 'Standard'}</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Hotel Type</p>
+                <p className="font-bold text-gray-900 text-sm leading-tight capitalize line-clamp-2">
+                  {getFormattedHotelTypes(listing.hotelTypes)}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Banknote className="h-6 w-6 text-orange-600" />
-              </div>
+
+            {/* Meal Plan Box */}
+            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
+              
               <div>
-                <p className="text-sm text-gray-500">Starting From</p>
-                <p className="font-semibold text-orange-600">
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Meal Plan</p>
+                <p className="font-bold text-gray-900 text-sm leading-tight capitalize line-clamp-2">
+                  {getFormattedMealPlan(listing.mealPlan)}
+                </p>
+              </div>
+            </div>
+
+            {/* Starting From Box */}
+            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
+              
+              <div>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Starting From</p>
+                <p className="font-bold text-orange-655 text-base leading-tight">
                   {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
                 </p>
               </div>
             </div>
+
           </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Itinerary Section */}
-            <Card>
-              <CardHeader className="bg-gray-500 hover:bg-gray-600 text-white px-8">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Calendar className="h-5 w-5" />
-                  Itinerary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {listing.itinerary && listing.itinerary.length > 0 ? (
-                  <div className="divide-y">
-                    {listing.itinerary.map((day: any, index: number) => (
-                      <div key={day.id || index} className="p-4">
-                        <button 
-                          className="w-full flex items-center justify-between text-left"
-                          onClick={() => toggleDay(day.day)}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <span className="font-bold text-gray-600">D{day.day}</span>
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-gray-900">Day 0{day.day}</h3>
-                              <p className="text-sm text-gray-500">{day.placeName || 'TBD'}</p>
-                            </div>
-                          </div>
-                          {expandedDays.includes(day.day) ? (
-                            <ChevronUp className="h-5 w-5 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-400" />
-                          )}
-                        </button>
-                        
-                        {expandedDays.includes(day.day) && (
-                          <div className="mt-4 ml-16 pl-4 border-l-2 border-gray-200">
-                            <p className="text-gray-700 leading-relaxed">
-                              {day.description || 'Detailed itinerary for this day will be shared upon booking confirmation.'}
-                            </p>
-                            {day.placeName && (
-                              <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
-                                <MapPin className="h-4 w-4" />
-                                <span>Staying at: {day.placeName}</span>
+          {/* Left Column - Main Content (Tabbed) */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Rectangular Tab Buttons */}
+            <div className="flex border border-gray-200 bg-white overflow-x-auto scrollbar-none rounded-none shadow-sm">
+              {(['itinerary', 'inclusions'] as const).map((tab) => {
+                const label = tab === 'itinerary' ? 'Itinerary' : 'Inclusions & Exclusions';
+                const Icon = tab === 'itinerary' ? Calendar : ShieldCheck;
+                const isActive = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 min-w-[120px] whitespace-nowrap px-4 py-4 text-xs sm:text-sm font-semibold border-b-2 transition-colors rounded-none cursor-pointer flex items-center justify-center gap-2 ${
+                      isActive
+                        ? 'border-orange-500 text-orange-600 bg-orange-50/20 font-bold'
+                        : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tab Content Box */}
+            <Card className="rounded-none border-gray-200 shadow-sm">
+              <CardContent className="p-4 sm:p-6 bg-white">
+                {activeTab === 'itinerary' && (
+                  <div>
+                    {listing.itinerary && listing.itinerary.length > 0 ? (
+                      <div className="space-y-3">
+                        {listing.itinerary.map((day: any, index: number) => (
+                          <div key={day.id || index} className="bg-white border border-gray-200 rounded-none shadow-none overflow-hidden transition-all hover:border-gray-300">
+                            <button
+                              className="w-full flex items-center justify-between text-left px-4 py-3 sm:px-5 sm:py-3.5 bg-white rounded-none cursor-pointer"
+                              onClick={() => toggleDay(day.day)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="bg-[#b84814] text-white px-3 py-1 rounded-none text-xs font-bold tracking-wider shrink-0 shadow-none">
+                                  DAY {day.day}
+                                </div>
+                                <h3 className="text-base font-semibold text-gray-900 leading-tight">
+                                  {day.placeName || `Day ${day.day} Activities`}
+                                </h3>
+                              </div>
+                              {expandedDays.includes(day.day) ? (
+                                <ChevronUp className="h-5 w-5 text-gray-650 shrink-0 ml-4" strokeWidth={2.5} />
+                              ) : (
+                                <ChevronDown className="h-5 w-5 text-gray-655 shrink-0 ml-4" strokeWidth={2.5} />
+                              )}
+                            </button>
+
+                            {expandedDays.includes(day.day) && (
+                              <div className="px-5 pb-5 pt-2 border-t border-gray-100 bg-gray-50/30">
+                                <p className="text-gray-700 leading-relaxed sm:ml-[88px] text-sm">
+                                  {day.description || 'Detailed itinerary for this day will be shared upon booking confirmation.'}
+                                </p>
                               </div>
                             )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center text-gray-500">
-                    <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>Detailed itinerary will be available soon.</p>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">
+                        <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                        <p>Detailed itinerary will be available soon.</p>
+                      </div>
+                    )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
 
-            {/* Accommodation Details */}
-            <Card>
-              <CardHeader className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Building2 className="h-5 w-5" />
-                  Accommodation Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  {(listing.placesCovered || defaultAccommodations).map((place: any, index: number) => (
-                    <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Building2 className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{place.name || place.city}</h4>
-                        <div className="flex items-center gap-1 mt-1">
-                          {[1, 2, 3, 4].map((star) => (
-                            <Star key={star} className="h-4 w-4 text-yellow-400 fill-current" />
-                          ))}
-                          <span className="text-sm text-gray-500 ml-2">4 Star Properties</span>
-                        </div>
-                        {place.hotels && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <span className="font-medium">Suggested Hotels: </span>
-                            {place.hotels.join(', ')}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm font-medium text-gray-600">
-                          {place.nights || 1} Night{place.nights !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            
-          </div>
-
-          {/* Right Column - Sidebar */}
-          <div className="lg:col-span-1 flex flex-col gap-4">
-            {/* Quick Info Card */}
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-lg mb-4">Package Highlights</h3>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>Guided tours with expert local guides</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>Premium accommodation throughout</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>All transfers and transportation</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>24/7 customer support</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <div className="sticky top-4 space-y-4">
-              {/* Agency Info */}
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-lg mb-3">Offered By</h3>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                      <Building2 className="h-6 w-6 text-orange-650" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{listing.agencyName || 'Travel Agency'}</p>
-                      {listing.agencyData?.verified && (
-                        <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
-                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <Button 
-                    className="w-full bg-orange-600 hover:bg-orange-600 text-white shadow-sm"
-                    onClick={() => {
-                      console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
-                      onChat(listing);
-                    }}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Chat with Agency
-                  </Button>
-                </CardContent>
-              </Card>
-              
-
-              {/* Back Button */}
-              <Button 
-                variant="ghost" 
-                className="w-full flex items-center justify-center gap-2 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded-lg group transition-all"
-                onClick={onBack}
-              >
-                <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                Back to Listings
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Full Width Sections */}
-        <div className="space-y-8 mt-8">
-            {/* End of Trip & What's Inside */}
-            <div className="flex flex-col items-center justify-center py-6">
-              <h2 
-                className="text-4xl text-orange-400 mb-6" 
-                style={{ fontFamily: "'Brush Script MT', 'Caveat', 'Great Vibes', cursive", transform: 'rotate(-2deg)' }}
-              >
-                End Of Trip
-              </h2>
-              <Card className="w-full shadow-sm border border-gray-200">
-                <CardHeader className="bg-white border-b pb-4">
-                  <CardTitle className="text-lg font-semibold text-gray-900">
-                    What's inside the package?
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="flex flex-col md:flex-row">
+                {activeTab === 'inclusions' && (
+                  <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-200">
                     {/* Inclusions */}
-                    <div className="flex-1 p-6 md:border-r border-gray-100">
-                      <h3 className="font-semibold text-gray-900 mb-4">Inclusions</h3>
+                    <div className="flex-1 pb-6 md:pb-0 md:pr-6">
+                      <h3 className="font-bold text-gray-900 mb-4 text-base flex items-center gap-2 border-b border-gray-100 pb-2">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500" /> Inclusions
+                      </h3>
                       {inclusions.length > 0 ? (
                         <ul className="space-y-3">
                           {inclusions.map((item: string, index: number) => (
@@ -903,8 +874,10 @@ export default function PackageDetailView({
                       )}
                     </div>
                     {/* Exclusions */}
-                    <div className="flex-1 p-6">
-                      <h3 className="font-semibold text-gray-900 mb-4">Exclusions</h3>
+                    <div className="flex-1 pt-6 md:pt-0 md:pl-6">
+                      <h3 className="font-bold text-gray-900 mb-4 text-base flex items-center gap-2 border-b border-gray-100 pb-2">
+                        <X className="h-5 w-5 text-red-500" strokeWidth={3} /> Exclusions
+                      </h3>
                       {exclusions.length > 0 ? (
                         <ul className="space-y-3">
                           {exclusions.map((item: string, index: number) => (
@@ -921,263 +894,261 @@ export default function PackageDetailView({
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                )}
+              </CardContent>
+            </Card>
 
-            {/* Reviews Section */}
-            <div className="pt-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Reviews ({reviewsData.totalReviewsCount})
-                </h2>
-                <Button 
-                  onClick={() => setShowWriteReviewModal(true)}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-medium flex items-center gap-2 rounded-lg shadow-sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  Write a Review
-                </Button>
-              </div>
-              
-              {/* Reviews Overview */}
-              <div className="flex flex-col md:flex-row gap-8 mb-10">
-                {/* Overall Rating */}
-                <div className="flex flex-col items-center justify-center">
-                  {reviewsData.totalReviewsCount > 0 ? (
-                    <>
-                      <div className="flex text-green-600 mb-2">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <Star key={star} className={`h-6 w-6 ${reviewsData.avgRating >= star ? 'fill-current' : 'text-gray-300'}`} />
-                        ))}
-                      </div>
-                      <div className="text-5xl font-bold text-green-600 mb-1">
-                        {reviewsData.avgRating.toFixed(1)}
-                      </div>
-                      <div className="text-sm text-gray-500 border-b border-green-600 text-green-600 cursor-pointer">
-                        Based on {reviewsData.totalReviewsCount} review{reviewsData.totalReviewsCount > 1 ? 's' : ''}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex text-gray-300 mb-2">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <Star key={star} className="h-6 w-6 text-gray-300" />
-                        ))}
-                      </div>
-                      <div className="text-2xl font-bold text-gray-400 mb-1">No ratings</div>
-                      <div className="text-xs text-gray-400">Be the first to rate</div>
-                    </>
-                  )}
+            {/* Reviews Section (Permanently Displayed Below Tab Card) */}
+            <Card className="rounded-none border-gray-200 shadow-sm mt-6">
+              <CardContent className="p-6 bg-white">
+                <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Guest Reviews ({reviewsData.totalReviewsCount})
+                  </h3>
+                  <Button
+                    onClick={() => setShowWriteReviewModal(true)}
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-semibold flex items-center gap-2 rounded-none shadow-none cursor-pointer h-9 text-sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Write a Review
+                  </Button>
                 </div>
 
-                {/* Rating Breakdown */}
-                <div className="flex-1 flex flex-col justify-center space-y-2 border-l pl-8">
-                  {reviewsData.ratingBreakdown.map((row) => (
-                    <div key={row.stars} className="flex items-center gap-3">
-                      <div className="flex items-center w-8 text-sm text-gray-600">
-                        {row.stars} <Star className="h-3 w-3 fill-current text-yellow-400 ml-1" />
-                      </div>
-                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-orange-500 rounded-full transition-all" 
-                          style={{ width: `${row.percentage}%` }}
-                        ></div>
-                      </div>
-                      <div className="w-8 text-right text-sm text-gray-500">{row.count}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                {/* Reviews Overview */}
+                <div className="flex flex-col md:flex-row gap-8 mb-10 p-6 bg-gray-50/50 border border-gray-200 rounded-none">
+                  {/* Overall Rating */}
+                  <div className="flex flex-col items-center justify-center shrink-0 px-4">
+                    {reviewsData.totalReviewsCount > 0 ? (
+                      <>
+                        <div className="flex text-amber-500 mb-2">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <Star key={star} className={`h-6 w-6 ${reviewsData.avgRating >= star ? 'fill-current' : 'text-gray-300'}`} />
+                          ))}
+                        </div>
+                        <div className="text-5xl font-bold text-gray-900 mb-1">
+                          {reviewsData.avgRating.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-gray-500 font-medium">
+                          Based on {reviewsData.totalReviewsCount} review{reviewsData.totalReviewsCount > 1 ? 's' : ''}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex text-gray-300 mb-2">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <Star key={star} className="h-6 w-6 text-gray-300" />
+                          ))}
+                        </div>
+                        <div className="text-xl font-bold text-gray-400 mb-1">No ratings yet</div>
+                        <div className="text-xs text-gray-400">Be the first to review this trip</div>
+                      </>
+                    )}
+                  </div>
 
-              {/* Standard Travel Platform Inline Review Form */}
-              {showWriteReviewModal && (
-                <Card className="mb-10 border-orange-200 bg-orange-50/20 shadow-md rounded-2xl overflow-hidden animate-in fade-in zoom-in-95">
-                  <CardHeader className="bg-white border-b border-orange-100 p-5">
-                    <div className="flex justify-between items-center">
+                  {/* Rating Breakdown */}
+                  <div className="flex-1 flex flex-col justify-center space-y-2 md:border-l md:pl-8 border-gray-200">
+                    {reviewsData.ratingBreakdown.map((row) => (
+                      <div key={row.stars} className="flex items-center gap-3">
+                        <div className="flex items-center w-8 text-xs text-gray-600">
+                          {row.stars} <Star className="h-3 w-3 fill-current text-amber-400 ml-1" />
+                        </div>
+                        <div className="flex-1 h-2 bg-gray-200 rounded-none overflow-hidden">
+                          <div
+                            className="h-full bg-orange-500 rounded-none transition-all"
+                            style={{ width: `${row.percentage}%` }}
+                          ></div>
+                        </div>
+                        <div className="w-8 text-right text-xs text-gray-500">{row.count}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Standard Travel Platform Inline Review Form */}
+                {showWriteReviewModal && (
+                  <div className="mb-10 border border-orange-200 bg-orange-50/10 shadow-none rounded-none overflow-hidden animate-in fade-in duration-200">
+                    <div className="bg-white border-b border-orange-100 p-5 flex justify-between items-center">
                       <div>
-                        <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
                           <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
                           Write a Review for {reviewsData.packageTitle}
-                        </CardTitle>
-                        <CardDescription className="text-xs text-gray-500 mt-1">
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-1">
                           Share your authentic travel experience to guide future travellers
-                        </CardDescription>
+                        </p>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowWriteReviewModal(false)}
-                        className="text-gray-400 hover:text-gray-700"
+                        className="text-gray-400 hover:text-gray-700 rounded-none cursor-pointer"
                       >
                         <X className="h-5 w-5" />
                       </Button>
                     </div>
-                  </CardHeader>
-                  <CardContent className="p-6 bg-white space-y-6">
-                    <form onSubmit={handleAddReviewSubmit} className="space-y-6">
-                      {/* Rating Selector */}
-                      <div className="bg-gray-50 p-4 rounded-xl border">
-                        <Label className="text-sm font-semibold text-gray-800">Overall Rating</Label>
-                        <div className="flex items-center gap-4 mt-2">
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
+                    <div className="p-6 bg-white space-y-6">
+                      <form onSubmit={handleAddReviewSubmit} className="space-y-6">
+                        {/* Rating Selector */}
+                        <div className="bg-gray-55 p-4 rounded-none border border-gray-200">
+                          <Label className="text-sm font-semibold text-gray-800">Overall Rating</Label>
+                          <div className="flex items-center gap-4 mt-2">
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                  type="button"
+                                  key={star}
+                                  onClick={() => setNewReview({ ...newReview, rating: star })}
+                                  className="p-1 hover:scale-110 transition-transform focus:outline-none cursor-pointer"
+                                >
+                                  <Star className={`h-8 w-8 ${newReview.rating >= star ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                                </button>
+                              ))}
+                            </div>
+                            <Badge className="bg-amber-100 text-amber-805 text-xs font-semibold px-3 py-1 rounded-none border border-amber-200">
+                              {newReview.rating === 5 ? '5.0 - Excellent' :
+                                newReview.rating === 4 ? '4.0 - Very Good' :
+                                  newReview.rating === 3 ? '3.0 - Average' :
+                                    newReview.rating === 2 ? '2.0 - Fair' : '1.0 - Poor'}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Travel Type Selector */}
+                        <div>
+                          <Label className="text-sm font-semibold text-gray-800">Who did you travel with?</Label>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {['Family', 'Couples', 'Friends', 'Solo', 'Business'].map((type) => (
                               <button
                                 type="button"
-                                key={star}
-                                onClick={() => setNewReview({ ...newReview, rating: star })}
-                                className="p-1 hover:scale-110 transition-transform focus:outline-none"
+                                key={type}
+                                onClick={() => setNewReview({ ...newReview, tripType: type })}
+                                className={`px-4 py-2 text-xs font-medium rounded-none border transition-colors cursor-pointer ${newReview.tripType === type ? 'bg-orange-500 text-white border-orange-500 shadow-none' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
                               >
-                                <Star className={`h-8 w-8 ${newReview.rating >= star ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                                {type}
                               </button>
                             ))}
                           </div>
-                          <Badge className="bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1">
-                            {newReview.rating === 5 ? '5.0 - Excellent' :
-                             newReview.rating === 4 ? '4.0 - Very Good' :
-                             newReview.rating === 3 ? '3.0 - Average' :
-                             newReview.rating === 2 ? '2.0 - Fair' : '1.0 - Poor'}
-                          </Badge>
                         </div>
-                      </div>
 
-                      {/* Travel Type Selector */}
-                      <div>
-                        <Label className="text-sm font-semibold text-gray-800">Who did you travel with?</Label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {['Family', 'Couples', 'Friends', 'Solo', 'Business'].map((type) => (
-                            <button
-                              type="button"
-                              key={type}
-                              onClick={() => setNewReview({ ...newReview, tripType: type })}
-                              className={`px-4 py-2 text-xs font-medium rounded-full border transition-colors ${newReview.tripType === type ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
-                            >
-                              {type}
-                            </button>
-                          ))}
+                        {/* Name & Origin City */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="rev-name" className="text-xs font-semibold text-gray-700">Your Full Name *</Label>
+                            <Input
+                              id="rev-name"
+                              required
+                              placeholder="e.g. Amit Kumar"
+                              value={newReview.name}
+                              onChange={(e) => setNewReview({ ...newReview, name: e.target.value })}
+                              className="mt-1 rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="rev-city" className="text-xs font-semibold text-gray-700">City / Origin *</Label>
+                            <Input
+                              id="rev-city"
+                              required
+                              placeholder="e.g. Mumbai, Delhi, London..."
+                              value={newReview.travelledFrom}
+                              onChange={(e) => setNewReview({ ...newReview, travelledFrom: e.target.value })}
+                              className="mt-1 rounded-none"
+                            />
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Name & Origin City */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Detailed Review */}
                         <div>
-                          <Label htmlFor="rev-name" className="text-xs font-semibold text-gray-700">Your Full Name *</Label>
-                          <Input
-                            id="rev-name"
+                          <Label htmlFor="rev-comment" className="text-xs font-semibold text-gray-700">Detailed Review *</Label>
+                          <Textarea
+                            id="rev-comment"
                             required
-                            placeholder="e.g. Amit Kumar"
-                            value={newReview.name}
-                            onChange={(e) => setNewReview({ ...newReview, name: e.target.value })}
-                            className="mt-1"
+                            rows={4}
+                            placeholder="Tell us about your experience: hotel stay, sightseeing highlights, driver/guide assistance, and overall value..."
+                            value={newReview.comment}
+                            onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                            className="mt-1 leading-relaxed rounded-none"
                           />
                         </div>
+
+                        {/* Photo Attachment URL */}
                         <div>
-                          <Label htmlFor="rev-city" className="text-xs font-semibold text-gray-700">City / Origin *</Label>
+                          <Label htmlFor="rev-photo" className="text-xs font-semibold text-gray-700">Attach Trip Photo URL (Optional)</Label>
                           <Input
-                            id="rev-city"
-                            required
-                            placeholder="e.g. Mumbai, Delhi, London..."
-                            value={newReview.travelledFrom}
-                            onChange={(e) => setNewReview({ ...newReview, travelledFrom: e.target.value })}
-                            className="mt-1"
+                            id="rev-photo"
+                            placeholder="https://images.unsplash.com/..."
+                            value={newReview.photoUrl}
+                            onChange={(e) => setNewReview({ ...newReview, photoUrl: e.target.value })}
+                            className="mt-1 text-xs rounded-none"
                           />
                         </div>
-                      </div>
 
-                      {/* Detailed Review */}
-                      <div>
-                        <Label htmlFor="rev-comment" className="text-xs font-semibold text-gray-700">Detailed Review *</Label>
-                        <Textarea
-                          id="rev-comment"
-                          required
-                          rows={4}
-                          placeholder="Tell us about your experience: hotel stay, sightseeing highlights, driver/guide assistance, and overall value..."
-                          value={newReview.comment}
-                          onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-                          className="mt-1 leading-relaxed"
-                        />
-                      </div>
-
-                      {/* Photo Attachment URL */}
-                      <div>
-                        <Label htmlFor="rev-photo" className="text-xs font-semibold text-gray-700">Attach Trip Photo URL (Optional)</Label>
-                        <Input
-                          id="rev-photo"
-                          placeholder="https://images.unsplash.com/..."
-                          value={newReview.photoUrl}
-                          onChange={(e) => setNewReview({ ...newReview, photoUrl: e.target.value })}
-                          className="mt-1 text-xs"
-                        />
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowWriteReviewModal(false)}
-                          className="px-6"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={isSubmittingReview || !newReview.comment.trim() || !newReview.name.trim()}
-                          className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 shadow-sm"
-                        >
-                          {isSubmittingReview ? 'Posting Review...' : 'Submit Review'}
-                        </Button>
-                      </div>
-                    </form>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Traveller Image Gallery (Only if users uploaded review photos) */}
-              {reviewsData.travellerImages.length > 0 && (
-                <div className="mb-10">
-                  <h3 className="font-bold text-gray-900 mb-4">Traveller Image Gallery</h3>
-                  <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[300px]">
-                    <div 
-                      className="col-span-2 row-span-2 relative rounded-xl overflow-hidden group cursor-pointer"
-                      onClick={() => setSelectedGalleryImage(reviewsData.travellerImages[0])}
-                    >
-                      <img src={reviewsData.travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                      {reviewsData.travellerImages.length > 1 && (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedGalleryImage(reviewsData.travellerImages[0]);
-                          }}
-                          className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-md text-white border border-white/50 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
-                        >
-                          View all ({reviewsData.travellerImages.length})
-                        </button>
-                      )}
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowWriteReviewModal(false)}
+                            className="px-6 rounded-none cursor-pointer"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={isSubmittingReview || !newReview.comment.trim() || !newReview.name.trim()}
+                            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 shadow-none rounded-none cursor-pointer"
+                          >
+                            {isSubmittingReview ? 'Posting Review...' : 'Submit Review'}
+                          </Button>
+                        </div>
+                      </form>
                     </div>
-                    {reviewsData.travellerImages.slice(1, 5).map((img, idx) => (
-                      <div 
-                        key={idx} 
-                        className="col-span-1 row-span-1 rounded-xl overflow-hidden group cursor-pointer"
-                        onClick={() => setSelectedGalleryImage(img)}
-                      >
-                        <img src={img} alt={`Traveller ${idx + 2}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                      </div>
-                    ))}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Real User Reviews List */}
-              <div className="mb-10">
-                {reviewsData.totalReviewsCount > 0 ? (
-                  <div className="space-y-4">
-                    {reviewsData.userReviews.map((review: any) => (
-                      <Card key={review.id} className="shadow-sm border-gray-200">
+                {/* Traveller Image Gallery */}
+                {reviewsData.travellerImages.length > 0 && (
+                  <div className="mb-10">
+                    <h4 className="font-bold text-gray-900 mb-4 text-sm">Traveller Image Gallery</h4>
+                    <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[300px]">
+                      <div
+                        className="col-span-2 row-span-2 relative rounded-none overflow-hidden group cursor-pointer"
+                        onClick={() => setSelectedGalleryImage(reviewsData.travellerImages[0])}
+                      >
+                        <img src={reviewsData.travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        {reviewsData.travellerImages.length > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedGalleryImage(reviewsData.travellerImages[0]);
+                            }}
+                            className="absolute bottom-4 left-4 bg-black/55 backdrop-blur-md text-white border border-white/30 px-3 py-1.5 rounded-none text-sm font-medium hover:bg-black/70 transition-colors cursor-pointer"
+                          >
+                            View all ({reviewsData.travellerImages.length})
+                          </button>
+                        )}
+                      </div>
+                      {reviewsData.travellerImages.slice(1, 5).map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="col-span-1 row-span-1 rounded-none overflow-hidden group cursor-pointer"
+                          onClick={() => setSelectedGalleryImage(img)}
+                        >
+                          <img src={img} alt={`Traveller ${idx + 2}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Real User Reviews List */}
+                <div className="space-y-4">
+                  {reviewsData.totalReviewsCount > 0 ? (
+                    reviewsData.userReviews.map((review: any) => (
+                      <Card key={review.id} className="shadow-none border-gray-200 rounded-none bg-white">
                         <CardContent className="p-5">
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden">
+                              <div className="w-10 h-10 bg-orange-100 text-orange-700 rounded-none flex items-center justify-center font-bold text-sm overflow-hidden">
                                 {review.name.charAt(0).toUpperCase()}
                               </div>
                               <div>
@@ -1185,17 +1156,17 @@ export default function PackageDetailView({
                                 <p className="text-xs text-gray-500">{review.date}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
-                              <Star className="h-3 w-3 fill-current" /> {review.rating}/5
+                            <div className="flex items-center gap-1 text-green-600 text-sm font-semibold bg-green-50 px-2.5 py-1 border border-green-150">
+                              <Star className="h-3.5 w-3.5 fill-current" /> {review.rating}/5
                             </div>
                           </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                            <div className="text-xs text-orange-500 flex items-center gap-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-y border-gray-100 py-2 my-2">
+                            <div className="text-xs text-orange-600 flex items-center gap-1">
                               <span className="text-gray-500">Booked:</span> {review.booked}
                             </div>
                             {review.travelledFrom && (
-                              <div className="text-xs text-gray-500 flex items-center gap-1">
-                                Travelled From: <MapPin className="h-3 w-3" /> <span className="font-medium text-gray-700">{review.travelledFrom}</span>
+                              <div className="text-xs text-gray-505 flex items-center gap-1">
+                                Travelled From: <MapPin className="h-3 w-3 text-gray-400" /> <span className="font-medium text-gray-700">{review.travelledFrom}</span>
                               </div>
                             )}
                           </div>
@@ -1206,70 +1177,66 @@ export default function PackageDetailView({
                           {review.images && review.images.length > 0 && (
                             <div className="flex gap-2 overflow-x-auto pt-3 pb-1 hide-scrollbar">
                               {review.images.map((img: string, i: number) => (
-                                <div 
-                                  key={i} 
-                                  className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden relative cursor-pointer"
+                                <div
+                                  key={i}
+                                  className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-none overflow-hidden relative cursor-pointer border border-gray-200"
                                   onClick={() => setSelectedGalleryImage(img)}
                                 >
-                                  <img src={img} alt={`Review image ${i+1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                                  <img src={img} alt={`Review image ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
                                 </div>
                               ))}
                             </div>
                           )}
                         </CardContent>
                       </Card>
-                    ))}
-                  </div>
-                ) : (
-                  /* Empty state when no reviews exist */
-                  <Card className="border-dashed border-2 border-gray-300 bg-gray-50/50 p-8 text-center">
-                    <div className="flex flex-col items-center justify-center space-y-3">
-                      <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center">
-                        <MessageCircle className="h-6 w-6" />
+                    ))
+                  ) : (
+                    <Card className="border-dashed border-2 border-gray-200 bg-gray-50/50 p-8 text-center rounded-none shadow-none">
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="w-12 h-12 rounded-none bg-orange-100 text-orange-500 flex items-center justify-center border border-orange-200">
+                          <MessageCircle className="h-6 w-6" />
+                        </div>
+                        <h4 className="font-bold text-gray-800 text-base">No reviews yet for this package</h4>
+                        <p className="text-xs text-gray-500 max-w-md">
+                          Have you travelled on this trip? Be the first traveller to write an authentic review!
+                        </p>
+                        <Button
+                          onClick={() => setShowWriteReviewModal(true)}
+                          className="bg-orange-500 hover:bg-orange-600 text-white font-medium mt-2 flex items-center gap-2 rounded-none cursor-pointer"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Write a Review
+                        </Button>
                       </div>
-                      <h4 className="font-bold text-gray-800 text-base">No reviews yet for this package</h4>
-                      <p className="text-xs text-gray-500 max-w-md">
-                        Have you travelled on this trip? Be the first traveller to write an authentic review!
-                      </p>
-                      <Button 
-                        onClick={() => setShowWriteReviewModal(true)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white font-medium mt-2 flex items-center gap-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Write a Review
-                      </Button>
-                    </div>
-                  </Card>
-                )}
-              </div>
-            </div>
+                    </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* FAQ Section */}
-            <Card>
-              <CardHeader className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <MessageCircle className="h-5 w-5" />
-                  More Frequent Questions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-2">
+            {/* FAQ Section (Permanently Displayed Below Reviews Card) */}
+            <Card className="rounded-none border-gray-200 shadow-sm mt-6">
+              <CardContent className="p-6 bg-white">
+                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2 border-b border-gray-100 pb-4">
+                  <MessageCircle className="h-5 w-5 text-orange-600" /> Frequently Asked Questions
+                </h3>
+                <div className="space-y-3">
                   {defaultFAQs.map((faq, index) => (
-                    <div key={index} className="border rounded-lg">
-                      <button 
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
+                    <div key={index} className="border border-gray-200 rounded-none bg-white transition-colors hover:border-gray-300">
+                      <button
+                        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 rounded-none cursor-pointer"
                         onClick={() => toggleFAQ(index)}
                       >
-                        <span className="font-medium text-gray-900">{faq.question}</span>
+                        <span className="font-semibold text-gray-900 text-sm">{faq.question}</span>
                         {expandedFAQs.includes(index) ? (
-                          <ChevronUp className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                          <ChevronUp className="h-5 w-5 text-gray-500 flex-shrink-0" />
                         ) : (
-                          <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                          <ChevronDown className="h-5 w-5 text-gray-500 flex-shrink-0" />
                         )}
                       </button>
                       {expandedFAQs.includes(index) && (
-                        <div className="px-4 pb-4">
-                          <p className="text-gray-600 leading-relaxed">{faq.answer}</p>
+                        <div className="px-4 pb-4 pt-1 border-t border-gray-100 bg-gray-50/30">
+                          <p className="text-gray-600 leading-relaxed text-sm">{faq.answer}</p>
                         </div>
                       )}
                     </div>
@@ -1277,17 +1244,57 @@ export default function PackageDetailView({
                 </div>
               </CardContent>
             </Card>
+
+          </div>
+
+          {/* Right Column - Sidebar */}
+          <div className="lg:col-span-1 flex flex-col gap-4">
+            <div className="sticky top-4 space-y-4">
+              {/* Agency Info */}
+              <Card className="rounded-none border-gray-200 shadow-sm">
+                <CardContent className="p-5">
+                  <h3 className="font-bold text-gray-900 text-base mb-3 border-b border-gray-100 pb-2">Offered By</h3>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-orange-100 rounded-none flex items-center justify-center border border-orange-200 shrink-0">
+                      <Building2 className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">{listing.agencyName || 'Travel Agency'}</p>
+                      {listing.agencyData?.verified && (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1 rounded-none mt-1">
+                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                          Verified
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full bg-orange-600 hover:bg-orange-750 text-white shadow-none rounded-none cursor-pointer h-10 font-semibold"
+                    onClick={() => {
+                      console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
+                      onChat(listing);
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Chat with Agency
+                  </Button>
+                </CardContent>
+              </Card>
+
+            
+
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Compare Toast Notification */}
       {showCompareToast && (
         <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
-          <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
-            compareToastMessage.includes('already') || compareToastMessage.includes('only compare') 
-              ? 'bg-amber-500 text-white' 
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-sm shadow-lg ${compareToastMessage.includes('already') || compareToastMessage.includes('only compare')
+              ? 'bg-amber-500 text-white'
               : 'bg-green-500 text-white'
-          }`}>
+            }`}>
             {compareToastMessage.includes('already') || compareToastMessage.includes('only compare') ? (
               <AlertCircle className="h-5 w-5" />
             ) : (
@@ -1302,8 +1309,8 @@ export default function PackageDetailView({
       {showAllPhotos && (
         <div className="fixed inset-0 bg-white z-[200] flex flex-col animate-in fade-in zoom-in-95 duration-200">
           <div className="sticky top-0 bg-white border-b z-10 px-4 md:px-8 py-3 flex items-center shadow-sm">
-            <button 
-              className="flex items-center gap-2 text-gray-900 font-bold hover:bg-gray-100 px-3 md:px-4 py-2 rounded-lg transition-colors"
+            <button
+              className="flex items-center gap-2 text-gray-900 font-bold hover:bg-gray-100 px-3 md:px-4 py-2 rounded-sm transition-colors"
               onClick={() => setShowAllPhotos(false)}
             >
               <ArrowLeft className="h-5 w-5" /> Back
@@ -1326,13 +1333,13 @@ export default function PackageDetailView({
             </div>
             <div className="w-[100px] hidden md:block"></div>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-white">
             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {allImages.map((image, index) => (
-                <div key={index} className="aspect-[4/3] md:aspect-video rounded-xl overflow-hidden bg-gray-100 group">
-                  <img 
-                    src={optimizeImageUrl(image, { width: 1200, quality: 85, format: 'auto', cacheBust: false })} 
+                <div key={index} className="aspect-[4/3] md:aspect-video rounded-sm overflow-hidden bg-gray-100 group">
+                  <img
+                    src={optimizeImageUrl(image, { width: 1200, quality: 85, format: 'auto', cacheBust: false })}
                     alt={`Gallery Image ${index + 1}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     loading={index < 4 ? "eager" : "lazy"}
@@ -1341,7 +1348,7 @@ export default function PackageDetailView({
                 </div>
               ))}
             </div>
-            
+
             {allImages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <Camera className="h-16 w-16 mb-4 opacity-50" />
@@ -1357,11 +1364,11 @@ export default function PackageDetailView({
         <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 animate-in fade-in">
           <button
             onClick={() => setSelectedGalleryImage(null)}
-            className="absolute top-6 right-6 text-white hover:text-gray-300 bg-white/10 p-2 rounded-full transition-colors"
+            className="absolute top-6 right-6 text-white hover:text-gray-300 bg-white/10 p-2 rounded-sm transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
-          <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl">
+          <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-sm">
             <img src={selectedGalleryImage} alt="Traveller photo" className="w-full h-full object-contain" />
           </div>
         </div>
