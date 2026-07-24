@@ -386,14 +386,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     return Array.from(dests).filter(d => typeof d === 'string' && d.length > 2 && !blocklist.includes(d.toLowerCase().trim()));
   }, [listings]);
 
-  const [filters, setFilters] = useState({
-    priceRange: [0, 500000] as [number, number],
-    duration: '',
-    type: '',
-    rating: 0,
-    destination: '',
-    packageType: '',
-    amenities: [] as string[]
+  const [advancedFilters, setAdvancedFilters] = useState({
+    duration: 7,
+    budget: 77000,
+    budgetCategory: null as string | null,
+    hotelCategory: null as string | null,
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
@@ -3639,14 +3636,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setSelectedCategoryFilter(null);
                     setDashboardViewMode('categories');
                     setSearchTerm('');
-                    setFilters({
-                      priceRange: [0, 500000],
-                      duration: '',
-                      type: '',
-                      rating: 0,
-                      destination: '',
-                      packageType: '',
-                      amenities: []
+                    setAdvancedFilters({
+                      duration: 7,
+                      budget: 77000,
+                      budgetCategory: null,
+                      hotelCategory: null
                     });
                     setShowBookingForm(false);
                     setShowComparison(false);
@@ -3679,7 +3673,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   <MapPin className="h-4 w-4 text-orange-500" />
                   <div className="flex flex-col leading-[1.1] hidden sm:flex">
                     <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
-                    <span className="text-[9px] text-gray-500 font-medium tracking-wide">Location</span>
+                    
                   </div>
                 </div>
 
@@ -3806,7 +3800,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
 
               {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-                <div className="relative z-10 pt-[240px] w-full">
+                <div className="relative z-10 pt-[160px] w-full">
 
                   {/* Comparison Bar */}
                   {comparisonList.length > 0 && (
@@ -3910,7 +3904,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         <Settings className="h-4 w-4" />
                         Filter
                       </button>
-                      <FilterSidebar isOpen={showFilters} onClose={() => setShowFilters(false)} />
+                      <FilterSidebar 
+                        isOpen={showFilters} 
+                        onClose={() => setShowFilters(false)} 
+                        initialFilters={advancedFilters}
+                        onApply={(newFilters) => {
+                          setAdvancedFilters(newFilters);
+                          if (dashboardViewMode === 'categories') {
+                            setDashboardViewMode('all');
+                          }
+                        }}
+                      />
                     </div>
                   </div>
 
@@ -4202,14 +4206,40 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               }
                             }
 
-                            // 3. Apply budget price range filter
+                            // 3. Apply Advanced Filters (from FilterSidebar)
+                            // A. Duration
+                            if (advancedFilters.duration < 7) {
+                              const listNights = parseInt(listing.duration) || (listing.itinerary && Array.isArray(listing.itinerary) ? listing.itinerary.length - 1 : 0);
+                              if (listNights > advancedFilters.duration) return false;
+                            }
+
+                            // B. Budget & Budget Category
                             const rawPrice = (listing.cost || listing.price || '0').toString();
                             const cleanedPrice = rawPrice.replace(/[^0-9.]/g, '');
                             const priceVal = parseFloat(cleanedPrice || '0');
-                            if (priceVal > 0) {
-                              const [minPrice, maxPrice] = filters.priceRange;
-                              if (priceVal < minPrice || priceVal > maxPrice) {
-                                return false;
+                            
+                            if (advancedFilters.budget < 77000) {
+                              if (priceVal > advancedFilters.budget) return false;
+                            }
+                            
+                            if (advancedFilters.budgetCategory) {
+                              if (advancedFilters.budgetCategory === '<10k' && priceVal >= 10000) return false;
+                              if (advancedFilters.budgetCategory === '10k-15k' && (priceVal < 10000 || priceVal >= 15000)) return false;
+                              if (advancedFilters.budgetCategory === '15k-20k' && (priceVal < 15000 || priceVal >= 20000)) return false;
+                              if (advancedFilters.budgetCategory === '>20k' && priceVal <= 20000) return false;
+                            }
+
+                            // C. Hotel Category
+                            if (advancedFilters.hotelCategory) {
+                              const hotels = (Array.isArray(listing.hotelTypes) ? listing.hotelTypes : typeof listing.hotelTypes === 'string' ? [listing.hotelTypes] : []).map((h: any) => String(h).toLowerCase());
+                              if (advancedFilters.hotelCategory === '<3') {
+                                if (!hotels.some((h: any) => h.includes('1') || h.includes('2') || h.includes('hostel'))) return false;
+                              } else if (advancedFilters.hotelCategory === '3') {
+                                if (!hotels.some((h: any) => h.includes('3') || h.includes('three'))) return false;
+                              } else if (advancedFilters.hotelCategory === '4') {
+                                if (!hotels.some((h: any) => h.includes('4') || h.includes('four'))) return false;
+                              } else if (advancedFilters.hotelCategory === '5') {
+                                if (!hotels.some((h: any) => h.includes('5') || h.includes('five'))) return false;
                               }
                             }
 
@@ -5378,7 +5408,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 </div>
               )}
             </main>
-            {userActiveSection !== 'chat' && userActiveSection !== 'wishlist' && userActiveSection !== 'profile' && !showComparison && userActiveSection !== 'comparison' && <Footer />}
+            {userActiveSection !== 'chat' && userActiveSection !== 'wishlist' && userActiveSection !== 'profile' && !showComparison && userActiveSection !== 'comparison' && <Footer onNavigate={(section) => setUserActiveSection(section)} />}
           </div>
 
           {/* Journey Details Modal */}

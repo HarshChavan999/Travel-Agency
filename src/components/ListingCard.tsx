@@ -74,7 +74,14 @@ export default function ListingCard({
   const allImages = getAllImages();
   const duration = listing.itinerary?.length || 0;
   const nights = duration > 0 ? duration - 1 : 0;
-  const price = listing.cost || listing.price || 'N/A';
+  let rawPrice = listing.cost || listing.price || 'N/A';
+  if (rawPrice !== 'N/A') {
+    const numPrice = Number(rawPrice);
+    if (!isNaN(numPrice)) {
+      rawPrice = Math.round(numPrice).toString();
+    }
+  }
+  const price = rawPrice;
   const packageType = listing.packageType === 'international' ? 'International' : 'Domestic';
   const currencySymbol = listing.packageType === 'international' ? '$' : '₹';
   const location = listing.packageType === 'international' 
@@ -366,7 +373,7 @@ export default function ListingCard({
         </div>
 
         {/* Divider */}
-        <hr className="border-gray-100 w-full" />
+        <hr className="border-gray-800 w-full" />
 
         {/* 3 Columns Details */}
         <div className="grid grid-cols-3 gap-2">
@@ -376,13 +383,13 @@ export default function ListingCard({
               {duration}D | {nights}N
             </span>
           </div>
-          <div className="flex flex-col text-left border-l border-gray-200 pl-3">
+          <div className="flex flex-col text-left border-l border-gray-800 pl-3">
             <span className="text-[12px] text-gray-500 mb-0.5">Pick-up</span>
             <span className="text-[14px] text-gray-900 font-medium truncate" title={pickupLocation}>
               {pickupLocation}
             </span>
           </div>
-          <div className="flex flex-col text-left border-l border-gray-200 pl-3">
+          <div className="flex flex-col text-left border-l border-gray-800 pl-3">
             <span className="text-[12px] text-gray-500 mb-0.5">Drop</span>
             <span className="text-[14px] text-gray-900 font-medium truncate" title={dropLocation}>
               {dropLocation}
@@ -391,7 +398,7 @@ export default function ListingCard({
         </div>
 
         {/* Divider */}
-        <hr className="border-gray-100 w-full" />
+        <hr className="border-gray-800 w-full" />
 
         {/* Bottom Actions Row */}
         <div className="flex items-end justify-between pt-1">

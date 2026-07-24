@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
+export interface FilterState {
+  duration: number;
+  budget: number;
+  budgetCategory: string | null;
+  hotelCategory: string | null;
+}
+
 interface FilterSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  onApply: (filters: FilterState) => void;
+  initialFilters: FilterState;
 }
 
-export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
-  const [duration, setDuration] = useState(7);
-  const [flightPreference, setFlightPreference] = useState<string | null>(null);
-  const [budget, setBudget] = useState(77000);
-  const [budgetCategory, setBudgetCategory] = useState<string | null>(null);
-  const [hotelCategory, setHotelCategory] = useState<string | null>(null);
+export default function FilterSidebar({ isOpen, onClose, onApply, initialFilters }: FilterSidebarProps) {
+  const [duration, setDuration] = useState(initialFilters.duration);
+  const [budget, setBudget] = useState(initialFilters.budget);
+  const [budgetCategory, setBudgetCategory] = useState<string | null>(initialFilters.budgetCategory);
+  const [hotelCategory, setHotelCategory] = useState<string | null>(initialFilters.hotelCategory);
+
+  // Sync state if initialFilters change externally
+  React.useEffect(() => {
+    setDuration(initialFilters.duration);
+    setBudget(initialFilters.budget);
+    setBudgetCategory(initialFilters.budgetCategory);
+    setHotelCategory(initialFilters.hotelCategory);
+  }, [initialFilters]);
 
   if (!isOpen) return null;
 
@@ -28,9 +44,9 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
           
           {/* Duration */}
           <div className="space-y-2">
-            <div className="flex items-baseline gap-1">
+            <div className="flex items-baseline gap-1 justify-between">
               <h3 className="text-[13px] font-semibold text-gray-900">Duration (in Nights)</h3>
-              <span className="text-[11px] text-gray-500">.(1N - 7N)</span>
+              <span className="text-[12px] text-blue-600 font-medium">Up to {duration}N</span>
             </div>
             <div className="relative pt-2 px-1 pb-1">
               <input
@@ -53,9 +69,9 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
 
           {/* Budget */}
           <div className="space-y-2">
-            <div className="flex items-baseline gap-1">
+            <div className="flex items-baseline gap-1 justify-between">
               <h3 className="text-[13px] font-semibold text-gray-900">Budget (per person)</h3>
-              <span className="text-[11px] text-gray-500">.(₹2,000 - ₹77,000)</span>
+              <span className="text-[12px] text-blue-600 font-medium">Up to ₹{budget.toLocaleString()}</span>
             </div>
             <div className="relative pt-2 px-1 mb-2">
               <input
@@ -73,21 +89,21 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: '< ₹10,000', count: 37, val: '<10k' },
-                { label: '₹10,000 - ₹15,000', count: 44, val: '10k-15k' },
-                { label: '₹15,000 - ₹20,000', count: 39, val: '15k-20k' },
-                { label: '> ₹20,000', count: 47, val: '>20k' }
+                { label: '< ₹10,000', val: '<10k' },
+                { label: '₹10,000 - ₹15,000', val: '10k-15k' },
+                { label: '₹15,000 - ₹20,000', val: '15k-20k' },
+                { label: '> ₹20,000', val: '>20k' }
               ].map((opt) => (
                 <button
                   key={opt.val}
                   onClick={() => setBudgetCategory(budgetCategory === opt.val ? null : opt.val)}
-                  className={`px-2 py-1 border rounded text-[11px] transition-colors ${
+                  className={`px-3 py-1.5 border rounded text-[12px] transition-colors ${
                     budgetCategory === opt.val
                       ? 'border-[#008cff] text-[#008cff] bg-[#f0f9ff]'
                       : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
                   }`}
                 >
-                  {opt.label} <span className="text-gray-400 font-normal ml-0.5">({opt.count})</span>
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -100,21 +116,21 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
             <h3 className="text-[13px] font-semibold text-gray-900">Hotel Category</h3>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: '<3 ★', count: 1, val: '<3' },
-                { label: '3 ★', count: 19, val: '3' },
-                { label: '4 ★', count: 52, val: '4' },
-                { label: '5 ★', count: 25, val: '5' }
+                { label: '<3 ★', val: '<3' },
+                { label: '3 ★', val: '3' },
+                { label: '4 ★', val: '4' },
+                { label: '5 ★', val: '5' }
               ].map((opt) => (
                 <button
                   key={opt.val}
                   onClick={() => setHotelCategory(hotelCategory === opt.val ? null : opt.val)}
-                  className={`px-2 py-1 border rounded text-[11px] transition-colors flex items-center justify-center min-w-[50px] ${
+                  className={`px-3 py-1.5 border rounded text-[12px] transition-colors flex items-center justify-center min-w-[50px] ${
                     hotelCategory === opt.val
                       ? 'border-[#008cff] text-[#008cff] bg-[#f0f9ff]'
                       : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
                   }`}
                 >
-                  {opt.label} <span className="text-gray-400 font-normal ml-1">({opt.count})</span>
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -125,7 +141,10 @@ export default function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
         <div className="p-3 border-t border-gray-100 bg-white flex justify-end">
           <Button 
             className="w-20 h-8 bg-[#008cff] hover:bg-[#0077e6] text-white font-bold text-[12px] rounded tracking-wide shadow-sm"
-            onClick={onClose}
+            onClick={() => {
+              onApply({ duration, budget, budgetCategory, hotelCategory });
+              onClose();
+            }}
           >
             APPLY
           </Button>

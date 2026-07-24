@@ -2,7 +2,11 @@ import React from 'react';
 import Link from 'next/link';
 import { MapPin } from 'lucide-react';
 
-export default function Footer() {
+interface FooterProps {
+  onNavigate?: (section: string) => void;
+}
+
+export default function Footer({ onNavigate }: FooterProps = {}) {
   return (
     <footer className="w-full bg-[#111827] text-white relative z-10">
       {/* Top thin bar */}
@@ -48,9 +52,17 @@ export default function Footer() {
           <div>
             <h3 className="text-base font-bold mb-4">Let Us Help You</h3>
             <ul className="space-y-2.5 text-sm text-gray-300">
-              <li><Link href="#" className="hover:text-white transition-colors">My Account</Link></li>
+              <li>
+                <a href="#" onClick={(e) => { if(onNavigate) { e.preventDefault(); onNavigate('profile'); } }} className="hover:text-white transition-colors cursor-pointer">
+                  My Account
+                </a>
+              </li>
               <li><Link href="#" className="hover:text-white transition-colors">Upcoming Tour</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">My Cancellation</Link></li>
+              <li>
+                <a href="#" onClick={(e) => { if(onNavigate) { e.preventDefault(); onNavigate('chat'); } }} className="hover:text-white transition-colors cursor-pointer">
+                  My Chat
+                </a>
+              </li>
               <li><Link href="#" className="hover:text-white transition-colors">Talk to our Customer care</Link></li>
             </ul>
           </div>
