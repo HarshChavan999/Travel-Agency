@@ -12,7 +12,10 @@ async function getListing(id: string) {
     const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     const data = await res.json();
-    return parseFirestoreDocument(data);
+    const listing = parseFirestoreDocument(data);
+    listing.id = id;
+
+    return listing;
   } catch (error) {
     console.error("Error fetching listing:", error);
     return null;

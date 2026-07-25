@@ -191,7 +191,6 @@ export default function PackageDetailView({
   onWishlist,
   isWishlisted
 }: PackageDetailViewProps) {
-  const [activeTab, setActiveTab] = useState<'itinerary' | 'inclusions'>('itinerary');
   const [activeImageTab, setActiveImageTab] = useState<'sightseeing' | 'hotel' | 'video'>('sightseeing');
   const [expandedDays, setExpandedDays] = useState<number[]>([]);
   const [expandedFAQs, setExpandedFAQs] = useState<number[]>([]);
@@ -199,6 +198,32 @@ export default function PackageDetailView({
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const observerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Show sticky bar when the observer (Reviews section wrapper) is in view or scrolled past
+        setShowStickyBar(entry.isIntersecting || entry.boundingClientRect.top < 0);
+      },
+      {
+        threshold: 0,
+        rootMargin: "0px 0px -100px 0px"
+      }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observer.unobserve(observerRef.current);
+      }
+    };
+  }, []);
 
   // Review specific states
   const [userDbReviews, setUserDbReviews] = useState<any[]>([]);
@@ -467,14 +492,12 @@ export default function PackageDetailView({
                 {tags.map((tag: string, index: number) => (
                   <Badge
                     key={index}
-                    className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200 rounded-none capitalize"
+                    className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200 rounded capitalize"
                   >
                     {tag}
                   </Badge>
                 ))}
-                <Badge variant="outline" className="text-gray-600 rounded-none">
-                  {/* Code: {packageCode} */}
-                </Badge>
+
                 <div className="flex items-center gap-1 text-yellow-500">
                   <Star className="h-4 w-4 fill-current" />
                   <Star className="h-4 w-4 fill-current" />
@@ -503,7 +526,7 @@ export default function PackageDetailView({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded-none group transition-all"
+                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded group transition-all"
                   onClick={onBack}
                 >
                   <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
@@ -512,7 +535,7 @@ export default function PackageDetailView({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-2 rounded-none"
+                  className="flex items-center gap-2 rounded"
                   onClick={handleShare}
                 >
                   <Share2 className="h-4 w-4" />
@@ -521,7 +544,7 @@ export default function PackageDetailView({
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`flex items-center gap-2 rounded-none ${isInComparison(listing.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : ''}`}
+                  className={`flex items-center gap-2 rounded ${isInComparison(listing.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : ''}`}
                   onClick={() => {
                     if (isInComparison(listing.id)) {
                       setCompareToastMessage('This package is already in your comparison list!');
@@ -578,7 +601,7 @@ export default function PackageDetailView({
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`flex items-center gap-2 rounded-none ${isWishlisted ? 'text-red-500 border-red-200 bg-red-50' : ''}`}
+                  className={`flex items-center gap-2 rounded ${isWishlisted ? 'text-red-500 border-red-200 bg-red-50' : ''}`}
                   onClick={() => onWishlist?.(listing.id)}
                 >
                   <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
@@ -602,7 +625,7 @@ export default function PackageDetailView({
         {/* Photo Gallery Section - Thrillophilia Style */}
         <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-2 mb-8 h-[300px] sm:h-[400px] lg:h-[460px]">
           {/* Main Photo */}
-          <div className="lg:col-span-8 h-full relative group rounded-none lg:rounded-none overflow-hidden">
+          <div className="lg:col-span-8 h-full relative group rounded lg:rounded overflow-hidden">
             {allImages.length > 0 ? (
               <div className="relative w-full h-full overflow-hidden">
                 <div
@@ -634,7 +657,7 @@ export default function PackageDetailView({
                         e.stopPropagation();
                         setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
                       }}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-none p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
                       aria-label="Previous image"
                     >
                       <ChevronLeft className="h-5 w-5" />
@@ -645,7 +668,7 @@ export default function PackageDetailView({
                         e.stopPropagation();
                         setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
                       }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-none p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
                       aria-label="Next image"
                     >
                       <ChevronRight className="h-5 w-5" />
@@ -655,11 +678,11 @@ export default function PackageDetailView({
 
                 {/* Dot Indicators for Mobile */}
                 {allImages.length > 1 && (
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex lg:hidden gap-1.5 bg-black/30 backdrop-blur-[2px] px-2.5 py-1.5 rounded-none opacity-100 transition-all duration-200 z-20">
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex lg:hidden gap-1.5 bg-black/30 backdrop-blur-[2px] px-2.5 py-1.5 rounded opacity-100 transition-all duration-200 z-20">
                     {allImages.map((_, idx) => (
                       <span
                         key={idx}
-                        className={`h-1.5 rounded-none transition-all duration-200 ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+                        className={`h-1.5 rounded transition-all duration-200 ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
                           }`}
                       />
                     ))}
@@ -667,7 +690,7 @@ export default function PackageDetailView({
                 )}
               </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200 cursor-pointer rounded-none" onClick={() => setShowAllPhotos(true)}>
+              <div className="w-full h-full flex items-center justify-center bg-gray-200 cursor-pointer rounded" onClick={() => setShowAllPhotos(true)}>
                 <Camera className="h-16 w-16 text-gray-400" />
                 <span className="ml-2 text-gray-500">No photos available</span>
               </div>
@@ -676,7 +699,7 @@ export default function PackageDetailView({
             {/* Desktop View All Button overlay on Main Image if side photos aren't shown, 
                 or just keep mobile view all button */}
             <div className="lg:hidden absolute bottom-14 right-4 z-20">
-              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded-none h-9 text-xs">
+              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded h-9 text-xs">
                 <Camera className="h-4 w-4" />
                 All
               </Button>
@@ -693,18 +716,18 @@ export default function PackageDetailView({
               return (
                 <div
                   key={idx}
-                  className={`relative overflow-hidden group cursor-pointer bg-gray-100 ${idx === 2 ? 'rounded-none' : ''} ${idx === 4 ? 'rounded-none' : ''}`}
+                  className={`relative overflow-hidden group cursor-pointer bg-gray-100 ${idx === 2 ? 'rounded' : ''} ${idx === 4 ? 'rounded' : ''}`}
                   onClick={() => setShowAllPhotos(true)}
                 >
                   {hasImage && image ? (
                     <img
                       src={optimizeImageUrl(image, { width: 600, quality: 85, format: 'auto' })}
                       alt={`${listing.title} ${idx + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 rounded-none"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 rounded"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gray-100 rounded-none"></div>
+                    <div className="w-full h-full bg-gray-100 rounded"></div>
                   )}
                 </div>
               );
@@ -713,7 +736,7 @@ export default function PackageDetailView({
 
           {/* Desktop View All Button (Floating at bottom right) */}
           <div className="hidden lg:block absolute bottom-4 right-4 z-10">
-            <Button onClick={() => setShowAllPhotos(true)} className="bg-white text-black hover:bg-gray-100 flex items-center gap-2 shadow-md rounded-none font-semibold px-4 py-2 border border-gray-200">
+            <Button onClick={() => setShowAllPhotos(true)} className="bg-white text-black hover:bg-gray-100 flex items-center gap-2 shadow-md rounded font-semibold px-4 py-2 border border-gray-200">
               <Camera className="h-4 w-4" />
               View All Images
             </Button>
@@ -721,104 +744,68 @@ export default function PackageDetailView({
         </div>
 
         {/* Package Summary Bar */}
-        <div className="mb-8 pt-2 pb-6 border-b border-gray-100">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            
-            {/* Duration Box */}
-            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
-              
-              <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider  mb-0.5">Duration</p>
-                <p className="font-bold text-gray-900 text-sm leading-tight">{duration}D / {nights}N</p>
-              </div>
-            </div>
-
-            {/* Places Box */}
-            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
-             
-              <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Places</p>
-                <p className="font-bold text-gray-900 text-sm leading-tight">{getDisplayPlaces().length || 0} Cities</p>
-              </div>
-            </div>
-
-            {/* Hotel Type Box */}
-            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
-             
-              <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Hotel Type</p>
-                <p className="font-bold text-gray-900 text-sm leading-tight capitalize line-clamp-2">
-                  {getFormattedHotelTypes(listing.hotelTypes)}
-                </p>
-              </div>
-            </div>
-
-            {/* Meal Plan Box */}
-            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
-              
-              <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Meal Plan</p>
-                <p className="font-bold text-gray-900 text-sm leading-tight capitalize line-clamp-2">
-                  {getFormattedMealPlan(listing.mealPlan)}
-                </p>
-              </div>
-            </div>
-
-            {/* Starting From Box */}
-            <div className="border border-gray-200 bg-white p-4 flex items-center gap-4 rounded-none shadow-sm">
-              
-              <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Starting From</p>
-                <p className="font-bold text-orange-655 text-base leading-tight">
-                  {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
-                </p>
-              </div>
-            </div>
-
+        <div className="mb-8 grid grid-cols-2 md:grid-cols-5 gap-0 border border-gray-200 rounded overflow-hidden">
+          
+          {/* Duration */}
+          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
+            <p className="text-xs text-gray-500 mb-1">Duration</p>
+            <p className="font-semibold text-gray-900 text-sm">{duration}D / {nights}N</p>
           </div>
+
+          {/* Places */}
+          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
+            <p className="text-xs text-gray-500 mb-1">Places</p>
+            <p className="font-semibold text-gray-900 text-sm">
+              {getDisplayPlaces().length > 0 ? getDisplayPlaces().join(', ') : 'N/A'}
+            </p>
+          </div>
+
+          {/* Hotel Type */}
+          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
+            <p className="text-xs text-gray-500 mb-1">Hotel Type</p>
+            <p className="font-semibold text-gray-900 text-sm capitalize">
+              {getFormattedHotelTypes(listing.hotelTypes)}
+            </p>
+          </div>
+
+          {/* Meal Plan */}
+          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
+            <p className="text-xs text-gray-500 mb-1">Meal Plan</p>
+            <p className="font-semibold text-gray-900 text-sm capitalize">
+              {getFormattedMealPlan(listing.mealPlan)}
+            </p>
+          </div>
+
+          {/* Starting From */}
+          <div className="p-4 bg-white">
+            <p className="text-xs text-gray-500 mb-1">Starting From</p>
+            <p className="font-semibold text-orange-600 text-base">
+              {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
+            </p>
+          </div>
+
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Main Content (Tabbed) */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Rectangular Tab Buttons */}
-            <div className="flex border border-gray-200 bg-white overflow-x-auto scrollbar-none rounded-none shadow-sm">
-              {(['itinerary', 'inclusions'] as const).map((tab) => {
-                const label = tab === 'itinerary' ? 'Itinerary' : 'Inclusions & Exclusions';
-                const Icon = tab === 'itinerary' ? Calendar : ShieldCheck;
-                const isActive = activeTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 min-w-[120px] whitespace-nowrap px-4 py-4 text-xs sm:text-sm font-semibold border-b-2 transition-colors rounded-none cursor-pointer flex items-center justify-center gap-2 ${
-                      isActive
-                        ? 'border-orange-500 text-orange-600 bg-orange-50/20 font-bold'
-                        : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Tab Content Box */}
-            <Card className="rounded-none border-gray-200 shadow-sm">
+            {/* Itinerary Box */}
+            <Card className="rounded border-gray-200 shadow-sm">
               <CardContent className="p-4 sm:p-6 bg-white">
-                {activeTab === 'itinerary' && (
-                  <div>
+                <h3 className="font-bold text-gray-900 mb-6 text-lg flex items-center gap-2 border-b border-gray-100 pb-4">
+                  <Calendar className="h-6 w-6 text-orange-600" /> Itinerary
+                </h3>
+                <div>
                     {listing.itinerary && listing.itinerary.length > 0 ? (
                       <div className="space-y-3">
                         {listing.itinerary.map((day: any, index: number) => (
-                          <div key={day.id || index} className="bg-white border border-gray-200 rounded-none shadow-none overflow-hidden transition-all hover:border-gray-300">
+                          <div key={day.id || index} className="bg-white border border-gray-200 rounded shadow-none overflow-hidden transition-all hover:border-gray-300">
                             <button
-                              className="w-full flex items-center justify-between text-left px-4 py-3 sm:px-5 sm:py-3.5 bg-white rounded-none cursor-pointer"
+                              className="w-full flex items-center justify-between text-left px-4 py-3 sm:px-5 sm:py-3.5 bg-white rounded cursor-pointer"
                               onClick={() => toggleDay(day.day)}
                             >
                               <div className="flex items-center gap-3">
-                                <div className="bg-[#b84814] text-white px-3 py-1 rounded-none text-xs font-bold tracking-wider shrink-0 shadow-none">
+                                <div className="bg-[#b84814] text-white px-3 py-1 rounded text-xs font-bold tracking-wider shrink-0 shadow-none">
                                   DAY {day.day}
                                 </div>
                                 <h3 className="text-base font-semibold text-gray-900 leading-tight">
@@ -849,10 +836,16 @@ export default function PackageDetailView({
                       </div>
                     )}
                   </div>
-                )}
+              </CardContent>
+            </Card>
 
-                {activeTab === 'inclusions' && (
-                  <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-200">
+            {/* Inclusions & Exclusions Box */}
+            <Card className="rounded border-gray-200 shadow-sm mt-6">
+              <CardContent className="p-4 sm:p-6 bg-white">
+                <h3 className="font-bold text-gray-900 mb-6 text-lg flex items-center gap-2 border-b border-gray-100 pb-4">
+                  <ShieldCheck className="h-6 w-6 text-orange-600" /> Inclusions & Exclusions
+                </h3>
+                <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-200">
                     {/* Inclusions */}
                     <div className="flex-1 pb-6 md:pb-0 md:pr-6">
                       <h3 className="font-bold text-gray-900 mb-4 text-base flex items-center gap-2 border-b border-gray-100 pb-2">
@@ -894,12 +887,61 @@ export default function PackageDetailView({
                       )}
                     </div>
                   </div>
-                )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* Right Column - Sidebar */}
+          <div className="lg:col-span-1 flex flex-col gap-4">
+            <div className="sticky top-4 space-y-4">
+              {/* Agency Info */}
+              <Card className="rounded border-gray-200 shadow-sm">
+                <CardContent className="p-5">
+                  <h3 className="font-bold text-gray-900 text-base mb-3 border-b border-gray-100 pb-2">Offered By</h3>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-orange-100 rounded flex items-center justify-center border border-orange-200 shrink-0 overflow-hidden">
+                      {(listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl) ? (
+                        <img 
+                          src={listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl} 
+                          alt={listing.agencyName || 'Agency Logo'} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <Building2 className="h-6 w-6 text-orange-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">{listing.agencyName || 'Travel Agency'}</p>
+                      {listing.agencyData?.verified && (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1 rounded mt-1">
+                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                          Verified
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full bg-orange-600 hover:bg-orange-750 text-white shadow-none rounded cursor-pointer h-10 font-semibold"
+                    onClick={() => {
+                      console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
+                      onChat(listing);
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Chat with Agency
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* --- Full Width Reviews & FAQ --- */}
+        <div ref={observerRef} className="mt-12 space-y-8">
 
             {/* Reviews Section (Permanently Displayed Below Tab Card) */}
-            <Card className="rounded-none border-gray-200 shadow-sm mt-6">
+            <Card className="rounded border-gray-200 shadow-sm mt-6">
               <CardContent className="p-6 bg-white">
                 <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                   <h3 className="text-lg font-bold text-gray-900">
@@ -907,7 +949,7 @@ export default function PackageDetailView({
                   </h3>
                   <Button
                     onClick={() => setShowWriteReviewModal(true)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white font-semibold flex items-center gap-2 rounded-none shadow-none cursor-pointer h-9 text-sm"
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-semibold flex items-center gap-2 rounded shadow-none cursor-pointer h-9 text-sm"
                   >
                     <Plus className="h-4 w-4" />
                     Write a Review
@@ -915,7 +957,7 @@ export default function PackageDetailView({
                 </div>
 
                 {/* Reviews Overview */}
-                <div className="flex flex-col md:flex-row gap-8 mb-10 p-6 bg-gray-50/50 border border-gray-200 rounded-none">
+                <div className="flex flex-col md:flex-row gap-8 mb-10 p-6 bg-gray-50/50 border border-gray-200 rounded">
                   {/* Overall Rating */}
                   <div className="flex flex-col items-center justify-center shrink-0 px-4">
                     {reviewsData.totalReviewsCount > 0 ? (
@@ -952,9 +994,9 @@ export default function PackageDetailView({
                         <div className="flex items-center w-8 text-xs text-gray-600">
                           {row.stars} <Star className="h-3 w-3 fill-current text-amber-400 ml-1" />
                         </div>
-                        <div className="flex-1 h-2 bg-gray-200 rounded-none overflow-hidden">
+                        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
                           <div
-                            className="h-full bg-orange-500 rounded-none transition-all"
+                            className="h-full bg-orange-500 rounded transition-all"
                             style={{ width: `${row.percentage}%` }}
                           ></div>
                         </div>
@@ -966,7 +1008,7 @@ export default function PackageDetailView({
 
                 {/* Standard Travel Platform Inline Review Form */}
                 {showWriteReviewModal && (
-                  <div className="mb-10 border border-orange-200 bg-orange-50/10 shadow-none rounded-none overflow-hidden animate-in fade-in duration-200">
+                  <div className="mb-10 border border-orange-200 bg-orange-50/10 shadow-none rounded overflow-hidden animate-in fade-in duration-200">
                     <div className="bg-white border-b border-orange-100 p-5 flex justify-between items-center">
                       <div>
                         <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -981,7 +1023,7 @@ export default function PackageDetailView({
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowWriteReviewModal(false)}
-                        className="text-gray-400 hover:text-gray-700 rounded-none cursor-pointer"
+                        className="text-gray-400 hover:text-gray-700 rounded cursor-pointer"
                       >
                         <X className="h-5 w-5" />
                       </Button>
@@ -989,7 +1031,7 @@ export default function PackageDetailView({
                     <div className="p-6 bg-white space-y-6">
                       <form onSubmit={handleAddReviewSubmit} className="space-y-6">
                         {/* Rating Selector */}
-                        <div className="bg-gray-55 p-4 rounded-none border border-gray-200">
+                        <div className="bg-gray-55 p-4 rounded border border-gray-200">
                           <Label className="text-sm font-semibold text-gray-800">Overall Rating</Label>
                           <div className="flex items-center gap-4 mt-2">
                             <div className="flex gap-1">
@@ -1004,7 +1046,7 @@ export default function PackageDetailView({
                                 </button>
                               ))}
                             </div>
-                            <Badge className="bg-amber-100 text-amber-805 text-xs font-semibold px-3 py-1 rounded-none border border-amber-200">
+                            <Badge className="bg-amber-100 text-amber-805 text-xs font-semibold px-3 py-1 rounded border border-amber-200">
                               {newReview.rating === 5 ? '5.0 - Excellent' :
                                 newReview.rating === 4 ? '4.0 - Very Good' :
                                   newReview.rating === 3 ? '3.0 - Average' :
@@ -1022,7 +1064,7 @@ export default function PackageDetailView({
                                 type="button"
                                 key={type}
                                 onClick={() => setNewReview({ ...newReview, tripType: type })}
-                                className={`px-4 py-2 text-xs font-medium rounded-none border transition-colors cursor-pointer ${newReview.tripType === type ? 'bg-orange-500 text-white border-orange-500 shadow-none' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
+                                className={`px-4 py-2 text-xs font-medium rounded border transition-colors cursor-pointer ${newReview.tripType === type ? 'bg-orange-500 text-white border-orange-500 shadow-none' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
                               >
                                 {type}
                               </button>
@@ -1040,7 +1082,7 @@ export default function PackageDetailView({
                               placeholder="e.g. Amit Kumar"
                               value={newReview.name}
                               onChange={(e) => setNewReview({ ...newReview, name: e.target.value })}
-                              className="mt-1 rounded-none"
+                              className="mt-1 rounded"
                             />
                           </div>
                           <div>
@@ -1051,7 +1093,7 @@ export default function PackageDetailView({
                               placeholder="e.g. Mumbai, Delhi, London..."
                               value={newReview.travelledFrom}
                               onChange={(e) => setNewReview({ ...newReview, travelledFrom: e.target.value })}
-                              className="mt-1 rounded-none"
+                              className="mt-1 rounded"
                             />
                           </div>
                         </div>
@@ -1066,7 +1108,7 @@ export default function PackageDetailView({
                             placeholder="Tell us about your experience: hotel stay, sightseeing highlights, driver/guide assistance, and overall value..."
                             value={newReview.comment}
                             onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-                            className="mt-1 leading-relaxed rounded-none"
+                            className="mt-1 leading-relaxed rounded"
                           />
                         </div>
 
@@ -1078,7 +1120,7 @@ export default function PackageDetailView({
                             placeholder="https://images.unsplash.com/..."
                             value={newReview.photoUrl}
                             onChange={(e) => setNewReview({ ...newReview, photoUrl: e.target.value })}
-                            className="mt-1 text-xs rounded-none"
+                            className="mt-1 text-xs rounded"
                           />
                         </div>
 
@@ -1088,14 +1130,14 @@ export default function PackageDetailView({
                             type="button"
                             variant="outline"
                             onClick={() => setShowWriteReviewModal(false)}
-                            className="px-6 rounded-none cursor-pointer"
+                            className="px-6 rounded cursor-pointer"
                           >
                             Cancel
                           </Button>
                           <Button
                             type="submit"
                             disabled={isSubmittingReview || !newReview.comment.trim() || !newReview.name.trim()}
-                            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 shadow-none rounded-none cursor-pointer"
+                            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 shadow-none rounded cursor-pointer"
                           >
                             {isSubmittingReview ? 'Posting Review...' : 'Submit Review'}
                           </Button>
@@ -1111,7 +1153,7 @@ export default function PackageDetailView({
                     <h4 className="font-bold text-gray-900 mb-4 text-sm">Traveller Image Gallery</h4>
                     <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[300px]">
                       <div
-                        className="col-span-2 row-span-2 relative rounded-none overflow-hidden group cursor-pointer"
+                        className="col-span-2 row-span-2 relative rounded overflow-hidden group cursor-pointer"
                         onClick={() => setSelectedGalleryImage(reviewsData.travellerImages[0])}
                       >
                         <img src={reviewsData.travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -1121,7 +1163,7 @@ export default function PackageDetailView({
                               e.stopPropagation();
                               setSelectedGalleryImage(reviewsData.travellerImages[0]);
                             }}
-                            className="absolute bottom-4 left-4 bg-black/55 backdrop-blur-md text-white border border-white/30 px-3 py-1.5 rounded-none text-sm font-medium hover:bg-black/70 transition-colors cursor-pointer"
+                            className="absolute bottom-4 left-4 bg-black/55 backdrop-blur-md text-white border border-white/30 px-3 py-1.5 rounded text-sm font-medium hover:bg-black/70 transition-colors cursor-pointer"
                           >
                             View all ({reviewsData.travellerImages.length})
                           </button>
@@ -1130,7 +1172,7 @@ export default function PackageDetailView({
                       {reviewsData.travellerImages.slice(1, 5).map((img, idx) => (
                         <div
                           key={idx}
-                          className="col-span-1 row-span-1 rounded-none overflow-hidden group cursor-pointer"
+                          className="col-span-1 row-span-1 rounded overflow-hidden group cursor-pointer"
                           onClick={() => setSelectedGalleryImage(img)}
                         >
                           <img src={img} alt={`Traveller ${idx + 2}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -1144,11 +1186,11 @@ export default function PackageDetailView({
                 <div className="space-y-4">
                   {reviewsData.totalReviewsCount > 0 ? (
                     reviewsData.userReviews.map((review: any) => (
-                      <Card key={review.id} className="shadow-none border-gray-200 rounded-none bg-white">
+                      <Card key={review.id} className="shadow-none border-gray-200 rounded bg-white">
                         <CardContent className="p-5">
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-orange-100 text-orange-700 rounded-none flex items-center justify-center font-bold text-sm overflow-hidden">
+                              <div className="w-10 h-10 bg-orange-100 text-orange-700 rounded flex items-center justify-center font-bold text-sm overflow-hidden">
                                 {review.name.charAt(0).toUpperCase()}
                               </div>
                               <div>
@@ -1179,7 +1221,7 @@ export default function PackageDetailView({
                               {review.images.map((img: string, i: number) => (
                                 <div
                                   key={i}
-                                  className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-none overflow-hidden relative cursor-pointer border border-gray-200"
+                                  className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded overflow-hidden relative cursor-pointer border border-gray-200"
                                   onClick={() => setSelectedGalleryImage(img)}
                                 >
                                   <img src={img} alt={`Review image ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
@@ -1191,9 +1233,9 @@ export default function PackageDetailView({
                       </Card>
                     ))
                   ) : (
-                    <Card className="border-dashed border-2 border-gray-200 bg-gray-50/50 p-8 text-center rounded-none shadow-none">
+                    <Card className="border-dashed border-2 border-gray-200 bg-gray-50/50 p-8 text-center rounded shadow-none">
                       <div className="flex flex-col items-center justify-center space-y-3">
-                        <div className="w-12 h-12 rounded-none bg-orange-100 text-orange-500 flex items-center justify-center border border-orange-200">
+                        <div className="w-12 h-12 rounded bg-orange-100 text-orange-500 flex items-center justify-center border border-orange-200">
                           <MessageCircle className="h-6 w-6" />
                         </div>
                         <h4 className="font-bold text-gray-800 text-base">No reviews yet for this package</h4>
@@ -1202,7 +1244,7 @@ export default function PackageDetailView({
                         </p>
                         <Button
                           onClick={() => setShowWriteReviewModal(true)}
-                          className="bg-orange-500 hover:bg-orange-600 text-white font-medium mt-2 flex items-center gap-2 rounded-none cursor-pointer"
+                          className="bg-orange-500 hover:bg-orange-600 text-white font-medium mt-2 flex items-center gap-2 rounded cursor-pointer"
                         >
                           <Plus className="h-4 w-4" />
                           Write a Review
@@ -1215,16 +1257,16 @@ export default function PackageDetailView({
             </Card>
 
             {/* FAQ Section (Permanently Displayed Below Reviews Card) */}
-            <Card className="rounded-none border-gray-200 shadow-sm mt-6">
+            <Card className="rounded border-gray-200 shadow-sm mt-6">
               <CardContent className="p-6 bg-white">
                 <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2 border-b border-gray-100 pb-4">
                   <MessageCircle className="h-5 w-5 text-orange-600" /> Frequently Asked Questions
                 </h3>
                 <div className="space-y-3">
                   {defaultFAQs.map((faq, index) => (
-                    <div key={index} className="border border-gray-200 rounded-none bg-white transition-colors hover:border-gray-300">
+                    <div key={index} className="border border-gray-200 rounded bg-white transition-colors hover:border-gray-300">
                       <button
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 rounded-none cursor-pointer"
+                        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 rounded cursor-pointer"
                         onClick={() => toggleFAQ(index)}
                       >
                         <span className="font-semibold text-gray-900 text-sm">{faq.question}</span>
@@ -1244,47 +1286,27 @@ export default function PackageDetailView({
                 </div>
               </CardContent>
             </Card>
+        </div>
+      </div>
 
+      {/* Scroll-Triggered Sticky Chat Bar */}
+      <div 
+        className={`fixed bottom-0 left-0 right-0 z-[150] bg-white border-t border-gray-200 shadow-[0_-4px_20px_-5px_rgb(0,0,0,0.15)] p-4 flex justify-between items-center transition-transform duration-500 ease-in-out ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
+      >
+        <div className="max-w-[1200px] mx-auto w-full flex justify-between items-center px-4 md:px-8">
+          <div className="hidden md:block">
+            <h3 className="font-bold text-gray-900 line-clamp-1">{listing.title || 'Package'}</h3>
+            <p className="text-orange-600 font-bold">
+              {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
+            </p>
           </div>
-
-          {/* Right Column - Sidebar */}
-          <div className="lg:col-span-1 flex flex-col gap-4">
-            <div className="sticky top-4 space-y-4">
-              {/* Agency Info */}
-              <Card className="rounded-none border-gray-200 shadow-sm">
-                <CardContent className="p-5">
-                  <h3 className="font-bold text-gray-900 text-base mb-3 border-b border-gray-100 pb-2">Offered By</h3>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-orange-100 rounded-none flex items-center justify-center border border-orange-200 shrink-0">
-                      <Building2 className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900">{listing.agencyName || 'Travel Agency'}</p>
-                      {listing.agencyData?.verified && (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1 rounded-none mt-1">
-                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    className="w-full bg-orange-600 hover:bg-orange-750 text-white shadow-none rounded-none cursor-pointer h-10 font-semibold"
-                    onClick={() => {
-                      console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
-                      onChat(listing);
-                    }}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Chat with Agency
-                  </Button>
-                </CardContent>
-              </Card>
-
-            
-
-            </div>
-          </div>
+          <Button
+            className="w-full md:w-auto bg-orange-600 hover:bg-orange-750 text-white shadow-lg rounded-full cursor-pointer h-12 px-8 font-bold text-lg hover:-translate-y-1 transition-all"
+            onClick={() => onChat(listing)}
+          >
+            <MessageCircle className="h-5 w-5 mr-2" />
+            Chat with Agency
+          </Button>
         </div>
       </div>
 

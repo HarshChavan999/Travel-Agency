@@ -6,7 +6,7 @@ import AuthModal from '@/components/AuthModal';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDbInstance } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 
 export default function PackageClientView({ listing }: { listing: any }) {
@@ -14,6 +14,31 @@ export default function PackageClientView({ listing }: { listing: any }) {
   const { user, userData, signIn, register, signInWithGoogle, signOut } = useAuth();
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [enrichedListing, setEnrichedListing] = useState(listing);
+
+  useEffect(() => {
+    async function fetchAgency() {
+      if (listing.agencyId && !listing.agencyData) {
+        const dbInstance = getDbInstance();
+        if (dbInstance) {
+          try {
+            const agencyDoc = await getDoc(doc(dbInstance, 'users', listing.agencyId));
+            if (agencyDoc.exists()) {
+              const agencyData = agencyDoc.data();
+              setEnrichedListing({
+                ...listing,
+                agencyData,
+                agencyName: agencyData.companyName || 'Unknown Agency'
+              });
+            }
+          } catch (e) {
+            console.error("Error fetching agency client-side:", e);
+          }
+        }
+      }
+    }
+    fetchAgency();
+  }, [listing]);
 
   useEffect(() => {
     if (!user) return;
@@ -119,12 +144,12 @@ export default function PackageClientView({ listing }: { listing: any }) {
 
       <div className="flex-1 bg-gray-50">
         <PackageDetailView 
-          listing={listing} 
+          listing={enrichedListing} 
           onBack={() => router.push('/')}
-          onBook={() => router.push(`/?action=book&packageId=${listing.id}`)}
-          onChat={() => router.push(`/?action=chat&agencyId=${listing.agencyId}&agencyName=${encodeURIComponent(listing.agencyName || 'Travel Agency')}`)}
+          onBook={() => router.push(`/?action=book&packageId=${enrichedListing.id}`)}
+          onChat={() => router.push(`/?action=chat&agencyId=${enrichedListing.agencyId}&agencyName=${encodeURIComponent(enrichedListing.agencyName || 'Travel Agency')}`)}
           onWishlist={handleWishlistToggle}
-          isWishlisted={wishlist.includes(listing?.id)}
+          isWishlisted={wishlist.includes(enrichedListing?.id)}
         />
       </div>
 
