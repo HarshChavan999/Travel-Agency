@@ -359,6 +359,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await updateDoc(doc(dbInstance, 'users', user.uid), { isOnline: false }).catch(console.error);
         }
       }
+      // Clear cached agency chat data
+      try {
+        sessionStorage.removeItem('agency_conversations');
+        sessionStorage.removeItem('agency_chat_messages');
+        sessionStorage.removeItem('agency_selected_conversation');
+      } catch {}
       const authInstance = getAuthInstance();
       if (authInstance) {
         await firebaseSignOut(authInstance);

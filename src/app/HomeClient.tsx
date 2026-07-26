@@ -316,13 +316,39 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     rating: 0,
     reviewsCount: 0
   });
-  const [agencyChatMessages, setAgencyChatMessages] = useState<any[]>([]);
+  const [agencyChatMessages, setAgencyChatMessages] = useState<any[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('agency_chat_messages');
+        return saved ? JSON.parse(saved) : [];
+      }
+    } catch {}
+    return [];
+  });
   const [agencyChatInput, setAgencyChatInput] = useState('');
-  const [agencyConversations, setAgencyConversations] = useState<any[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<any>(null);
+  const [agencyConversations, setAgencyConversations] = useState<any[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('agency_conversations');
+        return saved ? JSON.parse(saved) : [];
+      }
+    } catch {}
+    return [];
+  });
+  const [selectedConversation, setSelectedConversation] = useState<any>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('agency_selected_conversation');
+        return saved ? JSON.parse(saved) : null;
+      }
+    } catch {}
+    return null;
+  });
   const selectedConversationRef = useRef<any>(null);
   selectedConversationRef.current = selectedConversation;
   const hasManuallyClosedChatRef = useRef(false);
+  // Cache for user profile data - persists across re-renders so we don't re-fetch on every message update
+  const agencyUserProfileCacheRef = useRef<Map<string, { name: string; logo: string | null }>>(new Map());
   const [agencyChatSearchQuery, setAgencyChatSearchQuery] = useState<string>('');
   const [showAgencyEmojiPicker, setShowAgencyEmojiPicker] = useState<boolean>(false);
   const [adminBuyerReplies, setAdminBuyerReplies] = useState<string[]>([]);
@@ -406,6 +432,33 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   useEffect(() => {
     agencyChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [agencyChatMessages, selectedConversation]);
+
+  // Persist agency chat data to sessionStorage to eliminate stale-state flash on Alt+Tab
+  useEffect(() => {
+    try {
+      if (agencyConversations.length > 0) {
+        sessionStorage.setItem('agency_conversations', JSON.stringify(agencyConversations));
+      }
+    } catch {}
+  }, [agencyConversations]);
+
+  useEffect(() => {
+    try {
+      if (agencyChatMessages.length > 0) {
+        sessionStorage.setItem('agency_chat_messages', JSON.stringify(agencyChatMessages));
+      }
+    } catch {}
+  }, [agencyChatMessages]);
+
+  useEffect(() => {
+    try {
+      if (selectedConversation) {
+        sessionStorage.setItem('agency_selected_conversation', JSON.stringify(selectedConversation));
+      } else {
+        sessionStorage.removeItem('agency_selected_conversation');
+      }
+    } catch {}
+  }, [selectedConversation]);
 
   // Deep linking for Chat, Book, and Wishlist from SEO routes
   useEffect(() => {
@@ -996,13 +1049,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   // Intercept chat request and direct to chat
   const handleInitiateChat = (listingData: any) => {
     console.log('handleInitiateChat called with listing:', listingData);
-    if (!user || !userData) {
-      alert('Please log in to chat with travel agencies.');
-      return;
-    }
-
-    // Check if the user is an agency (agencies don't need to unlock anything)
-    if (userData.role !== 'user') {
+    // Check if the user is logged in as an agency (agencies don't need to initiate chat with themselves)
+    const isAgency = userData && userData.role !== 'user';
+    if (user && isAgency) {
       alert('Only travelers can initiate chats with agencies.');
       return;
     }
@@ -1156,7 +1205,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 razorpay_signature: response.razorpay_signature,
                 agencyId: user.uid,
                 targetPlan: targetPlan,
-                isAddon: false
+                isAddon: false,
+                amountPaid: order.amount / 100
               })
             });
             const verifyData = await verifyRes.json();
@@ -1241,7 +1291,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 razorpay_signature: response.razorpay_signature,
                 agencyId: user.uid,
                 isAddon: true,
-                creditsToBuy: amount
+                creditsToBuy: amount,
+                amountPaid: order.amount / 100
               })
             });
             const verifyData = await verifyRes.json();
@@ -1636,7 +1687,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       // Function to process messages and update conversations
       const processMessages = async (messages: any[]) => {
         // Sort messages by timestamp
-        messages.sort((a, b) => a.timestamp - b.timestamp);
+        messages.sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0));
         setChatMessages(messages);
 
         // Create conversations list with agencies the user has chatted with
@@ -1687,33 +1738,60 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   });
                 }
               }
+              const existing = conversationsMap.get(otherUserId);
+              if (existing) {
+                existing.lastMessage = msg.text;
+                existing.lastMessageTime = msg.timestamp;
+                if (msg.sender === otherUserId && msg.status !== 'read') {
+                  existing.unreadCount = (existing.unreadCount || 0) + 1;
+                }
+                if (msg.sender === user.uid) {
+                  existing.unreadCount = 0;
+                }
+              }
             } catch (error) {
               console.warn('Error processing message for conversation:', error, msg);
               continue;
             }
           }
           const conversations = Array.from(conversationsMap.values());
+          conversations.sort((a: any, b: any) => (Number(b.lastMessageTime?.seconds ? b.lastMessageTime.seconds * 1000 : b.lastMessageTime) || 0) - (Number(a.lastMessageTime?.seconds ? a.lastMessageTime.seconds * 1000 : a.lastMessageTime) || 0));
           setUserConversations(conversations);
         };
         fetchConversations();
       };
 
+      let webMsgs: any[] = [];
+      let mobileMsgs: any[] = [];
+      const combineAndProcess = () => {
+        const combined = [...webMsgs, ...mobileMsgs];
+        const unique = combined.filter((msg, index, self) =>
+          index === self.findIndex(m => m.id === msg.id)
+        );
+        processMessages(unique);
+      };
+
       // Listen to web app messages collection
-      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), (snapshot) => {
-        const webMessages: any[] = [];
+      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), { includeMetadataChanges: true }, (snapshot) => {
+        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
+        if (snapshot.metadata.fromCache) return;
+        const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Include messages where user is sender OR receiver
           if (msgData.sender === user.uid || msgData.receiverId === user.uid) {
-            webMessages.push({ id: doc.id, ...msgData });
+            msgs.push({ id: doc.id, ...msgData, isWeb: true });
           }
         });
-        processMessages(webMessages);
+        webMsgs = msgs;
+        combineAndProcess();
       });
 
       // Also listen to mobile app messages collection (chat_messages)
-      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), (snapshot) => {
-        const mobileMessages: any[] = [];
+      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), { includeMetadataChanges: true }, (snapshot) => {
+        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
+        if (snapshot.metadata.fromCache) return;
+        const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Convert mobile app format to web app format
@@ -1721,29 +1799,20 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
           if (msgData.from_user_id === user.uid || msgData.to_user_id === user.uid) {
             // Create consistent chatId by sorting user IDs
             const chatId = [msgData.from_user_id, msgData.to_user_id].sort().join('_');
-            const convertedMessage = {
+            msgs.push({
               id: doc.id,
               text: msgData.content,
               sender: msgData.from_user_id,
               receiverId: msgData.to_user_id,
               chatId: chatId,
               timestamp: msgData.timestamp,
-              status: msgData.status
-            };
-            mobileMessages.push(convertedMessage);
+              status: msgData.status,
+              isMobile: true
+            });
           }
         });
-
-        // Combine with existing messages if any
-        setChatMessages(currentMessages => {
-          const combined = [...currentMessages, ...mobileMessages];
-          // Remove duplicates based on id
-          const unique = combined.filter((msg, index, self) =>
-            index === self.findIndex(m => m.id === msg.id)
-          );
-          processMessages(unique);
-          return unique;
-        });
+        mobileMsgs = msgs;
+        combineAndProcess();
       });
 
       return () => {
@@ -1761,81 +1830,110 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       // Function to process messages and update state
       const processMessages = async (messages: any[]) => {
         // Sort messages by timestamp
-        messages.sort((a, b) => a.timestamp - b.timestamp);
+        messages.sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0));
         setAgencyChatMessages(messages);
 
-        // Create conversations list with user names
-        const conversationsMap = new Map();
-        const fetchConversations = async () => {
-          for (const msg of messages) {
+        // --- Build conversations synchronously using the profile cache ---
+        const tsMs = (ts: any) => Number(ts?.seconds ? ts.seconds * 1000 : ts) || 0;
+
+        // Identify unique other-user IDs
+        const otherUserIds = new Set<string>();
+        for (const msg of messages) {
+          const id = msg.sender === user.uid ? msg.receiverId : msg.sender;
+          if (id && typeof id === 'string' && id.trim()) otherUserIds.add(id);
+        }
+
+        // Fetch profiles we don't have cached yet — all in parallel, one batch
+        const missingIds = [...otherUserIds].filter(id => !agencyUserProfileCacheRef.current.has(id));
+        if (missingIds.length > 0) {
+          await Promise.all(missingIds.map(async (id) => {
             try {
-              // For conversations, we want the other party (not the agency)
-              const otherUserId = msg.sender === user.uid ? msg.receiverId : msg.sender;
-
-              // Skip messages with invalid user IDs
-              if (!otherUserId || typeof otherUserId !== 'string' || otherUserId.trim() === '') {
-                console.warn('Skipping message with invalid user ID:', msg);
-                continue;
-              }
-
-              if (!conversationsMap.has(otherUserId)) {
-                try {
-                  // Fetch user name
-                  const userDoc = await getDoc(doc(getDbInstance()!, 'users', otherUserId));
-                  const userName = userDoc.exists() ? (userDoc.data() as any).name || 'Unknown User' : 'Unknown User';
-
-                  conversationsMap.set(otherUserId, {
-                    userId: otherUserId,
-                    userName,
-                    chatId: msg.chatId,
-                    lastMessage: msg.text,
-                    lastMessageTime: msg.timestamp,
-                    unreadCount: 0, // Could implement read status
-                  });
-                } catch (error) {
-                  // Ignore cancelled requests on logout
-                  conversationsMap.set(otherUserId, {
-                    userId: otherUserId,
-                    userName: 'Unknown User',
-                    chatId: msg.chatId,
-                    lastMessage: msg.text,
-                    lastMessageTime: msg.timestamp,
-                    unreadCount: 0,
-                  });
-                }
-              }
-            } catch (error) {
-              console.warn('Error processing message for conversation:', error, msg);
-              continue;
+              const userDoc = await getDoc(doc(getDbInstance()!, 'users', id));
+              const d = userDoc.exists() ? userDoc.data() as any : null;
+              agencyUserProfileCacheRef.current.set(id, {
+                name: d?.name || 'Unknown User',
+                logo: d?.photoURL || d?.avatarUrl || d?.profilePic || null,
+              });
+            } catch {
+              agencyUserProfileCacheRef.current.set(id, { name: 'Unknown User', logo: null });
             }
-          }
-          const conversations = Array.from(conversationsMap.values());
-          setAgencyConversations(conversations);
+          }));
+        }
 
-          // Auto-select first conversation if none selected (only on initial load, not after manual close)
-          if (!selectedConversationRef.current && conversations.length > 0 && !hasManuallyClosedChatRef.current) {
-            setSelectedConversation(conversations[0]);
+        // Now build conversations map entirely from cache — no async, no flash
+        const conversationsMap = new Map<string, any>();
+        for (const msg of messages) {
+          const otherUserId = msg.sender === user.uid ? msg.receiverId : msg.sender;
+          if (!otherUserId || typeof otherUserId !== 'string' || !otherUserId.trim()) continue;
+
+          const profile = agencyUserProfileCacheRef.current.get(otherUserId) || { name: 'Unknown User', logo: null };
+
+          if (!conversationsMap.has(otherUserId)) {
+            conversationsMap.set(otherUserId, {
+              userId: otherUserId,
+              userName: profile.name,
+              userLogo: profile.logo,
+              chatId: msg.chatId,
+              lastMessage: msg.text,
+              lastMessageTime: msg.timestamp,
+              unreadCount: 0,
+            });
           }
-        };
-        fetchConversations();
+
+          const existing = conversationsMap.get(otherUserId)!;
+          existing.lastMessage = msg.text;
+          existing.lastMessageTime = msg.timestamp;
+          if (msg.sender === otherUserId && msg.status !== 'read') {
+            existing.unreadCount = (existing.unreadCount || 0) + 1;
+          }
+          if (msg.sender === user.uid) {
+            existing.unreadCount = 0;
+          }
+        }
+
+        const conversations = Array.from(conversationsMap.values());
+        conversations.sort((a: any, b: any) => tsMs(b.lastMessageTime) - tsMs(a.lastMessageTime));
+
+        // Single atomic state update — no intermediate renders
+        setAgencyConversations(conversations);
+
+        // Auto-select first conversation if none selected
+        if (!selectedConversationRef.current && conversations.length > 0 && !hasManuallyClosedChatRef.current) {
+          setSelectedConversation(conversations[0]);
+        }
+      };
+
+      let webMsgs: any[] = [];
+      let mobileMsgs: any[] = [];
+      const combineAndProcess = () => {
+        const combined = [...webMsgs, ...mobileMsgs];
+        const unique = combined.filter((msg, index, self) =>
+          index === self.findIndex(m => m.id === msg.id)
+        );
+        processMessages(unique);
       };
 
       // Listen to web app messages collection
-      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), (snapshot) => {
-        const webMessages: any[] = [];
+      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), { includeMetadataChanges: true }, (snapshot) => {
+        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
+        if (snapshot.metadata.fromCache) return;
+        const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Include messages where agency is sender OR receiver
           if (msgData.sender === user.uid || msgData.receiverId === user.uid) {
-            webMessages.push({ id: doc.id, ...msgData });
+            msgs.push({ id: doc.id, ...msgData, isWeb: true });
           }
         });
-        processMessages(webMessages);
+        webMsgs = msgs;
+        combineAndProcess();
       });
 
       // Also listen to mobile app messages collection (chat_messages)
-      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), (snapshot) => {
-        const mobileMessages: any[] = [];
+      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), { includeMetadataChanges: true }, (snapshot) => {
+        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
+        if (snapshot.metadata.fromCache) return;
+        const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Convert mobile app format to web app format
@@ -1843,29 +1941,20 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
           if (msgData.from_user_id === user.uid || msgData.to_user_id === user.uid) {
             // Create consistent chatId by sorting user IDs
             const chatId = [msgData.from_user_id, msgData.to_user_id].sort().join('_');
-            const convertedMessage = {
+            msgs.push({
               id: doc.id,
               text: msgData.content,
               sender: msgData.from_user_id,
               receiverId: msgData.to_user_id,
               chatId: chatId,
               timestamp: msgData.timestamp,
-              status: msgData.status
-            };
-            mobileMessages.push(convertedMessage);
+              status: msgData.status,
+              isMobile: true
+            });
           }
         });
-
-        // Combine with existing messages if any
-        setAgencyChatMessages(currentMessages => {
-          const combined = [...currentMessages, ...mobileMessages];
-          // Remove duplicates based on id
-          const unique = combined.filter((msg, index, self) =>
-            index === self.findIndex(m => m.id === msg.id)
-          );
-          processMessages(unique);
-          return unique;
-        });
+        mobileMsgs = msgs;
+        combineAndProcess();
       });
 
       return () => {
@@ -2093,7 +2182,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   };
 
   const sendMessage = async () => {
-    if (!chatInput.trim() || !user) return;
+    if (!chatInput.trim()) return;
+    if (!user) {
+      setAuthModalTab('login');
+      setShowAuthModal(true);
+      return;
+    }
 
     
     // Send to mobile app's "chat_messages" collection with correct format
@@ -4945,6 +5039,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   setCurrentChatAgencyName(conversation.agencyName);
                                   setCurrentChatAgencyIsOnline(conversation.isOnline || false);
                                   setCurrentChatAgencyLogo(conversation.logoUrl || null);
+                                  
+                                  const unreadMsgs = chatMessages.filter(m => m.sender === conversation.agencyId && m.status !== 'read');
+                                  unreadMsgs.forEach(async (m) => {
+                                    try {
+                                      const coll = m.isMobile ? 'chat_messages' : 'messages';
+                                      await updateDoc(doc(getDbInstance()!, coll, m.id), { status: 'read' });
+                                    } catch (e) {}
+                                  });
                                 }}
                                 className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 border border-l-4 ${
                                   isActive
@@ -4971,11 +5073,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     <span className="font-semibold text-xs text-gray-900 truncate pr-2">
                                       {conversation.agencyName}
                                     </span>
-                                    <span className={`text-[9px] font-semibold shrink-0 ${
-                                      conversation.isOnline ? 'text-orange-600' : 'text-gray-400'
-                                    }`}>
-                                      {conversation.isOnline ? 'Online' : 'Offline'}
-                                    </span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {conversation.unreadCount > 0 && (
+                                        <span className="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                          {conversation.unreadCount}
+                                        </span>
+                                      )}
+                                      <span className={`text-[9px] font-semibold ${
+                                        conversation.isOnline ? 'text-orange-600' : 'text-gray-400'
+                                      }`}>
+                                        {conversation.isOnline ? 'Online' : 'Offline'}
+                                      </span>
+                                    </div>
                                   </div>
                                   <p className="text-[11px] text-gray-500 truncate">
                                     {conversation.lastMessage || "No messages yet"}
@@ -5036,8 +5145,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         {/* Messages Area */}
                         <div className="flex-1 p-6 space-y-4 chat-scroll">
                           {[...chatMessages]
-                            .filter(msg => msg.chatId === [user?.uid, currentChatAgency].sort().join('_'))
-                            .sort((a, b) => a.timestamp - b.timestamp)
+                            .filter(msg => (msg.sender === currentChatAgency && msg.receiverId === user?.uid) || (msg.sender === user?.uid && msg.receiverId === currentChatAgency))
+                            .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0))
                             .map((msg, index) => {
                               const isSelf = msg.sender === user?.uid;
                               return (
@@ -5742,7 +5851,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   if (user && userData?.role === 'agency') {
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-          <div className="w-64 bg-white border-r border-gray-200 flex flex-col z-20 shrink-0">
+          <div className={`w-64 bg-white border-r border-gray-200 flex flex-col z-20 shrink-0 ${agencyActiveSection === 'chat' ? 'hidden' : ''}`}>
             <div className="p-6 border-b border-gray-200 flex flex-col items-center text-center shrink-0">
               <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden mb-4 shrink-0">
                 {(agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo) ? (
@@ -5795,6 +5904,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 </button>
 
                 <button
+                  onClick={() => setAgencyActiveSection('transactions')}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'transactions'
+                      ? 'bg-orange-50 text-orange-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  <ClipboardList className="h-4 w-4" /> Transactions
+                </button>
+
+                <button
                   onClick={() => setAgencyActiveSection('settings')}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'settings'
                       ? 'bg-blue-50 text-blue-700'
@@ -5830,14 +5949,26 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
           <div className="flex-1 flex flex-col min-w-0 bg-gray-50/50">
             <header className="h-16 sticky top-0 z-10 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0">
-              <h1 className="text-xl font-semibold text-gray-900">
-                {agencyActiveSection === 'overview' && 'Agency Overview'}
-                {agencyActiveSection === 'listings' && 'Travel Listings'}
-                {agencyActiveSection === 'bookings' && 'Booking Management'}
-                {agencyActiveSection === 'chat' && 'Customer Chat'}
-                {agencyActiveSection === 'credits' && 'Plan & Credits'}
-                {agencyActiveSection === 'settings' && 'Agency Settings'}
-              </h1>
+              <div className="flex items-center gap-3">
+                {agencyActiveSection === 'chat' && (
+                  <button
+                    onClick={() => setAgencyActiveSection('listings')}
+                    className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-colors border border-gray-200 shadow-sm mr-2"
+                    title="Back to Dashboard"
+                  >
+                    ←
+                  </button>
+                )}
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {agencyActiveSection === 'overview' && 'Agency Overview'}
+                  {agencyActiveSection === 'listings' && 'Travel Listings'}
+                  {agencyActiveSection === 'bookings' && 'Booking Management'}
+                  {agencyActiveSection === 'chat' && 'Customer Chat'}
+                  {agencyActiveSection === 'credits' && 'Plan & Credits'}
+                  {agencyActiveSection === 'transactions' && 'Payment History'}
+                  {agencyActiveSection === 'settings' && 'Agency Settings'}
+                </h1>
+              </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData?.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
                 <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
@@ -6293,6 +6424,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     onClick={() => {
                                       hasManuallyClosedChatRef.current = false;
                                       selectConversation(conversation);
+                                      
+                                      const unreadMsgs = agencyChatMessages.filter(m => m.sender === conversation.userId && m.status !== 'read');
+                                      unreadMsgs.forEach(async (m) => {
+                                        try {
+                                          const coll = m.isMobile ? 'chat_messages' : 'messages';
+                                          await updateDoc(doc(getDbInstance()!, coll, m.id), { status: 'read' });
+                                        } catch (e) {}
+                                      });
                                     }}
                                     className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 border border-l-4 ${
                                       isActive
@@ -6301,8 +6440,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     }`}
                                   >
                                     {/* Avatar */}
-                                    <div className="w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm bg-slate-900 relative">
-                                      {initials}
+                                    <div className={`w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm relative ${
+                                      !conversation.userLogo ? 'bg-slate-900' : ''
+                                    }`}>
+                                      {conversation.userLogo ? (
+                                        <img src={conversation.userLogo} alt={initials} className="w-full h-full object-cover rounded-full" />
+                                      ) : (
+                                        initials
+                                      )}
                                     </div>
                                     {/* Info */}
                                     <div className="flex-1 min-w-0">
@@ -6310,6 +6455,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         <span className="font-semibold text-xs text-gray-900 truncate pr-2">
                                           {conversation.userName}
                                         </span>
+                                        {conversation.unreadCount > 0 && (
+                                          <span className="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                                            {conversation.unreadCount}
+                                          </span>
+                                        )}
                                       </div>
                                       <p className="text-[11px] text-gray-500 truncate">
                                         {conversation.lastMessage || "No messages yet"}
@@ -6371,8 +6521,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             {/* Messages Area */}
                             <div className="flex-1 p-6 space-y-4 chat-scroll overflow-y-auto overflow-x-hidden w-full min-w-0">
                               {[...agencyChatMessages]
-                                .filter(msg => msg.chatId === selectedConversation.chatId)
-                                .sort((a, b) => a.timestamp - b.timestamp)
+                                .filter(msg => (msg.sender === selectedConversation.userId && msg.receiverId === user?.uid) || (msg.sender === user?.uid && msg.receiverId === selectedConversation.userId))
+                                .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0))
                                 .map((msg, index) => {
                                   const isSelf = msg.sender === user?.uid;
                                   return (
@@ -6550,6 +6700,151 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       </div>
                     </div>
                   )}
+
+                  {agencyActiveSection === 'transactions' && (() => {
+                    const txList = [...(userData?.creditHistory || [])].reverse();
+                    const totalPaid = txList.reduce((s: number, tx: any) => s + (Number(tx.amountPaid) || 0), 0);
+                    const planCount = txList.filter((tx: any) => tx.type === 'plan-change').length;
+                    const topupCount = txList.filter((tx: any) => tx.type === 'top-up').length;
+                    return (
+                      <div className="space-y-5">
+                        {/* Page Title */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h2 className="text-lg font-bold text-gray-900">Billing &amp; Transactions</h2>
+                            <p className="text-xs text-gray-500 mt-0.5">All payments made on your TripDM account</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-400 border border-gray-200 bg-white rounded-lg px-3 py-1.5">
+                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                            Secured by Razorpay
+                          </div>
+                        </div>
+
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="bg-white border border-gray-200 rounded-xl p-4">
+                            <p className="text-[11px] text-gray-500 font-medium mb-1">Total Transactions</p>
+                            <p className="text-2xl font-bold text-gray-900">{txList.length}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">All time</p>
+                          </div>
+                          <div className="bg-white border border-gray-200 rounded-xl p-4">
+                            <p className="text-[11px] text-gray-500 font-medium mb-1">Total Amount Paid</p>
+                            <p className="text-2xl font-bold text-gray-900">₹{totalPaid.toLocaleString('en-IN')}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{planCount} upgrade{planCount !== 1 ? 's' : ''} · {topupCount} top-up{topupCount !== 1 ? 's' : ''}</p>
+                          </div>
+                          <div className="bg-white border border-gray-200 rounded-xl p-4">
+                            <p className="text-[11px] text-gray-500 font-medium mb-1">Current Plan</p>
+                            <p className="text-2xl font-bold text-gray-900 capitalize">{userData?.plan || 'Free'}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{userData?.credits ?? 0} credits remaining</p>
+                          </div>
+                        </div>
+
+                        {/* Table */}
+                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                          {/* Table Header Bar */}
+                          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <p className="text-xs font-semibold text-gray-700">Transaction History</p>
+                            <p className="text-[11px] text-gray-400">{txList.length} record{txList.length !== 1 ? 's' : ''}</p>
+                          </div>
+
+                          {txList.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                <ClipboardList className="w-6 h-6 text-gray-400" />
+                              </div>
+                              <p className="text-sm font-semibold text-gray-700 mb-1">No transactions yet</p>
+                              <p className="text-xs text-gray-400 mb-4">Payments will appear here after your first purchase.</p>
+                              <button onClick={() => setAgencyActiveSection('credits')} className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                                View Plans &amp; Credits →
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-gray-100">
+                                    <th className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Date</th>
+                                    <th className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Description</th>
+                                    <th className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Type</th>
+                                    <th className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Payment ID</th>
+                                    <th className="text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Amount</th>
+                                    <th className="text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                  {txList.map((tx: any, idx: number) => {
+                                    const isPlan = tx.type === 'plan-change';
+                                    const isTopUp = tx.type === 'top-up';
+                                    const date = new Date(tx.timestamp);
+                                    const payId = tx.razorpay_payment_id || tx.id || '';
+                                    const shortId = payId ? payId.slice(-12).toUpperCase() : `TXN-${String(idx + 1).padStart(4, '0')}`;
+                                    return (
+                                      <tr key={tx.id || idx} className="hover:bg-gray-50 transition-colors">
+                                        {/* Date */}
+                                        <td className="px-5 py-3.5 whitespace-nowrap">
+                                          <p className="text-xs font-medium text-gray-900">{date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                          <p className="text-[11px] text-gray-400">{date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                                        </td>
+                                        {/* Description */}
+                                        <td className="px-5 py-3.5">
+                                          <p className="text-xs font-semibold text-gray-900">{tx.description}</p>
+                                          <p className="text-[11px] text-gray-400">
+                                            {isPlan ? `→ ${String(tx.amount || '').toUpperCase()} Plan` : isTopUp ? `+${tx.amount} Credits added` : `${tx.amount}`}
+                                          </p>
+                                        </td>
+                                        {/* Type Badge */}
+                                        <td className="px-5 py-3.5 whitespace-nowrap">
+                                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                                            isPlan
+                                              ? 'bg-violet-50 text-violet-700 border-violet-200'
+                                              : isTopUp
+                                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                              : 'bg-blue-50 text-blue-700 border-blue-200'
+                                          }`}>
+                                            {isPlan ? 'Plan Upgrade' : isTopUp ? 'Credit Top-up' : 'Credit'}
+                                          </span>
+                                        </td>
+                                        {/* Payment ID */}
+                                        <td className="px-5 py-3.5">
+                                          <span className="font-mono text-[11px] text-gray-400 hover:text-gray-700 transition-colors cursor-default" title={payId}>
+                                            {payId ? shortId : '—'}
+                                          </span>
+                                        </td>
+                                        {/* Amount */}
+                                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                                          <p className="text-sm font-bold text-gray-900">
+                                            {tx.amountPaid ? `₹${Number(tx.amountPaid).toLocaleString('en-IN')}` : '—'}
+                                          </p>
+                                        </td>
+                                        {/* Status */}
+                                        <td className="px-5 py-3.5 text-center">
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
+                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                            Paid
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Table Footer */}
+                          {txList.length > 0 && (
+                            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                              <p className="text-[11px] text-gray-400">Showing {txList.length} of {txList.length} transactions · Amounts in INR</p>
+                              <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                                <svg className="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                Payments verified
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {agencyActiveSection === 'settings' && (
                     <Card className="bg-white border border-gray-200 shadow-md rounded-3xl overflow-hidden">
@@ -6969,71 +7264,23 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </div>
                         </div>
 
-
-
-                        {/* Transaction History Logs */}
-                        <div className="bg-white border border-gray-200 shadow-sm rounded-3xl p-6">
-                          <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1.5">
-                            <ClipboardList className="w-4 h-4 mr-1.5 text-gray-600" /> Credit Transaction History
-                          </h3>
-
-                          {(!userData?.creditHistory || userData.creditHistory.length === 0) ? (
-                            <div className="text-center py-10 text-gray-400 text-xs italic bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                              No transactions recorded.
+                        {/* Link to dedicated Transactions page */}
+                        <div
+                          onClick={() => setAgencyActiveSection('transactions')}
+                          className="flex items-center justify-between bg-slate-50 border border-slate-200 hover:border-orange-300 hover:bg-orange-50 rounded-2xl p-5 cursor-pointer transition-all group"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-orange-100 group-hover:bg-orange-200 rounded-xl flex items-center justify-center transition-colors">
+                              <ClipboardList className="w-5 h-5 text-orange-600" />
                             </div>
-                          ) : (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse text-[10px]">
-                                <thead>
-                                  <tr className="border-b text-gray-400 font-bold uppercase tracking-wider">
-                                    <th className="pb-3 pr-4">Transaction ID</th>
-                                    <th className="pb-3 pr-4">Type</th>
-                                    <th className="pb-3 pr-4">Description</th>
-                                    <th className="pb-3 pr-4 text-right">Amount</th>
-                                    <th className="pb-3 text-right">Date</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                                  {userData.creditHistory.map((tx) => (
-                                    <tr key={tx.id} className="transaction-row">
-                                      <td className="py-3 font-mono text-gray-400">{tx.id}</td>
-                                      <td className="py-3 pr-4">
-                                        <Badge className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${tx.type === 'top-up' ? 'bg-green-50 text-green-700 border-green-200' :
-                                            tx.type === 'plan-change' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                              tx.type === 'reset' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                'bg-red-50 text-red-700 border-red-200'
-                                          }`}>
-                                          {tx.type}
-                                        </Badge>
-                                      </td>
-                                      <td className="py-3 pr-4">{tx.description}</td>
-                                      <td className={`py-3 pr-4 text-right font-extrabold text-xs ${tx.type === 'top-up' ? 'text-green-600' :
-                                          tx.type === 'plan-change' ? 'text-purple-600' :
-                                            tx.type === 'reset' ? 'text-blue-600' :
-                                              'text-red-600'
-                                        }`}>
-                                        {tx.type === 'top-up' && '+'}
-                                        {tx.type === 'deduction' && '-'}
-                                        {tx.amount}
-                                        {userData.plan === 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' cr' : ''}
-                                        {userData.plan !== 'starter' && tx.type !== 'plan-change' && tx.type !== 'reset' ? ' replies' : ''}
-                                        {tx.type === 'plan-change' && ' ₹'}
-                                      </td>
-                                      <td className="py-3 text-right text-gray-400">
-                                        {new Date(tx.timestamp).toLocaleString('en-IN', {
-                                          day: 'numeric',
-                                          month: 'short',
-                                          year: 'numeric',
-                                          hour: '2-digit',
-                                          minute: '2-digit'
-                                        })}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                            <div>
+                              <p className="text-sm font-bold text-gray-900">Payment History</p>
+                              <p className="text-[11px] text-gray-500">{(userData?.creditHistory || []).length} transaction{(userData?.creditHistory || []).length !== 1 ? 's' : ''} · Plan upgrades & credit top-ups</p>
                             </div>
-                          )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-orange-600 group-hover:translate-x-1 transition-transform">
+                            View All →
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

@@ -32,7 +32,7 @@ service cloud.firestore {
 
     // Users collection - users can read/write their own data, admins can read all. Reading basic profiles is allowed for any authenticated user.
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isOwner(userId) || (isAdmin() && request.auth.uid != userId);
       allow create: if request.auth != null && request.auth.uid == userId;
     }
@@ -53,7 +53,8 @@ service cloud.firestore {
                      (request.auth.uid == resource.data.from_user_id ||
                       request.auth.uid == resource.data.to_user_id));
       allow write: if isAuthenticated() &&
-                      request.auth.uid == request.resource.data.from_user_id;
+                      (request.auth.uid == resource.data.from_user_id ||
+                       request.auth.uid == resource.data.to_user_id);
       allow create: if isAuthenticated() &&
                        request.auth.uid == request.resource.data.from_user_id;
     }
@@ -64,7 +65,8 @@ service cloud.firestore {
                      (request.auth.uid == resource.data.sender ||
                       request.auth.uid == resource.data.receiverId));
       allow write: if isAuthenticated() &&
-                      request.auth.uid == request.resource.data.sender;
+                      (request.auth.uid == resource.data.sender ||
+                       request.auth.uid == resource.data.receiverId);
       allow create: if isAuthenticated() &&
                        request.auth.uid == request.resource.data.sender;
     }

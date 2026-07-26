@@ -5,7 +5,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: Request) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, agencyId, targetPlan, isAddon, creditsToBuy } = await req.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, agencyId, targetPlan, isAddon, creditsToBuy, amountPaid } = await req.json();
 
     const secret = process.env.RAZORPAY_KEY_SECRET || '';
 
@@ -54,6 +54,43 @@ export async function POST(req: Request) {
     }
 
     await agencyRef.update(updates);
+
+    // Save transaction record
+    const txRecord: any = {
+      agencyId,
+      razorpay_payment_id,
+      razorpay_order_id,
+      timestamp: Date.now(),
+      status: 'success',
+    };
+
+    if (isAddon) {
+      txRecord.type = 'credit-topup';
+      txRecord.description = `Purchased ${creditsToBuy} Credits`;
+      txRecord.credits = creditsToBuy;
+      txRecord.amountPaid = amountPaid || null;
+    } else {
+      txRecord.type = 'plan-upgrade';
+      txRecord.description = `Upgraded to ${(targetPlan || '').toUpperCase()} Plan`;
+      txRecord.plan = targetPlan;
+      txRecord.amountPaid = amountPaid || null;
+    }
+
+    // Save to top-level transactions collection
+    await db.collection('transactions').add(txRecord);
+
+    // Also push into agency's creditHistory array
+    await agencyRef.update({
+      creditHistory: FieldValue.arrayUnion({
+        id: razorpay_payment_id,
+        type: isAddon ? 'top-up' : 'plan-change',
+        description: txRecord.description,
+        amount: isAddon ? creditsToBuy : targetPlan,
+        amountPaid: amountPaid || null,
+        timestamp: Date.now(),
+        razorpay_payment_id,
+      })
+    });
 
     return NextResponse.json({ success: true, plan: targetPlan });
   } catch (error: any) {
