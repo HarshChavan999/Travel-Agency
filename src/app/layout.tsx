@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins, Inter } from "next/font/google";
+import { Poppins, Inter, Playfair_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ComparisonProvider } from "@/contexts/ComparisonContext";
@@ -14,6 +14,20 @@ const poppins = Poppins({
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+const playfair = Playfair_Display({
+  weight: ['400', '500', '600', '700', '800'],
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  weight: ['300', '400', '500', '600', '700'],
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -32,7 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${poppins.variable} ${inter.variable} font-inter antialiased`}
+        className={`${poppins.variable} ${inter.variable} ${playfair.variable} ${dmSans.variable} font-inter antialiased`}
       >
         <AuthProvider>
           <ComparisonProvider>

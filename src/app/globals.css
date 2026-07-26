@@ -8,6 +8,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-poppins);
+  --font-playfair: var(--font-playfair);
   --color-brand-orange: #FF9900;
   --color-brand-navy: #0D1B2A;
   --color-brand-slate: #334155;

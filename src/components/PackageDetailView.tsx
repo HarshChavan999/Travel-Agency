@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,13 +16,9 @@ import {
   Heart,
   MapPin,
   Calendar,
-
   ChevronRight,
   ChevronLeft,
-  Home,
-
   Camera,
-  Video,
   Check,
   X,
   ChevronDown,
@@ -35,7 +31,15 @@ import {
   ShieldCheck,
   Banknote,
   Plus,
-  Utensils
+  Utensils,
+  Home,
+  Tag,
+  Sunrise,
+  Compass,
+  Hotel,
+  Clock,
+  Globe,
+  Users,
 } from 'lucide-react';
 
 interface PackageDetailViewProps {
@@ -69,13 +73,6 @@ const defaultFAQs = [
     question: "Are meals included in the package?",
     answer: "Meal inclusions vary by package. Please check the Tour Inclusion section for specific meal plan details for this package."
   }
-];
-
-// Sample accommodation data
-const defaultAccommodations = [
-  { city: "Chandigarh", hotels: ["Hotel Mount View", "Taj Chandigarh", "JW Marriott"], nights: 1 },
-  { city: "Manali", hotels: ["Solang Valley Resort", "Manuallaya The Resort & Spa", "The Himalayan"], nights: 2 },
-  { city: "Shimla", hotels: ["Wildflower Hall", "The Oberoi Cecil", "Radisson Hotel Shimla"], nights: 2 }
 ];
 
 // Pure Real Review Data Processor (No Static / Mock Reviews)
@@ -191,44 +188,21 @@ export default function PackageDetailView({
   onWishlist,
   isWishlisted
 }: PackageDetailViewProps) {
-  const [activeImageTab, setActiveImageTab] = useState<'sightseeing' | 'hotel' | 'video'>('sightseeing');
   const [expandedDays, setExpandedDays] = useState<number[]>([]);
   const [expandedFAQs, setExpandedFAQs] = useState<number[]>([]);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
   const [showStickyBar, setShowStickyBar] = useState(false);
-  const observerRef = React.useRef<HTMLDivElement>(null);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // Show sticky bar when the observer (Reviews section wrapper) is in view or scrolled past
-        setShowStickyBar(entry.isIntersecting || entry.boundingClientRect.top < 0);
-      },
-      {
-        threshold: 0,
-        rootMargin: "0px 0px -100px 0px"
-      }
-    );
-
-    if (observerRef.current) {
-      observer.observe(observerRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observer.unobserve(observerRef.current);
-      }
-    };
-  }, []);
+  const observerRef = useRef<HTMLDivElement>(null);
+  const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Review specific states
   const [userDbReviews, setUserDbReviews] = useState<any[]>([]);
   const [showWriteReviewModal, setShowWriteReviewModal] = useState(false);
-  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
   const [newReview, setNewReview] = useState({
     name: '',
     travelledFrom: '',
@@ -239,51 +213,82 @@ export default function PackageDetailView({
   });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
+  // Sticky bar observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowStickyBar(entry.isIntersecting || entry.boundingClientRect.top < 0);
+      },
+      { threshold: 0, rootMargin: "0px 0px -100px 0px" }
+    );
+    if (observerRef.current) observer.observe(observerRef.current);
+    return () => {
+      if (observerRef.current) observer.unobserve(observerRef.current);
+    };
+  }, []);
+
+  // Fetch reviews
   useEffect(() => {
     const fetchPackageReviews = async () => {
       const listingId = listing?.id || listing?.docId;
       if (!listingId) return;
-
       try {
-        // Try server API route first (bypasses client firestore security rules)
         const res = await fetch(`/api/reviews?listingId=${encodeURIComponent(listingId)}`);
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.reviews)) {
-            setUserDbReviews(data.reviews);
-            return;
-          }
+          if (Array.isArray(data.reviews)) { setUserDbReviews(data.reviews); return; }
         }
-
-        // Fallback to client Firestore query if needed
         const db = getDbInstance();
         if (db) {
-          const q = query(
-            collection(db, 'reviews'),
-            where('listingId', '==', listingId)
-          );
+          const q = query(collection(db, 'reviews'), where('listingId', '==', listingId));
           const querySnapshot = await getDocs(q);
           const fetched: any[] = [];
-          querySnapshot.forEach((doc) => {
-            fetched.push({ id: doc.id, ...doc.data() });
-          });
+          querySnapshot.forEach((doc) => { fetched.push({ id: doc.id, ...doc.data() }); });
           setUserDbReviews(fetched);
         }
-      } catch (error) {
-        console.error('Error fetching package reviews:', error);
-      }
+      } catch (error) { console.error('Error fetching package reviews:', error); }
     };
-
     fetchPackageReviews();
   }, [listing?.id, listing?.docId]);
+
+  // Get all images from placesCovered
+  const getAllImages = () => {
+    const images: string[] = [];
+    if (listing.placesCovered && listing.placesCovered.length > 0) {
+      listing.placesCovered.forEach((place: any) => {
+        if (place.imageUrls && place.imageUrls.length > 0) images.push(...place.imageUrls);
+      });
+    }
+    return images;
+  };
+  const allImages = getAllImages();
+
+  // Auto-slide every 4 seconds, infinite loop
+  useEffect(() => {
+    if (allImages.length <= 1) return;
+    autoSlideRef.current = setInterval(() => {
+      setCurrentImageIndex(prev => (prev + 1) % allImages.length);
+    }, 4000);
+    return () => {
+      if (autoSlideRef.current) clearInterval(autoSlideRef.current);
+    };
+  }, [allImages.length]);
+
+  // Preload all listing images on mount
+  useEffect(() => {
+    if (allImages.length > 0) {
+      allImages.forEach(imgUrl => {
+        const optimized = optimizeImageUrl(imgUrl, { width: 1200, quality: 85, format: 'auto', cacheBust: false });
+        preloadImage(optimized).catch(() => {});
+      });
+    }
+  }, [allImages]);
 
   const handleAddReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newReview.comment.trim()) return;
-
     setIsSubmittingReview(true);
     const listingId = listing?.id || listing?.docId || 'default-package';
-
     const reviewData = {
       listingId,
       name: newReview.name.trim() || 'Verified Traveller',
@@ -294,25 +299,18 @@ export default function PackageDetailView({
       photos: newReview.photoUrl.trim() ? [newReview.photoUrl.trim()] : [],
       createdAt: new Date().toISOString()
     };
-
     try {
-      // Try server API endpoint first to bypass client permission restrictions
       const res = await fetch('/api/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reviewData)
       });
-
       if (!res.ok) {
         const db = getDbInstance();
-        if (db) {
-          await addDoc(collection(db, 'reviews'), reviewData);
-        }
+        if (db) await addDoc(collection(db, 'reviews'), reviewData);
       }
-    } catch (error) {
-      console.warn('API review submission fallback:', error);
-    } finally {
-      // Always update UI state immediately
+    } catch (error) { console.warn('API review submission fallback:', error); }
+    finally {
       setUserDbReviews(prev => [reviewData, ...prev]);
       setShowWriteReviewModal(false);
       setNewReview({ name: '', travelledFrom: '', rating: 5, tripType: 'Family', comment: '', photoUrl: '' });
@@ -324,66 +322,27 @@ export default function PackageDetailView({
   };
 
   const reviewsData = getReviewsData(listing, userDbReviews);
-
   const { addToComparison, isInComparison, canAddMore, comparisonList } = useComparison();
 
   const duration = listing.itinerary?.length || listing.duration || 0;
   const nights = duration > 0 ? duration - 1 : 0;
 
   const handleShare = async () => {
-    const shareData = {
-      title: listing.title || 'Travel Package',
-      text: `Check out this amazing travel package: ${listing.title || 'Travel Package'}!`,
-      url: window.location.href,
-    };
-
     try {
       if (navigator.share) {
-        await navigator.share(shareData);
+        await navigator.share({
+          title: listing.title || 'Travel Package',
+          text: `Check out this amazing travel package: ${listing.title || 'Travel Package'}!`,
+          url: window.location.href,
+        });
       } else {
         await navigator.clipboard.writeText(window.location.href);
         setCompareToastMessage('Link copied to clipboard!');
         setShowCompareToast(true);
         setTimeout(() => setShowCompareToast(false), 3000);
       }
-    } catch (err) {
-      console.error('Error sharing:', err);
-    }
+    } catch (err) { console.error('Error sharing:', err); }
   };
-
-  // Get all images from placesCovered
-  const getAllImages = () => {
-    const images: string[] = [];
-    if (listing.placesCovered && listing.placesCovered.length > 0) {
-      listing.placesCovered.forEach((place: any) => {
-        if (place.imageUrls && place.imageUrls.length > 0) {
-          images.push(...place.imageUrls);
-        }
-      });
-    }
-    return images;
-  };
-
-  const allImages = getAllImages();
-  const mainImage = allImages.length > 0 ? allImages[0] : null;
-  const remainingImages = allImages.slice(1, 4); // Get up to 3 more images for side panel
-
-  // Preload all listing images on mount for instant navigation
-  useEffect(() => {
-    if (allImages.length > 0) {
-      allImages.forEach((imgUrl) => {
-        const optimized = optimizeImageUrl(imgUrl, {
-          width: 1200,
-          quality: 85,
-          format: 'auto',
-          cacheBust: false
-        });
-        preloadImage(optimized).catch(() => {
-          // Ignore preload errors
-        });
-      });
-    }
-  }, [allImages]);
 
   // Parse inclusions and exclusions into arrays
   const parseList = (input: any) => {
@@ -396,33 +355,24 @@ export default function PackageDetailView({
   const exclusions = parseList(listing.exclusions);
 
   const toggleDay = (day: number) => {
-    setExpandedDays(prev =>
-      prev.includes(day)
-        ? prev.filter(d => d !== day)
-        : [...prev, day]
-    );
+    setExpandedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   };
 
   const toggleFAQ = (index: number) => {
-    setExpandedFAQs(prev =>
-      prev.includes(index)
-        ? prev.filter(i => i !== index)
-        : [...prev, index]
-    );
+    setExpandedFAQs(prev => prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]);
   };
 
-  // Get unique places to display based on itinerary fallback
+  // Get unique places to display
   const getDisplayPlaces = () => {
     const covered = listing.placesCovered?.map((p: any) => p.name?.trim()).filter(Boolean) || [];
     if (covered.length > 0) return covered;
-    // Fallback to itinerary place names
     const itineraryPlaces = listing.itinerary?.map((d: any) => d.placeName?.trim()).filter(Boolean) || [];
     return Array.from(new Set(itineraryPlaces));
   };
 
   // Generate breadcrumb
   const getBreadcrumb = () => {
-    const parts = ['Home'];
+    const parts: string[] = ['Home'];
     if (listing.packageType === 'domestic') {
       parts.push('Domestic');
       if (listing.stateName) parts.push(listing.stateName);
@@ -435,873 +385,905 @@ export default function PackageDetailView({
   };
 
   const breadcrumb = getBreadcrumb();
-
-  // Generate package code
   const packageCode = `PKG${listing.id?.slice(-4).toUpperCase() || '0000'}`;
 
   // Gather all tags for the badge row
   const tags: string[] = [];
-
-  // Categories
   if (Array.isArray(listing.tourCategories) && listing.tourCategories.length > 0) {
     listing.tourCategories.forEach((c: string) => tags.push(`${c} Tour`));
   } else {
     tags.push('Family Tour');
   }
-
-  // Experience Types
   if (Array.isArray(listing.experienceType)) {
     tags.push(...listing.experienceType);
   } else if (typeof listing.experienceType === 'string' && listing.experienceType) {
     tags.push(listing.experienceType);
   }
-
-  // Season
   if (listing.season) {
     tags.push(listing.season === 'all-seasons' ? 'All Seasons' : `${listing.season} Season`);
   }
 
+  const currencySymbol = listing.packageType === 'international' ? '$' : '₹';
+
+  // Round price to remove .99 decimals (same logic as ListingCard)
+  const rawCost = listing.cost || listing.price;
+  const displayPrice = rawCost
+    ? (!isNaN(Number(rawCost)) ? Math.round(Number(rawCost)).toString() : String(rawCost))
+    : null;
+
+  // Compact info items for sidebar (all 7 required fields)
+  const infoItems = [
+    {
+      icon: Tag,
+      label: 'Tour Category',
+      value: Array.isArray(listing.tourCategories) && listing.tourCategories.length > 0
+        ? listing.tourCategories.join(', ')
+        : 'General'
+    },
+    {
+      icon: Sunrise,
+      label: 'Seasonal',
+      value: listing.season
+        ? (listing.season === 'all-seasons' ? 'All Seasons' : listing.season.charAt(0).toUpperCase() + listing.season.slice(1))
+        : 'All Year'
+    },
+    {
+      icon: Compass,
+      label: 'Escapes',
+      value: Array.isArray(listing.escapes) && listing.escapes.length > 0
+        ? listing.escapes.join(', ')
+        : (listing.escape || listing.escapeType || 'Adventure')
+    },
+    {
+      icon: Utensils,
+      label: 'Meal Plan',
+      value: getFormattedMealPlan(listing.mealPlan)
+    },
+    {
+      icon: Clock,
+      label: 'Duration',
+      value: `${duration}D / ${nights}N`
+    },
+    {
+      icon: MapPin,
+      label: 'City',
+      value: getDisplayPlaces().slice(0, 3).join(', ') || 'N/A'
+    },
+    {
+      icon: Hotel,
+      label: 'Hotel Type',
+      value: getFormattedHotelTypes(listing.hotelTypes)
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Breadcrumb */}
-          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
-            {breadcrumb.map((part, index) => (
-              <React.Fragment key={index}>
-                <span className={index === breadcrumb.length - 1 ? 'text-gray-900 font-medium' : 'hover:text-gray-700 cursor-pointer'}>
-                  {part}
-                </span>
-                {index < breadcrumb.length - 1 && (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </React.Fragment>
+    <div className="min-h-screen" style={{ background: '#ffffff', fontFamily: "var(--font-inter, 'Inter', sans-serif)" }}>
+
+      {/* ─── HERO IMAGE SECTION ─────────────────────────────────── */}
+      <div className="relative w-full" style={{ height: '480px' }}>
+        {allImages.length > 0 ? (
+          <div className="absolute inset-0 overflow-hidden">
+            {allImages.map((img, idx) => (
+              <img
+                key={idx}
+                src={optimizeImageUrl(img, { width: 1400, quality: 90, format: 'auto', cacheBust: false })}
+                alt={`${listing.title} photo ${idx + 1}`}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                style={{ opacity: idx === currentImageIndex ? 1 : 0, zIndex: idx === currentImageIndex ? 1 : 0 }}
+                loading={idx === 0 ? 'eager' : 'lazy'}
+              />
             ))}
-          </nav>
+            {/* Dark gradient overlay */}
+            <div
+              className="absolute inset-0 z-10"
+              style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.65) 100%)' }}
+            />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-stone-800 flex items-center justify-center">
+            <Camera className="h-20 w-20 text-stone-500" />
+          </div>
+        )}
 
-          {/* Title and Actions Row */}
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {listing.title || 'Travel Package'}
-              </h1>
+        {/* Hero content overlay */}
+        <div className="relative z-20 h-full flex flex-col justify-between px-6 py-5 max-w-7xl mx-auto">
+          {/* Top row: breadcrumb + action buttons */}
+          <div className="flex items-center justify-between">
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-1.5 text-xs text-white/80">
+              <button onClick={onBack} className="hover:text-white transition-colors flex items-center gap-1">
+                <Home className="h-3.5 w-3.5" /> Home
+              </button>
+              {breadcrumb.slice(1).map((part, i) => (
+                <React.Fragment key={i}>
+                  <ChevronRight className="h-3 w-3 text-white/50" />
+                  <span className={i === breadcrumb.length - 2 ? 'text-white font-medium' : 'hover:text-white cursor-pointer transition-colors'}>{part}</span>
+                </React.Fragment>
+              ))}
+            </nav>
 
-              {/* Tags Row */}
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                {tags.map((tag: string, index: number) => (
-                  <Badge
-                    key={index}
-                    className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200 rounded capitalize"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-
-                <div className="flex items-center gap-1 text-yellow-500">
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
-                  <Star className="h-4 w-4 fill-current" />
-                  <span className="text-sm text-gray-600 ml-1">Google Rating</span>
-                </div>
-              </div>
-
-              {/* Location tags */}
-              <div className="flex flex-wrap gap-2 text-sm text-gray-600">
-                {getDisplayPlaces().map((name: string, index: number, arr: string[]) => (
-                  <span key={index} className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {name}
-                    {index < arr.length - 1 && <span className="mx-1">|</span>}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col items-end gap-3">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 font-semibold hover:bg-gray-100 rounded group transition-all"
-                  onClick={onBack}
-                >
-                  <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                  Back
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 rounded"
-                  onClick={handleShare}
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`flex items-center gap-2 rounded ${isInComparison(listing.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : ''}`}
-                  onClick={() => {
-                    if (isInComparison(listing.id)) {
-                      setCompareToastMessage('This package is already in your comparison list!');
-                      setShowCompareToast(true);
-                      setTimeout(() => setShowCompareToast(false), 3000);
-                    } else if (!canAddMore) {
-                      setCompareToastMessage('You can only compare up to 3 packages. Remove one to add this.');
-                      setShowCompareToast(true);
-                      setTimeout(() => setShowCompareToast(false), 3000);
-                    } else {
-                      const success = addToComparison({
-                        id: listing.id,
-                        title: listing.title,
-                        description: listing.description,
-                        cost: listing.cost,
-                        price: listing.price,
-                        packageType: listing.packageType,
-                        stateName: listing.stateName,
-                        countryName: listing.countryName,
-                        duration: listing.duration,
-                        itinerary: listing.itinerary,
-                        placesCovered: listing.placesCovered,
-                        hotelTypes: listing.hotelTypes,
-                        inclusions: listing.inclusions,
-                        exclusions: listing.exclusions,
-                        agencyName: listing.agencyName,
-                        agencyId: listing.agencyId,
-                        agencyData: listing.agencyData,
-                        photos: listing.photos,
-                        rating: listing.rating,
-                        reviewsCount: listing.reviewsCount,
-                        tourCategories: listing.tourCategories,
-                      });
-                      if (success) {
-                        setCompareToastMessage(`Added to comparison! (${comparisonList.length + 1}/3 packages)`);
-                        setShowCompareToast(true);
-                        setTimeout(() => setShowCompareToast(false), 3000);
-                      }
-                    }
-                  }}
-                >
-                  {isInComparison(listing.id) ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Added
-                    </>
-                  ) : (
-                    <>
-                      <Scale className="h-4 w-4" />
-                      Compare
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`flex items-center gap-2 rounded ${isWishlisted ? 'text-red-500 border-red-200 bg-red-50' : ''}`}
-                  onClick={() => onWishlist?.(listing.id)}
-                >
-                  <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
-                  Wishlist
-                </Button>
-              </div>
-
-              {/* <Button 
-                className="bg-gray-500 hover:bg-gray-600 text-white px-8"
-                onClick={() => onBook(listing)}
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onBack}
+                className="flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
               >
-                View Price for My Tour
-              </Button> */}
+                <ArrowLeft className="h-3.5 w-3.5" /> Back
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
+              >
+                <Share2 className="h-3.5 w-3.5" /> Share
+              </button>
+              <button
+                onClick={() => onWishlist?.(listing.id)}
+                className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isWishlisted ? 'bg-red-500/80 text-white border-red-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
+              >
+                <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
+                {isWishlisted ? 'Saved' : 'Save'}
+              </button>
+              <button
+                onClick={() => {
+                  if (isInComparison(listing.id)) {
+                    setCompareToastMessage('This package is already in your comparison list!');
+                    setShowCompareToast(true);
+                    setTimeout(() => setShowCompareToast(false), 3000);
+                  } else if (!canAddMore) {
+                    setCompareToastMessage('You can only compare up to 3 packages. Remove one to add this.');
+                    setShowCompareToast(true);
+                    setTimeout(() => setShowCompareToast(false), 3000);
+                  } else {
+                    const success = addToComparison({
+                      id: listing.id,
+                      title: listing.title,
+                      description: listing.description,
+                      cost: listing.cost,
+                      price: listing.price,
+                      packageType: listing.packageType,
+                      stateName: listing.stateName,
+                      countryName: listing.countryName,
+                      duration: listing.duration,
+                      itinerary: listing.itinerary,
+                      placesCovered: listing.placesCovered,
+                      hotelTypes: listing.hotelTypes,
+                      inclusions: listing.inclusions,
+                      exclusions: listing.exclusions,
+                      agencyName: listing.agencyName,
+                      agencyId: listing.agencyId,
+                      agencyData: listing.agencyData,
+                      photos: listing.photos,
+                      rating: listing.rating,
+                      reviewsCount: listing.reviewsCount,
+                      tourCategories: listing.tourCategories,
+                    });
+                    if (success) {
+                      setCompareToastMessage(`Added to comparison! (${comparisonList.length + 1}/3 packages)`);
+                      setShowCompareToast(true);
+                      setTimeout(() => setShowCompareToast(false), 3000);
+                    }
+                  }
+                }}
+                className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isInComparison(listing.id) ? 'bg-blue-500/80 text-white border-blue-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
+              >
+                <Scale className="h-3.5 w-3.5" />
+                {isInComparison(listing.id) ? 'Comparing' : 'Compare'}
+              </button>
             </div>
           </div>
+
+          {/* Bottom: title, tags, image indicators */}
+          <div>
+            {/* Category badges */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {tags.map((tag, i) => (
+                <span
+                  key={i}
+                  className="text-[11px] font-semibold uppercase tracking-wider text-white bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1 rounded-full"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            {/* Package Title */}
+            <h1
+              className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight"
+              style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+            >
+              {listing.title || 'Travel Package'}
+            </h1>
+
+            {/* Places, duration, rating row */}
+            <div className="flex items-center flex-wrap gap-3 text-white/90 text-sm mb-4">
+              <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
+                <MapPin className="h-3.5 w-3.5" />
+                {getDisplayPlaces().slice(0, 4).join(' · ') || 'Multiple Destinations'}
+              </span>
+              <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
+                <Clock className="h-3.5 w-3.5" />
+                {duration}D / {nights}N
+              </span>
+              {reviewsData.totalReviewsCount > 0 && (
+                <span className="flex items-center gap-1.5 text-xs bg-amber-500/80 backdrop-blur-sm px-3 py-1 rounded-full border border-amber-400/50">
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                  {reviewsData.avgRating.toFixed(1)} · {reviewsData.totalReviewsCount} reviews
+                </span>
+              )}
+            </div>
+
+            {/* Image dot indicators */}
+            {allImages.length > 1 && (
+              <div className="flex items-center gap-2">
+                {allImages.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={`transition-all duration-300 rounded-full ${idx === currentImageIndex ? 'w-6 h-2 bg-white' : 'w-2 h-2 bg-white/50 hover:bg-white/75'}`}
+                  />
+                ))}
+                <span className="text-white/60 text-xs ml-2">{currentImageIndex + 1} / {allImages.length}</span>
+                <button
+                  onClick={() => setShowAllPhotos(true)}
+                  className="ml-auto flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
+                >
+                  <Camera className="h-3.5 w-3.5" /> View All ({allImages.length})
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Prev/Next arrows on hero */}
+        {allImages.length > 1 && (
+          <>
+            <button
+              onClick={() => setCurrentImageIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1)}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full p-2.5 transition-all border border-white/30 hover:scale-110 cursor-pointer"
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setCurrentImageIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full p-2.5 transition-all border border-white/30 hover:scale-110 cursor-pointer"
+              aria-label="Next image"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Main Content */}
+      {/* ─── MAIN CONTENT ────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Photo Gallery Section - Thrillophilia Style */}
-        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-2 mb-8 h-[300px] sm:h-[400px] lg:h-[460px]">
-          {/* Main Photo */}
-          <div className="lg:col-span-8 h-full relative group rounded lg:rounded overflow-hidden">
-            {allImages.length > 0 ? (
-              <div className="relative w-full h-full overflow-hidden">
-                <div
-                  className="flex w-full h-full transition-transform duration-300 ease-out"
-                  style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
-                >
-                  {allImages.map((imgUrl, idx) => (
-                    <div
-                      key={idx}
-                      className="w-full h-full shrink-0 relative cursor-pointer overflow-hidden"
-                      onClick={() => setShowAllPhotos(true)}
-                    >
-                      <img
-                        src={optimizeImageUrl(imgUrl, { width: 1200, quality: 85, format: 'auto', cacheBust: false })}
-                        alt={`${listing.title} photo ${idx + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                        loading={idx === 0 ? "eager" : "lazy"}
-                        decoding="async"
-                      />
-                    </div>
-                  ))}
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                {/* Navigation Arrows */}
-                {allImages.length > 1 && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
-                      }}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
-                      aria-label="Previous image"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
+          {/* ── LEFT / MAIN COLUMN ───────────────────────────────── */}
+          <div className="lg:col-span-2 space-y-7">
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
-                      }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded p-2 shadow-md hover:shadow-lg transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
-                      aria-label="Next image"
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </button>
-                  </>
-                )}
-
-                {/* Dot Indicators for Mobile */}
-                {allImages.length > 1 && (
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex lg:hidden gap-1.5 bg-black/30 backdrop-blur-[2px] px-2.5 py-1.5 rounded opacity-100 transition-all duration-200 z-20">
-                    {allImages.map((_, idx) => (
-                      <span
-                        key={idx}
-                        className={`h-1.5 rounded transition-all duration-200 ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
-                          }`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200 cursor-pointer rounded" onClick={() => setShowAllPhotos(true)}>
-                <Camera className="h-16 w-16 text-gray-400" />
-                <span className="ml-2 text-gray-500">No photos available</span>
+            {/* Description */}
+            {listing.description && (
+              <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6 md:p-8">
+                <p className="text-gray-700 leading-relaxed text-base">
+                  {listing.description}
+                </p>
               </div>
             )}
 
-            {/* Desktop View All Button overlay on Main Image if side photos aren't shown, 
-                or just keep mobile view all button */}
-            <div className="lg:hidden absolute bottom-14 right-4 z-20">
-              <Button onClick={(e) => { e.stopPropagation(); setShowAllPhotos(true); }} className="bg-white/90 text-black hover:bg-white flex items-center gap-2 shadow-md rounded h-9 text-xs">
-                <Camera className="h-4 w-4" />
-                All
-              </Button>
+            {/* ── ITINERARY ── magazine editorial layout */}
+            <div>
+              <div className="py-6 border-b border-stone-100 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: '#b84814' }}>
+                  <Calendar className="h-4 w-4 text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>Itinerary</h2>
+              </div>
+
+              {listing.itinerary && listing.itinerary.length > 0 ? (
+                <div className="divide-y divide-stone-100">
+                  {listing.itinerary.map((day: any, index: number) => {
+                    // Convert number to ordinal word (one, two, three…)
+                    const dayWords = ['ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN',
+                      'ELEVEN','TWELVE','THIRTEEN','FOURTEEN','FIFTEEN','SIXTEEN','SEVENTEEN','EIGHTEEN','NINETEEN','TWENTY'];
+                    const dayLabel = dayWords[(day.day || index + 1) - 1] || `${day.day || index + 1}`;
+
+                    // Find the image for this day from placesCovered matching placeName, or day.imageUrl
+                    let dayImage: string | null = day.imageUrl || null;
+                    if (!dayImage && listing.placesCovered) {
+                      const matchedPlace = listing.placesCovered.find(
+                        (p: any) => p.name?.trim().toLowerCase() === (day.placeName || '').trim().toLowerCase()
+                      );
+                      if (matchedPlace?.imageUrls?.length > 0) {
+                        dayImage = matchedPlace.imageUrls[0];
+                      }
+                    }
+                    // Fallback: cycle through allImages
+                    if (!dayImage && allImages.length > 0) {
+                      dayImage = allImages[index % allImages.length];
+                    }
+
+                    return (
+                      <div key={day.id || index} className="py-8">
+                        {/* Day label with dot */}
+                        <div className="flex items-center gap-2.5 mb-3">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ background: '#b84814' }}
+                          />
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                            style={{ color: '#b84814' }}
+                          >
+                            Day {dayLabel}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3
+                          className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight mb-5"
+                          style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}
+                        >
+                          {day.placeName || `Day ${day.day} Activities`}
+                        </h3>
+
+                        {/* 2-column: text left, image right */}
+                        <div className={`flex gap-6 ${dayImage ? 'flex-col md:flex-row' : ''}`}>
+                          {/* Description */}
+                          <div className={dayImage ? 'md:flex-1 md:max-w-[55%]' : 'w-full'}>
+                            <p className="text-gray-600 leading-relaxed text-[15px]">
+                              {day.description || 'Detailed itinerary for this day will be shared upon booking confirmation.'}
+                            </p>
+                          </div>
+
+                          {/* Image */}
+                          {dayImage && (
+                            <div className="md:w-[42%] shrink-0">
+                              <div className="rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                                <img
+                                  src={optimizeImageUrl(dayImage, { width: 600, quality: 85, format: 'auto', cacheBust: false })}
+                                  alt={day.placeName || `Day ${day.day}`}
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                                  loading="lazy"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Italic tip/note — shown when day has a tip/note field, otherwise a gentle quote */}
+                        {(day.tip || day.note || day.highlight) && (
+                          <div className="mt-5 pl-5 border-l-2 border-stone-200">
+                            <p className="text-sm text-stone-400 italic leading-relaxed">
+                              "{day.tip || day.note || day.highlight}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-10 text-center text-gray-400">
+                  <Calendar className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                  <p className="text-sm">Detailed itinerary will be available soon.</p>
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Side Photo Grid (Desktop Only) */}
-          <div className="lg:col-span-4 h-full hidden lg:grid grid-cols-2 grid-rows-2 gap-2">
-            {[1, 2, 3, 4].map((idx) => {
-              const imgIndex = idx;
-              const hasImage = imgIndex < allImages.length;
-              const image = hasImage ? allImages[imgIndex] : null;
-
-              return (
-                <div
-                  key={idx}
-                  className={`relative overflow-hidden group cursor-pointer bg-gray-100 ${idx === 2 ? 'rounded' : ''} ${idx === 4 ? 'rounded' : ''}`}
-                  onClick={() => setShowAllPhotos(true)}
-                >
-                  {hasImage && image ? (
-                    <img
-                      src={optimizeImageUrl(image, { width: 600, quality: 85, format: 'auto' })}
-                      alt={`${listing.title} ${idx + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 rounded"
-                      loading="lazy"
-                    />
+            {/* ── INCLUSIONS & EXCLUSIONS ── */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+              <div className="px-6 py-5 border-b border-stone-100 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>Inclusions & Exclusions</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-stone-100">
+                {/* Inclusions */}
+                <div className="p-6">
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-emerald-700 mb-4 uppercase tracking-wide">
+                    <CheckCircle2 className="h-4 w-4" /> What's Included
+                  </h3>
+                  {inclusions.length > 0 ? (
+                    <ul className="space-y-3">
+                      {inclusions.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="h-3 w-3 text-emerald-600" strokeWidth={2.5} />
+                          </div>
+                          <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
-                    <div className="w-full h-full bg-gray-100 rounded"></div>
+                    <p className="text-sm text-stone-400 italic">Inclusions will be listed here.</p>
                   )}
                 </div>
-              );
-            })}
-          </div>
+                {/* Exclusions */}
+                <div className="p-6">
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-red-600 mb-4 uppercase tracking-wide">
+                    <X className="h-4 w-4" strokeWidth={2.5} /> Not Included
+                  </h3>
+                  {exclusions.length > 0 ? (
+                    <ul className="space-y-3">
+                      {exclusions.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <X className="h-3 w-3 text-red-500" strokeWidth={2.5} />
+                          </div>
+                          <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-stone-400 italic">Exclusions will be listed here.</p>
+                  )}
+                </div>
+              </div>
+            </div>
 
-          {/* Desktop View All Button (Floating at bottom right) */}
-          <div className="hidden lg:block absolute bottom-4 right-4 z-10">
-            <Button onClick={() => setShowAllPhotos(true)} className="bg-white text-black hover:bg-gray-100 flex items-center gap-2 shadow-md rounded font-semibold px-4 py-2 border border-gray-200">
-              <Camera className="h-4 w-4" />
-              View All Images
-            </Button>
-          </div>
-        </div>
-
-        {/* Package Summary Bar */}
-        <div className="mb-8 grid grid-cols-2 md:grid-cols-5 gap-0 border border-gray-200 rounded overflow-hidden">
-          
-          {/* Duration */}
-          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
-            <p className="text-xs text-gray-500 mb-1">Duration</p>
-            <p className="font-semibold text-gray-900 text-sm">{duration}D / {nights}N</p>
-          </div>
-
-          {/* Places */}
-          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
-            <p className="text-xs text-gray-500 mb-1">Places</p>
-            <p className="font-semibold text-gray-900 text-sm">
-              {getDisplayPlaces().length > 0 ? getDisplayPlaces().join(', ') : 'N/A'}
-            </p>
-          </div>
-
-          {/* Hotel Type */}
-          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
-            <p className="text-xs text-gray-500 mb-1">Hotel Type</p>
-            <p className="font-semibold text-gray-900 text-sm capitalize">
-              {getFormattedHotelTypes(listing.hotelTypes)}
-            </p>
-          </div>
-
-          {/* Meal Plan */}
-          <div className="p-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
-            <p className="text-xs text-gray-500 mb-1">Meal Plan</p>
-            <p className="font-semibold text-gray-900 text-sm capitalize">
-              {getFormattedMealPlan(listing.mealPlan)}
-            </p>
-          </div>
-
-          {/* Starting From */}
-          <div className="p-4 bg-white">
-            <p className="text-xs text-gray-500 mb-1">Starting From</p>
-            <p className="font-semibold text-orange-600 text-base">
-              {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
-            </p>
-          </div>
-
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Content (Tabbed) */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Itinerary Box */}
-            <Card className="rounded border-gray-200 shadow-sm">
-              <CardContent className="p-4 sm:p-6 bg-white">
-                <h3 className="font-bold text-gray-900 mb-6 text-lg flex items-center gap-2 border-b border-gray-100 pb-4">
-                  <Calendar className="h-6 w-6 text-orange-600" /> Itinerary
-                </h3>
-                <div>
-                    {listing.itinerary && listing.itinerary.length > 0 ? (
-                      <div className="space-y-3">
-                        {listing.itinerary.map((day: any, index: number) => (
-                          <div key={day.id || index} className="bg-white border border-gray-200 rounded shadow-none overflow-hidden transition-all hover:border-gray-300">
-                            <button
-                              className="w-full flex items-center justify-between text-left px-4 py-3 sm:px-5 sm:py-3.5 bg-white rounded cursor-pointer"
-                              onClick={() => toggleDay(day.day)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="bg-[#b84814] text-white px-3 py-1 rounded text-xs font-bold tracking-wider shrink-0 shadow-none">
-                                  DAY {day.day}
-                                </div>
-                                <h3 className="text-base font-semibold text-gray-900 leading-tight">
-                                  {day.placeName || `Day ${day.day} Activities`}
-                                </h3>
-                              </div>
-                              {expandedDays.includes(day.day) ? (
-                                <ChevronUp className="h-5 w-5 text-gray-650 shrink-0 ml-4" strokeWidth={2.5} />
-                              ) : (
-                                <ChevronDown className="h-5 w-5 text-gray-655 shrink-0 ml-4" strokeWidth={2.5} />
-                              )}
-                            </button>
-
-                            {expandedDays.includes(day.day) && (
-                              <div className="px-5 pb-5 pt-2 border-t border-gray-100 bg-gray-50/30">
-                                <p className="text-gray-700 leading-relaxed sm:ml-[88px] text-sm">
-                                  {day.description || 'Detailed itinerary for this day will be shared upon booking confirmation.'}
-                                </p>
-                              </div>
+            {/* ── IMAGE GALLERY STRIP (auto-slide) ── */}
+            {allImages.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center">
+                      <Camera className="h-4 w-4 text-stone-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>Moments of Adventure</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowAllPhotos(true)}
+                    className="text-xs font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2 transition-colors"
+                  >
+                    View All ({allImages.length})
+                  </button>
+                </div>
+                <div className="p-4">
+                  {/* Grid gallery that follows auto-slide */}
+                  <div className="grid grid-cols-3 gap-2" style={{ height: '280px' }}>
+                    {/* Large featured image */}
+                    <div
+                      className="col-span-2 relative rounded-lg overflow-hidden cursor-pointer group"
+                      onClick={() => setShowAllPhotos(true)}
+                    >
+                      <img
+                        src={optimizeImageUrl(allImages[currentImageIndex % allImages.length], { width: 800, quality: 85, format: 'auto' })}
+                        alt="Featured"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                    </div>
+                    {/* Two smaller side images */}
+                    <div className="grid grid-rows-2 gap-2">
+                      {[1, 2].map(offset => {
+                        const idx = (currentImageIndex + offset) % allImages.length;
+                        return (
+                          <div
+                            key={offset}
+                            className="relative rounded-lg overflow-hidden cursor-pointer group"
+                            onClick={() => setShowAllPhotos(true)}
+                          >
+                            {allImages[idx] && (
+                              <>
+                                <img
+                                  src={optimizeImageUrl(allImages[idx], { width: 400, quality: 80, format: 'auto' })}
+                                  alt={`Gallery ${offset}`}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                />
+                                {offset === 2 && allImages.length > 3 && (
+                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <span className="text-white font-bold text-sm">+{allImages.length - 3} more</span>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-8 text-center text-gray-500">
-                        <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                        <p>Detailed itinerary will be available soon.</p>
-                      </div>
-                    )}
-                  </div>
-              </CardContent>
-            </Card>
-
-            {/* Inclusions & Exclusions Box */}
-            <Card className="rounded border-gray-200 shadow-sm mt-6">
-              <CardContent className="p-4 sm:p-6 bg-white">
-                <h3 className="font-bold text-gray-900 mb-6 text-lg flex items-center gap-2 border-b border-gray-100 pb-4">
-                  <ShieldCheck className="h-6 w-6 text-orange-600" /> Inclusions & Exclusions
-                </h3>
-                <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-200">
-                    {/* Inclusions */}
-                    <div className="flex-1 pb-6 md:pb-0 md:pr-6">
-                      <h3 className="font-bold text-gray-900 mb-4 text-base flex items-center gap-2 border-b border-gray-100 pb-2">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-500" /> Inclusions
-                      </h3>
-                      {inclusions.length > 0 ? (
-                        <ul className="space-y-3">
-                          {inclusions.map((item: string, index: number) => (
-                            <li key={index} className="flex items-start gap-3">
-                              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                              </div>
-                              <span className="text-sm text-gray-600 leading-relaxed">{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500">Inclusions will be listed here.</p>
-                      )}
-                    </div>
-                    {/* Exclusions */}
-                    <div className="flex-1 pt-6 md:pt-0 md:pl-6">
-                      <h3 className="font-bold text-gray-900 mb-4 text-base flex items-center gap-2 border-b border-gray-100 pb-2">
-                        <X className="h-5 w-5 text-red-500" strokeWidth={3} /> Exclusions
-                      </h3>
-                      {exclusions.length > 0 ? (
-                        <ul className="space-y-3">
-                          {exclusions.map((item: string, index: number) => (
-                            <li key={index} className="flex items-start gap-3">
-                              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <X className="h-4 w-4 text-red-500" strokeWidth={3} />
-                              </div>
-                              <span className="text-sm text-gray-600 leading-relaxed">{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500">Exclusions will be listed here.</p>
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
-              </CardContent>
-            </Card>
+                  {/* Dot navigation */}
+                  {allImages.length > 1 && (
+                    <div className="flex justify-center gap-1.5 mt-3">
+                      {allImages.slice(0, Math.min(allImages.length, 10)).map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentImageIndex(idx)}
+                          className={`rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-5 h-2 bg-orange-500' : 'w-2 h-2 bg-stone-300 hover:bg-stone-400'}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Right Column - Sidebar */}
-          <div className="lg:col-span-1 flex flex-col gap-4">
-            <div className="sticky top-4 space-y-4">
-              {/* Agency Info */}
-              <Card className="rounded border-gray-200 shadow-sm">
-                <CardContent className="p-5">
-                  <h3 className="font-bold text-gray-900 text-base mb-3 border-b border-gray-100 pb-2">Offered By</h3>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-orange-100 rounded flex items-center justify-center border border-orange-200 shrink-0 overflow-hidden">
-                      {(listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl) ? (
-                        <img 
-                          src={listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl} 
-                          alt={listing.agencyName || 'Agency Logo'} 
-                          className="w-full h-full object-cover" 
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <Building2 className="h-6 w-6 text-orange-600" />
-                      )}
+          {/* ── RIGHT SIDEBAR ────────────────────────────────────── */}
+          <div className="lg:col-span-1" style={{ fontFamily: "var(--font-dm-sans, 'DM Sans', 'Inter', sans-serif)" }}>
+            <div className="sticky top-4 space-y-0">
+
+              {/* ── Price block — floats on page, no card ── */}
+              <div className="pb-5 border-b border-stone-200">
+                <p
+                  className="text-[10px] uppercase tracking-[0.18em] text-stone-400 mb-1"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  Starting From
+                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className="text-4xl font-bold text-gray-900 leading-none"
+                    style={{ fontFamily: "'DM Sans', sans-serif", letterSpacing: '-0.02em' }}
+                  >
+                    {currencySymbol}{displayPrice || '—'}
+                  </span>
+                  <span className="text-sm text-stone-400 font-normal">/ person</span>
+                </div>
+              </div>
+
+              {/* ── Info rows — clean label/value list, no box ── */}
+              <div className="py-2 border-b border-stone-200 space-y-0">
+                {infoItems.map(({ icon: Icon, label, value }) => (
+                  <div key={label} className="flex items-center gap-3 py-3 border-b border-stone-100 last:border-0">
+                    <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                      <Icon className="h-3.5 w-3.5 text-orange-500" />
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900">{listing.agencyName || 'Travel Agency'}</p>
-                      {listing.agencyData?.verified && (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1 rounded mt-1">
-                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                          Verified
-                        </Badge>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-[9px] uppercase tracking-[0.15em] text-stone-400 leading-none mb-0.5"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        {label}
+                      </p>
+                      <p
+                        className="text-[13px] font-semibold text-gray-800 capitalize leading-snug"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        title={value}
+                      >
+                        {value}
+                      </p>
                     </div>
                   </div>
-                  <Button
-                    className="w-full bg-orange-600 hover:bg-orange-750 text-white shadow-none rounded cursor-pointer h-10 font-semibold"
-                    onClick={() => {
-                      console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
-                      onChat(listing);
-                    }}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Chat with Agency
-                  </Button>
-                </CardContent>
-              </Card>
+                ))}
+              </div>
+
+              {/* ── Agency — no card, just open block ── */}
+              <div className="py-5 border-b border-stone-200">
+                <p
+                  className="text-[9px] uppercase tracking-[0.18em] text-stone-400 mb-4"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  Offered By
+                </p>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full border border-stone-200 overflow-hidden shrink-0 bg-orange-50 flex items-center justify-center">
+                    {(listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl) ? (
+                      <img
+                        src={listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl}
+                        alt={listing.agencyName || 'Agency Logo'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <Building2 className="h-6 w-6 text-orange-400" />
+                    )}
+                  </div>
+                  <div>
+                    <p
+                      className="font-bold text-gray-900 text-[15px] leading-tight"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      {listing.agencyName || 'Travel Agency'}
+                    </p>
+                    {listing.agencyData?.verified && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full mt-1">
+                        <ShieldCheck className="h-3 w-3" /> Verified Agency
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
+                    onChat(listing);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 text-white font-semibold rounded-lg py-3 text-sm transition-all hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)', fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Chat with Agency
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* --- Full Width Reviews & FAQ --- */}
-        <div ref={observerRef} className="mt-12 space-y-8">
+        {/* ── FULL WIDTH REVIEWS & FAQ ── */}
+        <div ref={observerRef} className="mt-10 space-y-6">
 
-            {/* Reviews Section (Permanently Displayed Below Tab Card) */}
-            <Card className="rounded border-gray-200 shadow-sm mt-6">
-              <CardContent className="p-6 bg-white">
-                <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Guest Reviews ({reviewsData.totalReviewsCount})
-                  </h3>
-                  <Button
-                    onClick={() => setShowWriteReviewModal(true)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white font-semibold flex items-center gap-2 rounded shadow-none cursor-pointer h-9 text-sm"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Write a Review
-                  </Button>
+          {/* Reviews Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                  <Star className="h-4 w-4 text-amber-500 fill-current" />
                 </div>
+                <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>
+                  Guest Reviews <span className="text-stone-400 text-base font-normal">({reviewsData.totalReviewsCount})</span>
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowWriteReviewModal(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2 rounded-lg cursor-pointer transition-all hover:opacity-90"
+                style={{ background: '#b84814' }}
+              >
+                <Plus className="h-4 w-4" /> Write a Review
+              </button>
+            </div>
 
-                {/* Reviews Overview */}
-                <div className="flex flex-col md:flex-row gap-8 mb-10 p-6 bg-gray-50/50 border border-gray-200 rounded">
-                  {/* Overall Rating */}
-                  <div className="flex flex-col items-center justify-center shrink-0 px-4">
-                    {reviewsData.totalReviewsCount > 0 ? (
-                      <>
-                        <div className="flex text-amber-500 mb-2">
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <Star key={star} className={`h-6 w-6 ${reviewsData.avgRating >= star ? 'fill-current' : 'text-gray-300'}`} />
-                          ))}
-                        </div>
-                        <div className="text-5xl font-bold text-gray-900 mb-1">
-                          {reviewsData.avgRating.toFixed(1)}
-                        </div>
-                        <div className="text-xs text-gray-500 font-medium">
-                          Based on {reviewsData.totalReviewsCount} review{reviewsData.totalReviewsCount > 1 ? 's' : ''}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex text-gray-300 mb-2">
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <Star key={star} className="h-6 w-6 text-gray-300" />
-                          ))}
-                        </div>
-                        <div className="text-xl font-bold text-gray-400 mb-1">No ratings yet</div>
-                        <div className="text-xs text-gray-400">Be the first to review this trip</div>
-                      </>
-                    )}
+            <div className="p-6">
+              {/* Rating overview */}
+              <div className="flex flex-col md:flex-row gap-8 mb-8 p-6 rounded-xl bg-stone-50 border border-stone-100">
+                <div className="flex flex-col items-center justify-center shrink-0 px-4">
+                  {reviewsData.totalReviewsCount > 0 ? (
+                    <>
+                      <div className="text-6xl font-bold text-gray-900 mb-1">{reviewsData.avgRating.toFixed(1)}</div>
+                      <div className="flex text-amber-400 mb-1">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star key={s} className={`h-5 w-5 ${reviewsData.avgRating >= s ? 'fill-current' : 'text-stone-300'}`} />
+                        ))}
+                      </div>
+                      <div className="text-xs text-stone-500">Based on {reviewsData.totalReviewsCount} review{reviewsData.totalReviewsCount > 1 ? 's' : ''}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex text-stone-300 mb-2">{[1, 2, 3, 4, 5].map(s => <Star key={s} className="h-5 w-5" />)}</div>
+                      <div className="text-base font-bold text-stone-400">No ratings yet</div>
+                      <div className="text-xs text-stone-400">Be the first to review</div>
+                    </>
+                  )}
+                </div>
+                <div className="flex-1 flex flex-col justify-center space-y-2 md:border-l md:pl-8 border-stone-200">
+                  {reviewsData.ratingBreakdown.map(row => (
+                    <div key={row.stars} className="flex items-center gap-3">
+                      <div className="flex items-center w-8 text-xs text-stone-500">
+                        {row.stars} <Star className="h-3 w-3 fill-current text-amber-400 ml-0.5" />
+                      </div>
+                      <div className="flex-1 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${row.percentage}%` }} />
+                      </div>
+                      <div className="w-6 text-right text-xs text-stone-400">{row.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Inline write review form */}
+              {showWriteReviewModal && (
+                <div className="mb-8 border border-orange-200 rounded-xl overflow-hidden animate-in fade-in duration-200">
+                  <div className="bg-orange-50 border-b border-orange-100 p-5 flex justify-between items-center">
+                    <div>
+                      <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                        <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                        Write a Review for {reviewsData.packageTitle}
+                      </h4>
+                      <p className="text-xs text-stone-500 mt-0.5">Share your authentic travel experience to guide future travellers</p>
+                    </div>
+                    <button onClick={() => setShowWriteReviewModal(false)} className="text-stone-400 hover:text-stone-700 p-1 rounded transition-colors cursor-pointer">
+                      <X className="h-5 w-5" />
+                    </button>
                   </div>
+                  <div className="p-6 bg-white space-y-5">
+                    <form onSubmit={handleAddReviewSubmit} className="space-y-5">
+                      {/* Rating */}
+                      <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                        <Label className="text-sm font-semibold text-gray-800">Overall Rating</Label>
+                        <div className="flex items-center gap-4 mt-2">
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <button type="button" key={star} onClick={() => setNewReview({ ...newReview, rating: star })} className="p-1 hover:scale-110 transition-transform focus:outline-none cursor-pointer">
+                                <Star className={`h-8 w-8 ${newReview.rating >= star ? 'fill-amber-400 text-amber-400' : 'text-stone-300'}`} />
+                              </button>
+                            ))}
+                          </div>
+                          <Badge className="bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1 rounded-full border border-amber-200">
+                            {newReview.rating === 5 ? '5.0 - Excellent' : newReview.rating === 4 ? '4.0 - Very Good' : newReview.rating === 3 ? '3.0 - Average' : newReview.rating === 2 ? '2.0 - Fair' : '1.0 - Poor'}
+                          </Badge>
+                        </div>
+                      </div>
+                      {/* Trip type */}
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-800">Who did you travel with?</Label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {['Family', 'Couples', 'Friends', 'Solo', 'Business'].map(type => (
+                            <button type="button" key={type} onClick={() => setNewReview({ ...newReview, tripType: type })} className={`px-4 py-1.5 text-xs font-medium rounded-full border transition-colors cursor-pointer ${newReview.tripType === type ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-700 border-stone-300 hover:bg-stone-50'}`}>
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Name & city */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="rev-name" className="text-xs font-semibold text-gray-700">Your Full Name *</Label>
+                          <Input id="rev-name" required placeholder="e.g. Amit Kumar" value={newReview.name} onChange={e => setNewReview({ ...newReview, name: e.target.value })} className="mt-1 rounded-lg" />
+                        </div>
+                        <div>
+                          <Label htmlFor="rev-city" className="text-xs font-semibold text-gray-700">City / Origin *</Label>
+                          <Input id="rev-city" required placeholder="e.g. Mumbai, Delhi, London..." value={newReview.travelledFrom} onChange={e => setNewReview({ ...newReview, travelledFrom: e.target.value })} className="mt-1 rounded-lg" />
+                        </div>
+                      </div>
+                      {/* Detailed review */}
+                      <div>
+                        <Label htmlFor="rev-comment" className="text-xs font-semibold text-gray-700">Detailed Review *</Label>
+                        <Textarea id="rev-comment" required rows={4} placeholder="Tell us about your experience: hotel stay, sightseeing highlights, driver/guide assistance, and overall value..." value={newReview.comment} onChange={e => setNewReview({ ...newReview, comment: e.target.value })} className="mt-1 leading-relaxed rounded-lg" />
+                      </div>
+                      {/* Photo URL */}
+                      <div>
+                        <Label htmlFor="rev-photo" className="text-xs font-semibold text-gray-700">Attach Trip Photo URL (Optional)</Label>
+                        <Input id="rev-photo" placeholder="https://images.unsplash.com/..." value={newReview.photoUrl} onChange={e => setNewReview({ ...newReview, photoUrl: e.target.value })} className="mt-1 text-xs rounded-lg" />
+                      </div>
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
+                        <button type="button" onClick={() => setShowWriteReviewModal(false)} className="px-6 py-2 text-sm font-medium text-stone-600 hover:text-stone-900 border border-stone-300 rounded-lg transition-colors cursor-pointer">
+                          Cancel
+                        </button>
+                        <button type="submit" disabled={isSubmittingReview || !newReview.comment.trim() || !newReview.name.trim()} className="px-8 py-2 text-sm font-semibold text-white rounded-lg transition-all disabled:opacity-50 cursor-pointer" style={{ background: '#b84814' }}>
+                          {isSubmittingReview ? 'Posting Review...' : 'Submit Review'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
 
-                  {/* Rating Breakdown */}
-                  <div className="flex-1 flex flex-col justify-center space-y-2 md:border-l md:pl-8 border-gray-200">
-                    {reviewsData.ratingBreakdown.map((row) => (
-                      <div key={row.stars} className="flex items-center gap-3">
-                        <div className="flex items-center w-8 text-xs text-gray-600">
-                          {row.stars} <Star className="h-3 w-3 fill-current text-amber-400 ml-1" />
-                        </div>
-                        <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-                          <div
-                            className="h-full bg-orange-500 rounded transition-all"
-                            style={{ width: `${row.percentage}%` }}
-                          ></div>
-                        </div>
-                        <div className="w-8 text-right text-xs text-gray-500">{row.count}</div>
+              {/* Traveller Image Gallery */}
+              {reviewsData.travellerImages.length > 0 && (
+                <div className="mb-8">
+                  <h4 className="font-bold text-gray-900 mb-3 text-sm">Traveller Photos</h4>
+                  <div className="grid grid-cols-4 gap-2" style={{ height: '260px' }}>
+                    <div
+                      className="col-span-2 row-span-2 relative rounded-lg overflow-hidden group cursor-pointer"
+                      onClick={() => setSelectedGalleryImage(reviewsData.travellerImages[0])}
+                    >
+                      <img src={reviewsData.travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      {reviewsData.travellerImages.length > 1 && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setSelectedGalleryImage(reviewsData.travellerImages[0]); }}
+                          className="absolute bottom-3 left-3 bg-black/55 backdrop-blur-md text-white border border-white/30 px-3 py-1 rounded-lg text-xs font-medium hover:bg-black/70 transition-colors cursor-pointer"
+                        >
+                          View all ({reviewsData.travellerImages.length})
+                        </button>
+                      )}
+                    </div>
+                    {reviewsData.travellerImages.slice(1, 5).map((img, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-lg overflow-hidden group cursor-pointer"
+                        onClick={() => setSelectedGalleryImage(img)}
+                      >
+                        <img src={img} alt={`Traveller ${idx + 2}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                       </div>
                     ))}
                   </div>
                 </div>
+              )}
 
-                {/* Standard Travel Platform Inline Review Form */}
-                {showWriteReviewModal && (
-                  <div className="mb-10 border border-orange-200 bg-orange-50/10 shadow-none rounded overflow-hidden animate-in fade-in duration-200">
-                    <div className="bg-white border-b border-orange-100 p-5 flex justify-between items-center">
-                      <div>
-                        <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                          <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
-                          Write a Review for {reviewsData.packageTitle}
-                        </h4>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Share your authentic travel experience to guide future travellers
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowWriteReviewModal(false)}
-                        className="text-gray-400 hover:text-gray-700 rounded cursor-pointer"
-                      >
-                        <X className="h-5 w-5" />
-                      </Button>
-                    </div>
-                    <div className="p-6 bg-white space-y-6">
-                      <form onSubmit={handleAddReviewSubmit} className="space-y-6">
-                        {/* Rating Selector */}
-                        <div className="bg-gray-55 p-4 rounded border border-gray-200">
-                          <Label className="text-sm font-semibold text-gray-800">Overall Rating</Label>
-                          <div className="flex items-center gap-4 mt-2">
-                            <div className="flex gap-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                  type="button"
-                                  key={star}
-                                  onClick={() => setNewReview({ ...newReview, rating: star })}
-                                  className="p-1 hover:scale-110 transition-transform focus:outline-none cursor-pointer"
-                                >
-                                  <Star className={`h-8 w-8 ${newReview.rating >= star ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
-                                </button>
-                              ))}
-                            </div>
-                            <Badge className="bg-amber-100 text-amber-805 text-xs font-semibold px-3 py-1 rounded border border-amber-200">
-                              {newReview.rating === 5 ? '5.0 - Excellent' :
-                                newReview.rating === 4 ? '4.0 - Very Good' :
-                                  newReview.rating === 3 ? '3.0 - Average' :
-                                    newReview.rating === 2 ? '2.0 - Fair' : '1.0 - Poor'}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        {/* Travel Type Selector */}
-                        <div>
-                          <Label className="text-sm font-semibold text-gray-800">Who did you travel with?</Label>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {['Family', 'Couples', 'Friends', 'Solo', 'Business'].map((type) => (
-                              <button
-                                type="button"
-                                key={type}
-                                onClick={() => setNewReview({ ...newReview, tripType: type })}
-                                className={`px-4 py-2 text-xs font-medium rounded border transition-colors cursor-pointer ${newReview.tripType === type ? 'bg-orange-500 text-white border-orange-500 shadow-none' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
-                              >
-                                {type}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Name & Origin City */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="rev-name" className="text-xs font-semibold text-gray-700">Your Full Name *</Label>
-                            <Input
-                              id="rev-name"
-                              required
-                              placeholder="e.g. Amit Kumar"
-                              value={newReview.name}
-                              onChange={(e) => setNewReview({ ...newReview, name: e.target.value })}
-                              className="mt-1 rounded"
-                            />
+              {/* Real User Reviews List */}
+              <div className="space-y-4">
+                {reviewsData.totalReviewsCount > 0 ? (
+                  reviewsData.userReviews.map((review: any) => (
+                    <div key={review.id} className="border border-stone-200 rounded-xl p-5 bg-white hover:border-stone-300 transition-colors">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-sm">
+                            {review.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <Label htmlFor="rev-city" className="text-xs font-semibold text-gray-700">City / Origin *</Label>
-                            <Input
-                              id="rev-city"
-                              required
-                              placeholder="e.g. Mumbai, Delhi, London..."
-                              value={newReview.travelledFrom}
-                              onChange={(e) => setNewReview({ ...newReview, travelledFrom: e.target.value })}
-                              className="mt-1 rounded"
-                            />
+                            <h4 className="font-semibold text-gray-900 text-sm">{review.name}</h4>
+                            <p className="text-xs text-stone-400">{review.date}</p>
                           </div>
                         </div>
-
-                        {/* Detailed Review */}
-                        <div>
-                          <Label htmlFor="rev-comment" className="text-xs font-semibold text-gray-700">Detailed Review *</Label>
-                          <Textarea
-                            id="rev-comment"
-                            required
-                            rows={4}
-                            placeholder="Tell us about your experience: hotel stay, sightseeing highlights, driver/guide assistance, and overall value..."
-                            value={newReview.comment}
-                            onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-                            className="mt-1 leading-relaxed rounded"
-                          />
+                        <div className="flex items-center gap-1 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                          <Star className="h-3.5 w-3.5 fill-current" /> {review.rating}/5
                         </div>
-
-                        {/* Photo Attachment URL */}
-                        <div>
-                          <Label htmlFor="rev-photo" className="text-xs font-semibold text-gray-700">Attach Trip Photo URL (Optional)</Label>
-                          <Input
-                            id="rev-photo"
-                            placeholder="https://images.unsplash.com/..."
-                            value={newReview.photoUrl}
-                            onChange={(e) => setNewReview({ ...newReview, photoUrl: e.target.value })}
-                            className="mt-1 text-xs rounded"
-                          />
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center justify-end gap-3 pt-4 border-t">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setShowWriteReviewModal(false)}
-                            className="px-6 rounded cursor-pointer"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="submit"
-                            disabled={isSubmittingReview || !newReview.comment.trim() || !newReview.name.trim()}
-                            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 shadow-none rounded cursor-pointer"
-                          >
-                            {isSubmittingReview ? 'Posting Review...' : 'Submit Review'}
-                          </Button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                )}
-
-                {/* Traveller Image Gallery */}
-                {reviewsData.travellerImages.length > 0 && (
-                  <div className="mb-10">
-                    <h4 className="font-bold text-gray-900 mb-4 text-sm">Traveller Image Gallery</h4>
-                    <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[300px]">
-                      <div
-                        className="col-span-2 row-span-2 relative rounded overflow-hidden group cursor-pointer"
-                        onClick={() => setSelectedGalleryImage(reviewsData.travellerImages[0])}
-                      >
-                        <img src={reviewsData.travellerImages[0]} alt="Traveller 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        {reviewsData.travellerImages.length > 1 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedGalleryImage(reviewsData.travellerImages[0]);
-                            }}
-                            className="absolute bottom-4 left-4 bg-black/55 backdrop-blur-md text-white border border-white/30 px-3 py-1.5 rounded text-sm font-medium hover:bg-black/70 transition-colors cursor-pointer"
-                          >
-                            View all ({reviewsData.travellerImages.length})
-                          </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500 border-y border-stone-100 py-2 my-3">
+                        <span>Booked: <span className="text-orange-600 font-medium">{review.booked}</span></span>
+                        {review.travelledFrom && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-stone-400" />
+                            From: <span className="font-medium text-gray-700 ml-0.5">{review.travelledFrom}</span>
+                          </span>
                         )}
                       </div>
-                      {reviewsData.travellerImages.slice(1, 5).map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="col-span-1 row-span-1 rounded overflow-hidden group cursor-pointer"
-                          onClick={() => setSelectedGalleryImage(img)}
-                        >
-                          <img src={img} alt={`Traveller ${idx + 2}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Real User Reviews List */}
-                <div className="space-y-4">
-                  {reviewsData.totalReviewsCount > 0 ? (
-                    reviewsData.userReviews.map((review: any) => (
-                      <Card key={review.id} className="shadow-none border-gray-200 rounded bg-white">
-                        <CardContent className="p-5">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-orange-100 text-orange-700 rounded flex items-center justify-center font-bold text-sm overflow-hidden">
-                                {review.name.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-gray-900 text-sm">{review.name}</h4>
-                                <p className="text-xs text-gray-500">{review.date}</p>
-                              </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{review.text}</p>
+                      {review.images && review.images.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pt-3 pb-1">
+                          {review.images.map((img: string, i: number) => (
+                            <div
+                              key={i}
+                              className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer border border-stone-200"
+                              onClick={() => setSelectedGalleryImage(img)}
+                            >
+                              <img src={img} alt={`Review image ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
                             </div>
-                            <div className="flex items-center gap-1 text-green-600 text-sm font-semibold bg-green-50 px-2.5 py-1 border border-green-150">
-                              <Star className="h-3.5 w-3.5 fill-current" /> {review.rating}/5
-                            </div>
-                          </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-y border-gray-100 py-2 my-2">
-                            <div className="text-xs text-orange-600 flex items-center gap-1">
-                              <span className="text-gray-500">Booked:</span> {review.booked}
-                            </div>
-                            {review.travelledFrom && (
-                              <div className="text-xs text-gray-505 flex items-center gap-1">
-                                Travelled From: <MapPin className="h-3 w-3 text-gray-400" /> <span className="font-medium text-gray-700">{review.travelledFrom}</span>
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 leading-relaxed">
-                            {review.text}
-                          </p>
-                          {/* Review Images */}
-                          {review.images && review.images.length > 0 && (
-                            <div className="flex gap-2 overflow-x-auto pt-3 pb-1 hide-scrollbar">
-                              {review.images.map((img: string, i: number) => (
-                                <div
-                                  key={i}
-                                  className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded overflow-hidden relative cursor-pointer border border-gray-200"
-                                  onClick={() => setSelectedGalleryImage(img)}
-                                >
-                                  <img src={img} alt={`Review image ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
-                  ) : (
-                    <Card className="border-dashed border-2 border-gray-200 bg-gray-50/50 p-8 text-center rounded shadow-none">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <div className="w-12 h-12 rounded bg-orange-100 text-orange-500 flex items-center justify-center border border-orange-200">
-                          <MessageCircle className="h-6 w-6" />
-                        </div>
-                        <h4 className="font-bold text-gray-800 text-base">No reviews yet for this package</h4>
-                        <p className="text-xs text-gray-500 max-w-md">
-                          Have you travelled on this trip? Be the first traveller to write an authentic review!
-                        </p>
-                        <Button
-                          onClick={() => setShowWriteReviewModal(true)}
-                          className="bg-orange-500 hover:bg-orange-600 text-white font-medium mt-2 flex items-center gap-2 rounded cursor-pointer"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Write a Review
-                        </Button>
-                      </div>
-                    </Card>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* FAQ Section (Permanently Displayed Below Reviews Card) */}
-            <Card className="rounded border-gray-200 shadow-sm mt-6">
-              <CardContent className="p-6 bg-white">
-                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2 border-b border-gray-100 pb-4">
-                  <MessageCircle className="h-5 w-5 text-orange-600" /> Frequently Asked Questions
-                </h3>
-                <div className="space-y-3">
-                  {defaultFAQs.map((faq, index) => (
-                    <div key={index} className="border border-gray-200 rounded bg-white transition-colors hover:border-gray-300">
-                      <button
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 rounded cursor-pointer"
-                        onClick={() => toggleFAQ(index)}
-                      >
-                        <span className="font-semibold text-gray-900 text-sm">{faq.question}</span>
-                        {expandedFAQs.includes(index) ? (
-                          <ChevronUp className="h-5 w-5 text-gray-500 flex-shrink-0" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 text-gray-500 flex-shrink-0" />
-                        )}
-                      </button>
-                      {expandedFAQs.includes(index) && (
-                        <div className="px-4 pb-4 pt-1 border-t border-gray-100 bg-gray-50/30">
-                          <p className="text-gray-600 leading-relaxed text-sm">{faq.answer}</p>
+                          ))}
                         </div>
                       )}
                     </div>
-                  ))}
+                  ))
+                ) : (
+                  <div className="border-2 border-dashed border-stone-200 rounded-xl p-10 text-center">
+                    <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-400 flex items-center justify-center mx-auto mb-3">
+                      <MessageCircle className="h-6 w-6" />
+                    </div>
+                    <h4 className="font-bold text-gray-800 text-base mb-1">No reviews yet for this package</h4>
+                    <p className="text-xs text-stone-400 max-w-sm mx-auto mb-4">
+                      Have you travelled on this trip? Be the first traveller to write an authentic review!
+                    </p>
+                    <button
+                      onClick={() => setShowWriteReviewModal(true)}
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-white px-5 py-2.5 rounded-lg cursor-pointer transition-all hover:opacity-90"
+                      style={{ background: '#b84814' }}
+                    >
+                      <Plus className="h-4 w-4" /> Write a Review
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* FAQ Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-stone-100 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                <MessageCircle className="h-4 w-4 text-blue-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>Frequently Asked Questions</h2>
+            </div>
+            <div className="divide-y divide-stone-100">
+              {defaultFAQs.map((faq, index) => (
+                <div key={index}>
+                  <button
+                    className="w-full flex items-center justify-between p-5 text-left hover:bg-stone-50 transition-colors cursor-pointer"
+                    onClick={() => toggleFAQ(index)}
+                  >
+                    <span className="font-semibold text-gray-900 text-sm pr-4">{faq.question}</span>
+                    {expandedFAQs.includes(index)
+                      ? <ChevronUp className="h-4 w-4 text-stone-400 shrink-0" />
+                      : <ChevronDown className="h-4 w-4 text-stone-400 shrink-0" />
+                    }
+                  </button>
+                  {expandedFAQs.includes(index) && (
+                    <div className="px-5 pb-5 border-t border-stone-50 bg-stone-50/30">
+                      <p className="text-sm text-gray-600 leading-relaxed pt-3">{faq.answer}</p>
+                    </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Scroll-Triggered Sticky Chat Bar */}
-      <div 
-        className={`fixed bottom-0 left-0 right-0 z-[150] bg-white border-t border-gray-200 shadow-[0_-4px_20px_-5px_rgb(0,0,0,0.15)] p-4 flex justify-between items-center transition-transform duration-500 ease-in-out ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
+      {/* ─── SCROLL-TRIGGERED STICKY CHAT BAR ───────────────────── */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-[150] bg-white border-t border-stone-200 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.12)] p-4 flex justify-between items-center transition-transform duration-500 ease-in-out ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
       >
-        <div className="max-w-[1200px] mx-auto w-full flex justify-between items-center px-4 md:px-8">
+        <div className="max-w-7xl mx-auto w-full flex justify-between items-center px-4 md:px-8">
           <div className="hidden md:block">
-            <h3 className="font-bold text-gray-900 line-clamp-1">{listing.title || 'Package'}</h3>
-            <p className="text-orange-600 font-bold">
-              {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || 'Contact Us'}
+            <h3 className="font-bold text-gray-900 line-clamp-1 text-sm">{listing.title || 'Package'}</h3>
+            <p className="font-bold text-base" style={{ color: '#b84814' }}>
+              {currencySymbol}{displayPrice || 'Contact Us'}
             </p>
           </div>
           <Button
-            className="w-full md:w-auto bg-orange-600 hover:bg-orange-750 text-white shadow-lg rounded-full cursor-pointer h-12 px-8 font-bold text-lg hover:-translate-y-1 transition-all"
+            className="w-full md:w-auto text-white font-bold rounded-full px-8 h-12 text-base transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-pointer border-0"
+            style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)' }}
             onClick={() => onChat(listing)}
           >
             <MessageCircle className="h-5 w-5 mr-2" />
@@ -1310,70 +1292,63 @@ export default function PackageDetailView({
         </div>
       </div>
 
-      {/* Compare Toast Notification */}
+      {/* ─── COMPARE TOAST NOTIFICATION ─────────────────────────── */}
       {showCompareToast && (
         <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
-          <div className={`flex items-center gap-2 px-4 py-3 rounded-sm shadow-lg ${compareToastMessage.includes('already') || compareToastMessage.includes('only compare')
-              ? 'bg-amber-500 text-white'
-              : 'bg-green-500 text-white'
-            }`}>
-            {compareToastMessage.includes('already') || compareToastMessage.includes('only compare') ? (
-              <AlertCircle className="h-5 w-5" />
-            ) : (
-              <CheckCircle2 className="h-5 w-5" />
-            )}
-            <span className="font-medium">{compareToastMessage}</span>
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium ${compareToastMessage.includes('already') || compareToastMessage.includes('only compare') ? 'bg-amber-500' : 'bg-emerald-500'}`}>
+            {compareToastMessage.includes('already') || compareToastMessage.includes('only compare')
+              ? <AlertCircle className="h-4 w-4" />
+              : <CheckCircle2 className="h-4 w-4" />
+            }
+            <span>{compareToastMessage}</span>
           </div>
         </div>
       )}
 
-      {/* Full Screen Photo Gallery Modal - Thrillophilia Style */}
+      {/* ─── FULL SCREEN PHOTO GALLERY MODAL ────────────────────── */}
       {showAllPhotos && (
         <div className="fixed inset-0 bg-white z-[200] flex flex-col animate-in fade-in zoom-in-95 duration-200">
-          <div className="sticky top-0 bg-white border-b z-10 px-4 md:px-8 py-3 flex items-center shadow-sm">
+          <div className="sticky top-0 bg-white border-b border-stone-200 z-10 px-4 md:px-8 py-3 flex items-center shadow-sm">
             <button
-              className="flex items-center gap-2 text-gray-900 font-bold hover:bg-gray-100 px-3 md:px-4 py-2 rounded-sm transition-colors"
+              className="flex items-center gap-2 text-gray-900 font-bold hover:bg-stone-100 px-3 md:px-4 py-2 rounded-lg transition-colors"
               onClick={() => setShowAllPhotos(false)}
             >
               <ArrowLeft className="h-5 w-5" /> Back
             </button>
-            <div className="flex-1 flex justify-center overflow-x-auto hide-scrollbar">
-              <div className="flex items-center gap-6 md:gap-10 text-sm font-medium text-gray-500 whitespace-nowrap">
-                <button className="text-orange-600 border-b-2 border-orange-600 pb-1 px-2">
+            <div className="flex-1 flex justify-center overflow-x-auto">
+              <div className="flex items-center gap-6 md:gap-10 text-sm font-medium text-stone-500 whitespace-nowrap">
+                <button className="text-orange-600 border-b-2 border-orange-500 pb-1 px-2">
                   All Images ({allImages.length})
                 </button>
-                <button className="hover:text-gray-900 pb-1 px-2 transition-colors">
-                  Destinations
-                </button>
-                <button className="hover:text-gray-900 pb-1 px-2 transition-colors">
-                  Activities
-                </button>
-                <button className="hover:text-gray-900 pb-1 px-2 transition-colors">
-                  Stays
-                </button>
+                <button className="hover:text-stone-900 pb-1 px-2 transition-colors">Destinations</button>
+                <button className="hover:text-stone-900 pb-1 px-2 transition-colors">Activities</button>
+                <button className="hover:text-stone-900 pb-1 px-2 transition-colors">Stays</button>
               </div>
             </div>
-            <div className="w-[100px] hidden md:block"></div>
+            <div className="w-[100px] hidden md:block" />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-white">
-            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-stone-50">
+            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
               {allImages.map((image, index) => (
-                <div key={index} className="aspect-[4/3] md:aspect-video rounded-sm overflow-hidden bg-gray-100 group">
+                <div
+                  key={index}
+                  className="aspect-video rounded-xl overflow-hidden bg-stone-200 group cursor-pointer"
+                  onClick={() => setSelectedGalleryImage(image)}
+                >
                   <img
                     src={optimizeImageUrl(image, { width: 1200, quality: 85, format: 'auto', cacheBust: false })}
                     alt={`Gallery Image ${index + 1}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                    loading={index < 4 ? "eager" : "lazy"}
+                    loading={index < 4 ? 'eager' : 'lazy'}
                     decoding="async"
                   />
                 </div>
               ))}
             </div>
-
             {allImages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                <Camera className="h-16 w-16 mb-4 opacity-50" />
+              <div className="flex flex-col items-center justify-center h-64 text-stone-400">
+                <Camera className="h-16 w-16 mb-4 opacity-40" />
                 <p className="text-lg">No photos available for this package.</p>
               </div>
             )}
@@ -1381,17 +1356,20 @@ export default function PackageDetailView({
         </div>
       )}
 
-      {/* Traveller Photo Lightbox Modal */}
+      {/* ─── TRAVELLER PHOTO LIGHTBOX MODAL ─────────────────────── */}
       {selectedGalleryImage && (
-        <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 animate-in fade-in">
+        <div
+          className="fixed inset-0 bg-black/92 z-[300] flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setSelectedGalleryImage(null)}
+        >
           <button
             onClick={() => setSelectedGalleryImage(null)}
-            className="absolute top-6 right-6 text-white hover:text-gray-300 bg-white/10 p-2 rounded-sm transition-colors"
+            className="absolute top-6 right-6 text-white hover:text-stone-300 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors cursor-pointer"
           >
             <X className="h-6 w-6" />
           </button>
-          <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-sm">
-            <img src={selectedGalleryImage} alt="Traveller photo" className="w-full h-full object-contain" />
+          <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-xl" onClick={e => e.stopPropagation()}>
+            <img src={selectedGalleryImage} alt="Full size photo" className="w-full h-full object-contain" />
           </div>
         </div>
       )}
