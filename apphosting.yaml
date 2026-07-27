@@ -14,3 +14,6 @@ env:
     secret: RAZORPAY_KEY_SECRET
   - variable: RAZORPAY_WEBHOOK_SECRET
     secret: RAZORPAY_WEBHOOK_SECRET
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
+
