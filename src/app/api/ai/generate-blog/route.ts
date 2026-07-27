@@ -36,7 +36,7 @@ STRICT RULES (violation is unacceptable):
 4. Every section must add unique value a traveler cannot easily find elsewhere.
 5. Follow Google EEAT: show genuine Experience, Expertise, Authoritativeness, Trustworthiness.
 6. Use ALL sections below. Include comparison tables, cost tables, pro tips, common mistakes, and FAQs.
-7. The article MUST be 3000–5000 words in the contentMarkdown field.
+7. The article MUST be 1500–2500 words in the contentMarkdown field.
 8. Return ONLY valid JSON. No markdown code fences. No extra text.
 
 Return a single JSON object with this EXACT structure:
@@ -123,7 +123,7 @@ Make the CTA section naturally mention TripDM packages.
 NOW GENERATE THE COMPLETE JSON FOR: "${topic}"
 `;
 
-    const tryModels = ['gemini-3.5-flash', 'gemini-pro-latest', 'gemini-2.5-pro', 'gemini-flash-latest'];
+    const tryModels = ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
     let result = null;
     let lastError = null;
 
@@ -132,9 +132,11 @@ NOW GENERATE THE COMPLETE JSON FOR: "${topic}"
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
-            temperature: 0.8,
+            temperature: 0.6,
             topK: 40,
             topP: 0.95,
+            maxOutputTokens: 65536,
+            responseMimeType: 'application/json',
           },
         });
         console.log(`Trying model: ${modelName}...`);

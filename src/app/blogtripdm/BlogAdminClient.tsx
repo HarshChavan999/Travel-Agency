@@ -300,7 +300,7 @@ export default function BlogAdminClient() {
     try {
       // Simulate pipeline steps for UX feedback
       setTimeout(() => setAiGenStep('📝 Generating detailed article outline...'), 2000);
-      setTimeout(() => setAiGenStep('✍️ Writing 3000–5000 word EEAT article...'), 5000);
+      setTimeout(() => setAiGenStep('✍️ Writing 1500–2500 word EEAT article...'), 5000);
       setTimeout(() => setAiGenStep('📊 Creating cost tables, tips & FAQs...'), 10000);
       setTimeout(() => setAiGenStep('🔧 Optimizing metadata & JSON-LD schema...'), 15000);
       setTimeout(() => setAiGenStep('✅ Finalizing and validating JSON output...'), 20000);
