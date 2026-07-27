@@ -5,7 +5,9 @@ const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://tripdm.com';
   let packageUrls: MetadataRoute.Sitemap = [];
+  let blogUrls: MetadataRoute.Sitemap = [];
 
+  // Fetch listing URLs for sitemap
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/listings?pageSize=1000`;
     const res = await fetch(url, { next: { revalidate: 3600 } });
@@ -34,12 +36,64 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("Error fetching listings for sitemap:", error);
   }
 
+  // Fetch published blog URLs for sitemap
+  try {
+    const blogQueryUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
+    const blogQuery = {
+      structuredQuery: {
+        from: [{ collectionId: 'blogs' }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: 'published' },
+            op: 'EQUAL',
+            value: { booleanValue: true },
+          },
+        },
+        orderBy: [{ field: { fieldPath: 'publishedAt' }, direction: 'DESCENDING' }],
+        limit: 200,
+      },
+    };
+
+    const blogRes = await fetch(blogQueryUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(blogQuery),
+      next: { revalidate: 3600 },
+    });
+
+    if (blogRes.ok) {
+      const blogData = await blogRes.json();
+      blogUrls = blogData
+        .filter((item: any) => item.document)
+        .map((item: any) => {
+          const fields = item.document.fields || {};
+          const slug = fields.slug?.stringValue || '';
+          const updatedAt = fields.updatedAt?.stringValue || fields.publishedAt?.stringValue || '';
+          return {
+            url: `${baseUrl}/blog/${slug}`,
+            lastModified: updatedAt ? new Date(updatedAt) : new Date(),
+            changeFrequency: 'weekly' as const,
+            priority: 0.7,
+          };
+        })
+        .filter((entry: any) => entry.url !== `${baseUrl}/blog/`);
+    }
+  } catch (error) {
+    console.error("Error fetching blogs for sitemap:", error);
+  }
+
   const staticUrls: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: new Date(),
       changeFrequency: 'daily' as const,
       priority: 1,
+    },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const,
+      priority: 0.9,
     },
     {
       url: `${baseUrl}/policies/conditions-of-use`,
@@ -61,5 +115,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  return [...staticUrls, ...packageUrls];
+  return [...staticUrls, ...packageUrls, ...blogUrls];
 }

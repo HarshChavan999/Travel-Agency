@@ -9,6 +9,7 @@ import { useComparison } from '@/contexts/ComparisonContext';
 import { optimizeImageUrl, preloadImage } from '@/lib/imageOptimization';
 import { getDbInstance } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Star,
   Share2,
@@ -40,6 +41,7 @@ import {
   Clock,
   Globe,
   Users,
+  User,
 } from 'lucide-react';
 
 interface PackageDetailViewProps {
@@ -188,6 +190,7 @@ export default function PackageDetailView({
   onWishlist,
   isWishlisted
 }: PackageDetailViewProps) {
+  const { user } = useAuth();
   const [expandedDays, setExpandedDays] = useState<number[]>([]);
   const [expandedFAQs, setExpandedFAQs] = useState<number[]>([]);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
@@ -1014,13 +1017,26 @@ export default function PackageDetailView({
                   Guest Reviews <span className="text-stone-400 text-base font-normal">({reviewsData.totalReviewsCount})</span>
                 </h2>
               </div>
-              <button
-                onClick={() => setShowWriteReviewModal(true)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2 rounded-lg cursor-pointer transition-all hover:opacity-90"
-                style={{ background: '#b84814' }}
-              >
-                <Plus className="h-4 w-4" /> Write a Review
-              </button>
+              {user ? (
+                <button
+                  onClick={() => setShowWriteReviewModal(true)}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2 rounded-lg cursor-pointer transition-all hover:opacity-90"
+                  style={{ background: '#b84814' }}
+                >
+                  <Plus className="h-4 w-4" /> Write a Review
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    const authBtn = document.querySelector('header button');
+                    if (authBtn) (authBtn as HTMLButtonElement).click();
+                    else alert("Please login to write a review");
+                  }}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 px-4 py-2 rounded-lg cursor-pointer transition-all"
+                >
+                  <User className="h-4 w-4" /> Please login to review
+                </button>
+              )}
             </div>
 
             <div className="p-6">
@@ -1224,13 +1240,26 @@ export default function PackageDetailView({
                     <p className="text-xs text-stone-400 max-w-sm mx-auto mb-4">
                       Have you travelled on this trip? Be the first traveller to write an authentic review!
                     </p>
-                    <button
-                      onClick={() => setShowWriteReviewModal(true)}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-white px-5 py-2.5 rounded-lg cursor-pointer transition-all hover:opacity-90"
-                      style={{ background: '#b84814' }}
-                    >
-                      <Plus className="h-4 w-4" /> Write a Review
-                    </button>
+                    {user ? (
+                      <button
+                        onClick={() => setShowWriteReviewModal(true)}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-white px-5 py-2.5 rounded-lg cursor-pointer transition-all hover:opacity-90"
+                        style={{ background: '#b84814' }}
+                      >
+                        <Plus className="h-4 w-4" /> Write a Review
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const authBtn = document.querySelector('header button');
+                          if (authBtn) (authBtn as HTMLButtonElement).click();
+                          else alert("Please login to write a review");
+                        }}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 px-5 py-2.5 rounded-lg cursor-pointer transition-all"
+                      >
+                        <User className="h-4 w-4" /> Please login to review
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
