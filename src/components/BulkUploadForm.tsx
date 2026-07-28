@@ -55,6 +55,8 @@ interface ParsedListing {
     isTrending?: boolean;
     season?: string;
     eventType?: string;
+    countryNames?: string[];
+    stateNames?: string[];
   };
   errors: string[];
   isValid: boolean;
@@ -246,6 +248,8 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
               packageType,
               countryName,
               stateName,
+              countryNames: packageType === 'international' ? countryName.split(',').map((c: string) => c.trim()).filter(Boolean) : [],
+              stateNames: packageType === 'domestic' ? stateName.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
               cost: costStr,
               tourCategories,
               hotelTypes,
@@ -306,6 +310,8 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
         packageType: listing.data.packageType,
         countryName: listing.data.countryName,
         stateName: listing.data.stateName,
+        countryNames: listing.data.countryNames || [],
+        stateNames: listing.data.stateNames || [],
         placesCovered: listing.data.placesCovered,
         tourCategories: listing.data.tourCategories,
         hotelTypes: listing.data.hotelTypes,

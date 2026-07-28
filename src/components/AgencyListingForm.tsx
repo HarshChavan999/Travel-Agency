@@ -24,12 +24,16 @@ interface ItineraryDay {
   day: number;
   placeName: string;
   description: string;
+  images?: File[];
+  imageUrls?: string[];
 }
 
 interface FormData {
   packageType: 'international' | 'domestic';
   countryName?: string;
   stateName?: string;
+  countryNames?: string[];
+  stateNames?: string[];
   pickUpLocation: string;
   dropLocation: string;
   placesCovered: Place[];
@@ -168,12 +172,27 @@ const {
   } = useForm<FormData>({
     defaultValues: initialData ? {
       ...initialData,
+      stateNames: Array.isArray(initialData.stateNames)
+        ? initialData.stateNames
+        : (initialData.stateName
+          ? initialData.stateName.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : []),
+      countryNames: Array.isArray(initialData.countryNames)
+        ? initialData.countryNames
+        : (initialData.countryName
+          ? initialData.countryName.split(',').map((c: string) => c.trim()).filter(Boolean)
+          : []),
       placesCovered: initialData.placesCovered && initialData.placesCovered.length > 0 ? [{
         id: 'photos',
         name: '',
         images: [],
         imageUrls: initialData.placesCovered.reduce((acc: string[], p: any) => [...acc, ...(p.imageUrls || [])], [])
       }] : [{ id: 'photos', name: '', images: [], imageUrls: [] }],
+      itinerary: initialData.itinerary ? initialData.itinerary.map((day: any) => ({
+        ...day,
+        images: [],
+        imageUrls: day.imageUrls || (day.imageUrl ? [day.imageUrl] : [])
+      })) : [],
       mealPlan: Array.isArray(initialData.mealPlan)
         ? initialData.mealPlan
         : (initialData.mealPlan === 'breakfast'
@@ -200,6 +219,8 @@ const {
       packageType: 'domestic',
       countryName: '',
       stateName: '',
+      countryNames: [],
+      stateNames: [],
       pickUpLocation: '',
       dropLocation: '',
       placesCovered: [{ id: 'photos', name: '', images: [], imageUrls: [] }],
@@ -223,6 +244,8 @@ const {
   const itinerary = watch('itinerary') || [];
   const countryName = watch('countryName');
   const stateName = watch('stateName');
+  const stateNames = watch('stateNames') || [];
+  const countryNames = watch('countryNames') || [];
   const inclusions = watch('inclusions') || [''];
   const exclusions = watch('exclusions') || [''];
   const experienceType = watch('experienceType') || [];
@@ -230,11 +253,27 @@ const {
   const [experienceInput, setExperienceInput] = useState('');
   const [isExperienceDropdownOpen, setIsExperienceDropdownOpen] = useState(false);
   const experienceDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [stateInput, setStateInput] = useState('');
+  const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
+  const stateDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [countryInput, setCountryInput] = useState('');
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const countryDropdownRef = useRef<HTMLDivElement>(null);
   
   const PRESET_EXPERIENCES = ['Trekking', 'Snow', 'Adventure', 'Water Sports', 'Wildlife', 'Cultural', 'Sightseeing'];
 
   const filteredExperiences = PRESET_EXPERIENCES.filter(
     (exp) => exp.toLowerCase().includes(experienceInput.toLowerCase()) && !experienceType.includes(exp)
+  );
+
+  const filteredStates = indianStates.filter(
+    (state) => state.toLowerCase().includes(stateInput.toLowerCase()) && !stateNames.includes(state)
+  );
+
+  const filteredCountries = countries.filter(
+    (country) => country.toLowerCase().includes(countryInput.toLowerCase()) && !countryNames.includes(country)
   );
 
   const addExperience = (exp: string) => {
@@ -249,11 +288,41 @@ const {
     setValue('experienceType', experienceType.filter((exp: string) => exp !== expToRemove));
   };
 
+  const addState = (state: string) => {
+    if (state.trim() && !stateNames.includes(state.trim())) {
+      setValue('stateNames', [...stateNames, state.trim()]);
+    }
+    setStateInput('');
+    setIsStateDropdownOpen(false);
+  };
+
+  const removeState = (stateToRemove: string) => {
+    setValue('stateNames', stateNames.filter((s: string) => s !== stateToRemove));
+  };
+
+  const addCountry = (country: string) => {
+    if (country.trim() && !countryNames.includes(country.trim())) {
+      setValue('countryNames', [...countryNames, country.trim()]);
+    }
+    setCountryInput('');
+    setIsCountryDropdownOpen(false);
+  };
+
+  const removeCountry = (countryToRemove: string) => {
+    setValue('countryNames', countryNames.filter((c: string) => c !== countryToRemove));
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (experienceDropdownRef.current && !experienceDropdownRef.current.contains(event.target as Node)) {
         setIsExperienceDropdownOpen(false);
+      }
+      if (stateDropdownRef.current && !stateDropdownRef.current.contains(event.target as Node)) {
+        setIsStateDropdownOpen(false);
+      }
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target as Node)) {
+        setIsCountryDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -317,7 +386,9 @@ const {
       id: Date.now().toString(),
       day: itinerary.length + 1,
       placeName: '',
-      description: ''
+      description: '',
+      images: [],
+      imageUrls: []
     };
     setValue('itinerary', [...itinerary, newDay]);
   };
@@ -387,29 +458,114 @@ const {
     return updatedPlaces;
   };
 
+  const uploadItineraryImages = async (days: ItineraryDay[]): Promise<ItineraryDay[]> => {
+    const storageInstance = getStorageInstance();
+
+    if (!storageInstance) {
+      throw new Error('Storage instance not available');
+    }
+
+    const updatedDays = [...days];
+
+    for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
+      const day = days[dayIndex];
+      const dayImages = day.images;
+
+      if (dayImages && dayImages.length > 0) {
+        const imageUrls: string[] = [];
+
+        for (let imgIndex = 0; imgIndex < dayImages.length; imgIndex++) {
+          const file = dayImages[imgIndex];
+          const storageRef = ref(storageInstance, `listings/${agencyId}/itinerary_${day.day}_${Date.now()}_${imgIndex}_${file.name}`);
+
+          try {
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            imageUrls.push(downloadURL);
+
+            setUploadProgress(prev => ({
+              ...prev,
+              [`${file.name}`]: 100
+            }));
+          } catch (error) {
+            console.error('Error uploading itinerary image:', error);
+            throw new Error(`Failed to upload itinerary image: ${file.name}`);
+          }
+        }
+
+        updatedDays[dayIndex] = {
+          ...day,
+          imageUrls: [...(day.imageUrls || []), ...imageUrls],
+          images: [] // Clear File objects
+        };
+      }
+    }
+
+    return updatedDays;
+  };
+
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
+
+    if (data.packageType === 'domestic' && (!data.stateNames || data.stateNames.length === 0)) {
+      alert('Please select at least one state.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (data.packageType === 'international' && (!data.countryNames || data.countryNames.length === 0)) {
+      alert('Please select at least one country.');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       // Upload images and get updated places with image URLs
       const placesWithImages = await uploadImages(placesCovered);
 
+      // Upload itinerary images
+      const itineraryWithImages = await uploadItineraryImages(itinerary);
+
+      // Fallback: If no package photos are uploaded, copy itinerary images to placesCovered
+      let finalPlacesWithImages = placesWithImages;
+      const packageHasPhotos = placesWithImages.length > 0 && placesWithImages[0].imageUrls && placesWithImages[0].imageUrls.length > 0;
+      
+      if (!packageHasPhotos) {
+        const allItineraryUrls: string[] = [];
+        itineraryWithImages.forEach(day => {
+          if (day.imageUrls && day.imageUrls.length > 0) {
+            allItineraryUrls.push(...day.imageUrls);
+          }
+        });
+        
+        if (allItineraryUrls.length > 0) {
+          finalPlacesWithImages = [{
+            id: 'photos',
+            name: '',
+            images: [],
+            imageUrls: allItineraryUrls
+          }];
+        }
+      }
+
       // Debug: Log the placesWithImages structure
-      console.log('Places with images:', placesWithImages);
-      console.log('First place image URLs:', placesWithImages[0]?.imageUrls);
+      console.log('Places with images:', finalPlacesWithImages);
 
       // Prepare the listing data - ensure no File objects are included
       // Extract main photo from first place for backward compatibility
-      const mainPhoto = placesWithImages.length > 0 && placesWithImages[0].imageUrls.length > 0
-        ? placesWithImages[0].imageUrls[0]
+      const mainPhoto = finalPlacesWithImages.length > 0 && finalPlacesWithImages[0].imageUrls.length > 0
+        ? finalPlacesWithImages[0].imageUrls[0]
         : '';
 
       console.log('Main photo URL:', mainPhoto);
 
       const listingData = {
         ...data,
-        placesCovered: placesWithImages,
-        itinerary: data.itinerary,
+        stateName: data.packageType === 'domestic' && data.stateNames ? data.stateNames.join(', ') : '',
+        countryName: data.packageType === 'international' && data.countryNames ? data.countryNames.join(', ') : '',
+        stateNames: data.packageType === 'domestic' ? data.stateNames : [],
+        countryNames: data.packageType === 'international' ? data.countryNames : [],
+        placesCovered: finalPlacesWithImages,
+        itinerary: itineraryWithImages,
         inclusions: Array.isArray(data.inclusions)
           ? data.inclusions.filter((item: string) => item.trim() !== '').join('\n')
           : (data.inclusions || ''),
@@ -526,30 +682,72 @@ const {
                       </label>
                     </div>
 
-{field.value === 'international' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="countryName">Country Name</Label>
+                    {field.value === 'international' && (
+                      <div className="space-y-3" ref={countryDropdownRef}>
+                        <Label htmlFor="countrySearch">Country Name(s)</Label>
+                        
+                        {/* Selected Badges */}
+                        {countryNames.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {countryNames.map((c: string, idx: number) => (
+                              <div key={idx} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-200 shadow-sm">
+                                {c}
+                                <button
+                                  type="button"
+                                  onClick={() => removeCountry(c)}
+                                  className="hover:bg-blue-200 rounded-full p-0.5 transition-colors focus:outline-none"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Input with Dropdown */}
                         <div className="relative">
                           <Input
-                            id="countryName"
-                            placeholder="Enter country name"
-                            value={countryName}
-                            onChange={(e) => setValue('countryName', e.target.value)}
-                            className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                            id="countrySearch"
+                            placeholder="Type to search and add countries..."
+                            value={countryInput}
+                            onChange={(e) => {
+                              setCountryInput(e.target.value);
+                              setIsCountryDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsCountryDropdownOpen(true)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (countryInput.trim()) {
+                                  addCountry(countryInput);
+                                }
+                              }
+                            }}
+                            className="w-full flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
                           />
-                          {countryName && !countries.includes(countryName) && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-                              {countries
-                                .filter(country => country.toLowerCase().includes(countryName.toLowerCase()))
-                                .map((country) => (
+                          
+                          {isCountryDropdownOpen && (
+                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto mt-1">
+                              {filteredCountries.length > 0 ? (
+                                filteredCountries.map((c) => (
                                   <div
-                                    key={country}
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                    onClick={() => setValue('countryName', country)}
+                                    key={c}
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    onClick={() => addCountry(c)}
                                   >
-                                    {country}
+                                    {c}
                                   </div>
-                                ))}
+                                ))
+                              ) : (
+                                countryInput.trim() && (
+                                  <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-blue-600 font-medium flex items-center gap-2"
+                                    onClick={() => addCountry(countryInput)}
+                                  >
+                                    <Plus className="h-4 w-4" /> Add "{countryInput}"
+                                  </div>
+                                )
+                              )}
                             </div>
                           )}
                         </div>
@@ -557,29 +755,71 @@ const {
                     )}
 
                     {field.value === 'domestic' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="stateName">State Name</Label>
+                      <div className="space-y-3" ref={stateDropdownRef}>
+                        <Label htmlFor="stateSearch">State Name(s)</Label>
+                        
+                        {/* Selected Badges */}
+                        {stateNames.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {stateNames.map((s: string, idx: number) => (
+                              <div key={idx} className="flex items-center gap-1 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium border border-green-200 shadow-sm">
+                                {s}
+                                <button
+                                  type="button"
+                                  onClick={() => removeState(s)}
+                                  className="hover:bg-green-200 rounded-full p-0.5 transition-colors focus:outline-none"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Input with Dropdown */}
                         <div className="relative">
                           <Input
-                            id="stateName"
-                            placeholder="Enter state name"
-                            value={stateName}
-                            onChange={(e) => setValue('stateName', e.target.value)}
-                            className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                            id="stateSearch"
+                            placeholder="Type to search and add states..."
+                            value={stateInput}
+                            onChange={(e) => {
+                              setStateInput(e.target.value);
+                              setIsStateDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsStateDropdownOpen(true)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (stateInput.trim()) {
+                                  addState(stateInput);
+                                }
+                              }
+                            }}
+                            className="w-full flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
                           />
-                          {stateName && !indianStates.includes(stateName) && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-                              {indianStates
-                                .filter(state => state.toLowerCase().includes(stateName.toLowerCase()))
-                                .map((state) => (
+                          
+                          {isStateDropdownOpen && (
+                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto mt-1">
+                              {filteredStates.length > 0 ? (
+                                filteredStates.map((s) => (
                                   <div
-                                    key={state}
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                    onClick={() => setValue('stateName', state)}
+                                    key={s}
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    onClick={() => addState(s)}
                                   >
-                                    {state}
+                                    {s}
                                   </div>
-                                ))}
+                                ))
+                              ) : (
+                                stateInput.trim() && (
+                                  <div
+                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-green-600 font-medium flex items-center gap-2"
+                                    onClick={() => addState(stateInput)}
+                                  >
+                                    <Plus className="h-4 w-4" /> Add "{stateInput}"
+                                  </div>
+                                )
+                              )}
                             </div>
                           )}
                         </div>
@@ -854,7 +1094,7 @@ const {
                         </Button>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor={`dayPlace-${index}`}>Place Name</Label>
                           <Input
@@ -874,6 +1114,67 @@ const {
                             onChange={(e) => updateItineraryDay(index, 'description', e.target.value)}
                             rows={3}
                           />
+                        </div>
+
+                        {/* Image Upload for Place */}
+                        <div className="space-y-2">
+                          <Label>Place Photos</Label>
+                          <div className="space-y-2">
+                            <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:bg-gray-50 cursor-pointer relative transition-all">
+                              <input
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files || []);
+                                  const currentImages = day.images || [];
+                                  updateItineraryDay(index, 'images', [...currentImages, ...files]);
+                                }}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              />
+                              <Upload className="h-5 w-5 mx-auto text-gray-400 mb-1" />
+                              <span className="text-xs font-medium text-gray-700 block">Click to upload photos</span>
+                            </div>
+
+                            {((day.imageUrls?.length || 0) + (day.images?.length || 0)) > 0 && (
+                              <div className="flex flex-wrap gap-1.5 border p-1.5 rounded-lg bg-gray-50/50 max-h-24 overflow-y-auto">
+                                {day.imageUrls?.map((url, idx) => (
+                                  <div key={`day-existing-${idx}`} className="relative h-10 w-10 rounded overflow-hidden border bg-white group shadow-sm shrink-0">
+                                    <img src={url} alt={`Place ${idx + 1}`} className="w-full h-full object-cover" />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedUrls = (day.imageUrls || []).filter((_, i) => i !== idx);
+                                        updateItineraryDay(index, 'imageUrls', updatedUrls);
+                                      }}
+                                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <Trash2 className="h-3 w-3 text-white" />
+                                    </button>
+                                  </div>
+                                ))}
+
+                                {day.images?.map((file, idx) => {
+                                  const previewUrl = URL.createObjectURL(file);
+                                  return (
+                                    <div key={`day-new-${idx}`} className="relative h-10 w-10 rounded overflow-hidden border bg-white group shadow-sm shrink-0">
+                                      <img src={previewUrl} alt={`New place ${idx + 1}`} className="w-full h-full object-cover" />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updatedFiles = (day.images || []).filter((_, i) => i !== idx);
+                                          updateItineraryDay(index, 'images', updatedFiles);
+                                        }}
+                                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <Trash2 className="h-3 w-3 text-white" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -941,7 +1242,7 @@ const {
             </div>
 
             {/* 8. Category Classification Details */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               {/* Experience Type */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
@@ -1017,56 +1318,6 @@ const {
                   </div>
                 </div>
               </div>
-
-              {/* Deals & Offers Category */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      10
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Deals & Offers</h3>
-  </div>
-                <Controller
-                  name="discountCategory"
-                  control={control}
-                  render={({ field }) => (
-                    <select
-                      {...field}
-                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
-                    >
-                      <option value="none">Standard Price (No Offer)</option>
-                      <option value="10-off">10% Off</option>
-                      <option value="50-off">50% Off</option>
-                      <option value="flash-deals">Flash Deals</option>
-                    </select>
-                  )}
-                />
-              </div>
-
-              {/* Trending Status */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      11
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Trending Package</h3>
-  </div>
-                <Controller
-                  name="isTrending"
-                  control={control}
-                  render={({ field }) => (
-                    <label className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!!field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                        className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors animate-none"
-                      />
-                      <span className="text-sm font-medium">Mark as Trending Destination</span>
-                    </label>
-                  )}
-                />
-              </div>
             </div>
 
             {/* Seasonal and Events Details */}
@@ -1075,7 +1326,7 @@ const {
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      12
+      10
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Seasonal Escapes</h3>
   </div>
@@ -1102,7 +1353,7 @@ const {
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      13
+      11
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Festive & Event Specials</h3>
   </div>
@@ -1125,12 +1376,12 @@ const {
               </div>
             </div>
 
-            {/* 13. Inclusions & Exclusions */}
+            {/* 12. Inclusions & Exclusions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Inclusions */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <h3 className="text-lg font-semibold">14. Inclusions</h3>
+                  <h3 className="text-lg font-semibold">12. Inclusions</h3>
                   <Button type="button" size="sm" onClick={addInclusion} className="flex items-center gap-1">
                     <Plus className="h-3 w-3" /> Add Item
                   </Button>
@@ -1162,7 +1413,7 @@ const {
               {/* Exclusions */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <h3 className="text-lg font-semibold">15. Exclusions</h3>
+                  <h3 className="text-lg font-semibold">13. Exclusions</h3>
                   <Button type="button" size="sm" onClick={addExclusion} className="flex items-center gap-1">
                     <Plus className="h-3 w-3" /> Add Item
                   </Button>

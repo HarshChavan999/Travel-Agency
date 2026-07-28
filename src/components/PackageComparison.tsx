@@ -56,6 +56,12 @@ const getMainImage = (pkg: ComparisonPackage) => {
   if (pkg.photos && pkg.photos.length > 0) {
     return pkg.photos[0];
   }
+  if (pkg.itinerary && pkg.itinerary.length > 0) {
+    for (const day of pkg.itinerary) {
+      if (day.imageUrls && day.imageUrls.length > 0) return day.imageUrls[0];
+      if (day.imageUrl) return day.imageUrl;
+    }
+  }
   return null;
 };
 

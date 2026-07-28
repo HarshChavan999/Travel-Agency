@@ -196,7 +196,8 @@ export default function PackageDetailView({
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(true);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
 
@@ -262,20 +263,72 @@ export default function PackageDetailView({
         if (place.imageUrls && place.imageUrls.length > 0) images.push(...place.imageUrls);
       });
     }
+    if (images.length === 0 && listing.itinerary && listing.itinerary.length > 0) {
+      listing.itinerary.forEach((day: any) => {
+        if (day.imageUrls && day.imageUrls.length > 0) {
+          images.push(...day.imageUrls);
+        } else if (day.imageUrl) {
+          images.push(day.imageUrl);
+        }
+      });
+    }
     return images;
   };
   const allImages = getAllImages();
+
+  const loopImages = allImages.length >= 2 
+    ? [...allImages, allImages[0], allImages[1]] 
+    : allImages;
 
   // Auto-slide every 4 seconds, infinite loop
   useEffect(() => {
     if (allImages.length <= 1) return;
     autoSlideRef.current = setInterval(() => {
-      setCurrentImageIndex(prev => (prev + 1) % allImages.length);
+      setCurrentIndex(prev => prev + 1);
     }, 4000);
     return () => {
       if (autoSlideRef.current) clearInterval(autoSlideRef.current);
     };
   }, [allImages.length]);
+
+  // Handle infinite loop transitions seamlessly
+  useEffect(() => {
+    if (currentIndex >= allImages.length) {
+      const timer = setTimeout(() => {
+        setIsTransitioning(false);
+        setCurrentIndex(0);
+      }, 800);
+      return () => clearTimeout(timer);
+    } else {
+      setIsTransitioning(true);
+    }
+  }, [currentIndex, allImages.length]);
+
+  const displayImageIndex = allImages.length > 0 ? (currentIndex % allImages.length) : 0;
+
+  const handleNext = () => {
+    if (allImages.length <= 1) return;
+    setCurrentIndex(prev => prev + 1);
+  };
+
+  const handlePrev = () => {
+    if (allImages.length <= 1) return;
+    if (currentIndex === 0) {
+      setIsTransitioning(false);
+      setCurrentIndex(allImages.length);
+      setTimeout(() => {
+        setIsTransitioning(true);
+        setCurrentIndex(allImages.length - 1);
+      }, 50);
+    } else {
+      setCurrentIndex(prev => prev - 1);
+    }
+  };
+
+  const handleDotClick = (idx: number) => {
+    setIsTransitioning(true);
+    setCurrentIndex(idx);
+  };
 
   // Preload all listing images on mount
   useEffect(() => {
@@ -367,10 +420,50 @@ export default function PackageDetailView({
 
   // Get unique places to display
   const getDisplayPlaces = () => {
-    const covered = listing.placesCovered?.map((p: any) => p.name?.trim()).filter(Boolean) || [];
-    if (covered.length > 0) return covered;
-    const itineraryPlaces = listing.itinerary?.map((d: any) => d.placeName?.trim()).filter(Boolean) || [];
-    return Array.from(new Set(itineraryPlaces));
+    const cleanPlaceName = (rawName: string): string[] => {
+      if (!rawName) return [];
+      // Normalize separators: dash, en-dash, em-dash, " to ", " & ", " and ", " / "
+      const normalized = rawName
+        .replace(/[-–—]/g, ',')
+        .replace(/\bto\b/gi, ',')
+        .replace(/\b&\b/gi, ',')
+        .replace(/\band\b/gi, ',')
+        .replace(/\b\/\b/gi, ',');
+      
+      const result: string[] = [];
+      const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|airport|station|railway|hotel|resort|day|visit|trip|journey|welcome|tourist|spot|spots)$/i;
+      
+      normalized.split(',').forEach(part => {
+        let cleaned = part.trim();
+        // Remove common introductory prepositions/prefixes
+        cleaned = cleaned.replace(/^(at|from|in|to|for|via|by|towards)\s+/i, '').trim();
+        
+        // Remove trailing prepositions/prefixes if any are left
+        cleaned = cleaned.replace(/\s+(at|from|in|to|for|via|by|towards)$/i, '').trim();
+        
+        if (cleaned && !noiseWords.test(cleaned)) {
+          // Capitalize first letter of each word to make it look professional
+          const capitalized = cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+          result.push(capitalized);
+        }
+      });
+      return result;
+    };
+
+    let rawPlaces: string[] = [];
+    const covered = listing.placesCovered?.map((p: any) => p.name?.trim()).filter((name: any) => name && name !== 'photos') || [];
+    if (covered.length > 0 && !(covered.length === 1 && covered[0] === '')) {
+      rawPlaces = covered;
+    } else {
+      rawPlaces = listing.itinerary?.map((d: any) => d.placeName?.trim()).filter(Boolean) || [];
+    }
+    
+    const cleanedPlaces = new Set<string>();
+    rawPlaces.forEach((place: string) => {
+      cleanPlaceName(place).forEach(c => cleanedPlaces.add(c));
+    });
+    
+    return Array.from(cleanedPlaces);
   };
 
   // Generate breadcrumb
@@ -378,10 +471,12 @@ export default function PackageDetailView({
     const parts: string[] = ['Home'];
     if (listing.packageType === 'domestic') {
       parts.push('Domestic');
-      if (listing.stateName) parts.push(listing.stateName);
+      const states = listing.stateNames && listing.stateNames.length > 0 ? listing.stateNames.join(', ') : listing.stateName;
+      if (states) parts.push(states);
     } else {
       parts.push('International');
-      if (listing.countryName) parts.push(listing.countryName);
+      const countries = listing.countryNames && listing.countryNames.length > 0 ? listing.countryNames.join(', ') : listing.countryName;
+      if (countries) parts.push(countries);
     }
     parts.push(listing.title || 'Package');
     return parts;
@@ -432,10 +527,12 @@ export default function PackageDetailView({
     },
     {
       icon: Compass,
-      label: 'Escapes',
-      value: Array.isArray(listing.escapes) && listing.escapes.length > 0
-        ? listing.escapes.join(', ')
-        : (listing.escape || listing.escapeType || 'Adventure')
+      label: 'Experience Type',
+      value: Array.isArray(listing.experienceType) && listing.experienceType.length > 0
+        ? listing.experienceType.join(', ')
+        : (typeof listing.experienceType === 'string' && listing.experienceType
+            ? listing.experienceType
+            : 'Adventure')
     },
     {
       icon: Utensils,
@@ -450,13 +547,22 @@ export default function PackageDetailView({
     {
       icon: MapPin,
       label: 'City',
-      value: getDisplayPlaces().slice(0, 3).join(', ') || 'N/A'
+      value: getDisplayPlaces().join(', ') || 'N/A'
     },
     {
       icon: Hotel,
       label: 'Hotel Type',
       value: getFormattedHotelTypes(listing.hotelTypes)
     },
+    ...(listing.packageType === 'domestic' ? [{
+      icon: Globe,
+      label: 'State(s)',
+      value: listing.stateNames && listing.stateNames.length > 0 ? listing.stateNames.join(', ') : (listing.stateName || 'N/A')
+    }] : [{
+      icon: Globe,
+      label: 'Country/Countries',
+      value: listing.countryNames && listing.countryNames.length > 0 ? listing.countryNames.join(', ') : (listing.countryName || 'N/A')
+    }])
   ];
 
   return (
@@ -466,19 +572,41 @@ export default function PackageDetailView({
       <div className="relative w-full" style={{ height: '480px' }}>
         {allImages.length > 0 ? (
           <div className="absolute inset-0 overflow-hidden">
-            {allImages.map((img, idx) => (
+            {allImages.length === 1 ? (
               <img
-                key={idx}
-                src={optimizeImageUrl(img, { width: 1400, quality: 90, format: 'auto', cacheBust: false })}
-                alt={`${listing.title} photo ${idx + 1}`}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                style={{ opacity: idx === currentImageIndex ? 1 : 0, zIndex: idx === currentImageIndex ? 1 : 0 }}
-                loading={idx === 0 ? 'eager' : 'lazy'}
+                src={optimizeImageUrl(allImages[0], { width: 1400, quality: 90, format: 'auto', cacheBust: false })}
+                alt={listing.title}
+                className="w-full h-full object-cover"
+                loading="eager"
               />
-            ))}
+            ) : (
+              <div 
+                className="flex h-full"
+                style={{
+                  width: `${loopImages.length * 50}%`,
+                  transform: `translateX(-${(100 / loopImages.length) * currentIndex}%)`,
+                  transition: isTransitioning ? 'transform 800ms cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
+                }}
+              >
+                {loopImages.map((img, idx) => (
+                  <div 
+                    key={idx} 
+                    style={{ width: `${100 / loopImages.length}%` }} 
+                    className="h-full relative px-[2px] bg-stone-900"
+                  >
+                    <img
+                      src={optimizeImageUrl(img, { width: 1000, quality: 90, format: 'auto', cacheBust: false })}
+                      alt={`${listing.title} photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading={idx < 2 ? 'eager' : 'lazy'}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
             {/* Dark gradient overlay */}
             <div
-              className="absolute inset-0 z-10"
+              className="absolute inset-0 z-10 pointer-events-none"
               style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.65) 100%)' }}
             />
           </div>
@@ -546,6 +674,8 @@ export default function PackageDetailView({
                       packageType: listing.packageType,
                       stateName: listing.stateName,
                       countryName: listing.countryName,
+                      stateNames: listing.stateNames,
+                      countryNames: listing.countryNames,
                       duration: listing.duration,
                       itinerary: listing.itinerary,
                       placesCovered: listing.placesCovered,
@@ -601,7 +731,7 @@ export default function PackageDetailView({
             <div className="flex items-center flex-wrap gap-3 text-white/90 text-sm mb-4">
               <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
                 <MapPin className="h-3.5 w-3.5" />
-                {getDisplayPlaces().slice(0, 4).join(' · ') || 'Multiple Destinations'}
+                {getDisplayPlaces().join(' · ') || 'Multiple Destinations'}
               </span>
               <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
                 <Clock className="h-3.5 w-3.5" />
@@ -621,11 +751,11 @@ export default function PackageDetailView({
                 {allImages.map((_, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setCurrentImageIndex(idx)}
-                    className={`transition-all duration-300 rounded-full ${idx === currentImageIndex ? 'w-6 h-2 bg-white' : 'w-2 h-2 bg-white/50 hover:bg-white/75'}`}
+                    onClick={() => handleDotClick(idx)}
+                    className={`transition-all duration-300 rounded-full ${idx === displayImageIndex ? 'w-6 h-2 bg-white' : 'w-2 h-2 bg-white/50 hover:bg-white/75'}`}
                   />
                 ))}
-                <span className="text-white/60 text-xs ml-2">{currentImageIndex + 1} / {allImages.length}</span>
+                <span className="text-white/60 text-xs ml-2">{displayImageIndex + 1} / {allImages.length}</span>
                 <button
                   onClick={() => setShowAllPhotos(true)}
                   className="ml-auto flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
@@ -641,14 +771,14 @@ export default function PackageDetailView({
         {allImages.length > 1 && (
           <>
             <button
-              onClick={() => setCurrentImageIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1)}
+              onClick={handlePrev}
               className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full p-2.5 transition-all border border-white/30 hover:scale-110 cursor-pointer"
               aria-label="Previous image"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
-              onClick={() => setCurrentImageIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1)}
+              onClick={handleNext}
               className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full p-2.5 transition-all border border-white/30 hover:scale-110 cursor-pointer"
               aria-label="Next image"
             >
@@ -691,8 +821,14 @@ export default function PackageDetailView({
                       'ELEVEN','TWELVE','THIRTEEN','FOURTEEN','FIFTEEN','SIXTEEN','SEVENTEEN','EIGHTEEN','NINETEEN','TWENTY'];
                     const dayLabel = dayWords[(day.day || index + 1) - 1] || `${day.day || index + 1}`;
 
-                    // Find the image for this day from placesCovered matching placeName, or day.imageUrl
-                    let dayImage: string | null = day.imageUrl || null;
+                    // Find the image for this day
+                    let dayImage: string | null = null;
+                    if (day.imageUrls && day.imageUrls.length > 0) {
+                      dayImage = day.imageUrls[0];
+                    } else if (day.imageUrl) {
+                      dayImage = day.imageUrl;
+                    }
+                    
                     if (!dayImage && listing.placesCovered) {
                       const matchedPlace = listing.placesCovered.find(
                         (p: any) => p.name?.trim().toLowerCase() === (day.placeName || '').trim().toLowerCase()
@@ -852,7 +988,7 @@ export default function PackageDetailView({
                       onClick={() => setShowAllPhotos(true)}
                     >
                       <img
-                        src={optimizeImageUrl(allImages[currentImageIndex % allImages.length], { width: 800, quality: 85, format: 'auto' })}
+                        src={optimizeImageUrl(allImages[displayImageIndex], { width: 800, quality: 85, format: 'auto' })}
                         alt="Featured"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                       />
@@ -860,7 +996,7 @@ export default function PackageDetailView({
                     {/* Two smaller side images */}
                     <div className="grid grid-rows-2 gap-2">
                       {[1, 2].map(offset => {
-                        const idx = (currentImageIndex + offset) % allImages.length;
+                        const idx = (displayImageIndex + offset) % allImages.length;
                         return (
                           <div
                             key={offset}
@@ -892,8 +1028,8 @@ export default function PackageDetailView({
                       {allImages.slice(0, Math.min(allImages.length, 10)).map((_, idx) => (
                         <button
                           key={idx}
-                          onClick={() => setCurrentImageIndex(idx)}
-                          className={`rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-5 h-2 bg-orange-500' : 'w-2 h-2 bg-stone-300 hover:bg-stone-400'}`}
+                          onClick={() => handleDotClick(idx)}
+                          className={`rounded-full transition-all duration-300 ${idx === displayImageIndex ? 'w-5 h-2 bg-orange-500' : 'w-2 h-2 bg-stone-300 hover:bg-stone-400'}`}
                         />
                       ))}
                     </div>

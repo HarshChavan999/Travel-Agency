@@ -407,6 +407,37 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       if (l.destination) dests.add(l.destination);
       if (l.stateName) dests.add(l.stateName);
       if (l.countryName) dests.add(l.countryName);
+      if (l.stateNames && Array.isArray(l.stateNames)) {
+        l.stateNames.forEach((s: string) => { if (s) dests.add(s); });
+      }
+      if (l.countryNames && Array.isArray(l.countryNames)) {
+        l.countryNames.forEach((c: string) => { if (c) dests.add(c); });
+      }
+      if (l.itinerary && Array.isArray(l.itinerary)) {
+        l.itinerary.forEach((day: any) => {
+          const rawName = day.placeName;
+          if (rawName) {
+            const normalized = rawName
+              .replace(/[-–—]/g, ',')
+              .replace(/\bto\b/gi, ',')
+              .replace(/\b&\b/gi, ',')
+              .replace(/\band\b/gi, ',')
+              .replace(/\b\/\b/gi, ',');
+            
+            const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|airport|station|railway|hotel|resort|day|visit|trip|journey|welcome|tourist|spot|spots)$/i;
+            
+            normalized.split(',').forEach((part: string) => {
+              let cleaned = part.trim();
+              cleaned = cleaned.replace(/^(at|from|in|to|for|via|by|towards)\s+/i, '').trim();
+              cleaned = cleaned.replace(/\s+(at|from|in|to|for|via|by|towards)$/i, '').trim();
+              if (cleaned && !noiseWords.test(cleaned)) {
+                const capitalized = cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+                dests.add(capitalized);
+              }
+            });
+          }
+        });
+      }
     });
     const blocklist = ['fdgdh', 'fdgh', 'test', 'asdf'];
     return Array.from(dests).filter(d => typeof d === 'string' && d.length > 2 && !blocklist.includes(d.toLowerCase().trim()));
@@ -4255,12 +4286,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               const destination = (listing.destination || '').toLowerCase();
                               const stateName = (listing.stateName || '').toLowerCase();
                               const countryName = (listing.countryName || '').toLowerCase();
+                              const stateNamesCombined = (listing.stateNames || []).map((s: string) => s.toLowerCase()).join(' ');
+                              const countryNamesCombined = (listing.countryNames || []).map((c: string) => c.toLowerCase()).join(' ');
                               const packageType = (listing.packageType || '').toLowerCase();
                               const type = (listing.type || '').toLowerCase();
                               const price = (listing.price || listing.cost || '').toString().toLowerCase();
                               const duration = (listing.duration || '').toString().toLowerCase();
                               const itineraryDays = (listing.itinerary?.length || '').toString();
-
+ 
                               // Match dynamic card details
                               const pickup = (listing.placesCovered?.[0]?.name || listing.stateName || 'Delhi').toLowerCase();
                               const drop = (listing.placesCovered?.[listing.placesCovered.length - 1]?.name || listing.stateName || 'Delhi').toLowerCase();
@@ -4272,12 +4305,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               const agencyName = (listing.agencyName || '').toLowerCase();
                               const places = (Array.isArray(listing.placesCovered) ? listing.placesCovered : [])
                                 .map((p: any) => String(p?.name || '').toLowerCase()).join(' ');
-
+                              const itineraryPlaces = (Array.isArray(listing.itinerary) ? listing.itinerary : [])
+                                .map((d: any) => String(d?.placeName || '').toLowerCase()).join(' ');
+ 
                               const matches = title.includes(searchLower) ||
                                 description.includes(searchLower) ||
                                 destination.includes(searchLower) ||
                                 stateName.includes(searchLower) ||
                                 countryName.includes(searchLower) ||
+                                stateNamesCombined.includes(searchLower) ||
+                                countryNamesCombined.includes(searchLower) ||
                                 packageType.includes(searchLower) ||
                                 type.includes(searchLower) ||
                                 price.includes(searchLower) ||
@@ -4290,6 +4327,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 inclusions.includes(searchLower) ||
                                 agencyName.includes(searchLower) ||
                                 places.includes(searchLower) ||
+                                itineraryPlaces.includes(searchLower) ||
                                 'sightseeing'.includes(searchLower) ||
                                 'transport'.includes(searchLower) ||
                                 'hotel stay'.includes(searchLower) ||

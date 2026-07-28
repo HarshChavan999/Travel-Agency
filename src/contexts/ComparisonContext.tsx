@@ -11,6 +11,8 @@ export interface ComparisonPackage {
   packageType: 'domestic' | 'international';
   stateName?: string;
   countryName?: string;
+  stateNames?: string[];
+  countryNames?: string[];
   duration?: number;
   itinerary?: any[];
   placesCovered?: any[];

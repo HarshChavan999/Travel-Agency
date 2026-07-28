@@ -47,6 +47,12 @@ export default function ListingCard({
     if (listing.photos && listing.photos.length > 0) {
       return listing.photos[0];
     }
+    if (listing.itinerary && listing.itinerary.length > 0) {
+      for (const day of listing.itinerary) {
+        if (day.imageUrls && day.imageUrls.length > 0) return day.imageUrls[0];
+        if (day.imageUrl) return day.imageUrl;
+      }
+    }
     return null;
   };
 
@@ -64,6 +70,15 @@ export default function ListingCard({
       listing.photos.forEach((photo: string) => {
         if (photo && !images.includes(photo)) {
           images.push(photo);
+        }
+      });
+    }
+    if (images.length === 0 && listing.itinerary && listing.itinerary.length > 0) {
+      listing.itinerary.forEach((day: any) => {
+        if (day.imageUrls && day.imageUrls.length > 0) {
+          images.push(...day.imageUrls);
+        } else if (day.imageUrl) {
+          images.push(day.imageUrl);
         }
       });
     }
