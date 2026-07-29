@@ -78,6 +78,15 @@ const defaultFAQs = [
   }
 ];
 
+const cleanPlaceNameForSEO = (name: string) => {
+  if (!name) return '';
+  const parts = name.split(/[\s\-\/]+/);
+  const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight)$/i;
+  const cleanedParts = parts.filter(part => !noiseWords.test(part));
+  if (cleanedParts.length === 0) return '';
+  return cleanedParts.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+};
+
 // Pure Real Review Data Processor (No Static / Mock Reviews)
 function getReviewsData(listing: any, userDbReviews: any[]) {
   const locationName = listing?.packageType === 'international' ? listing?.countryName : listing?.stateName;
@@ -583,7 +592,7 @@ export default function PackageDetailView({
             {allImages.length === 1 ? (
               <img
                 src={optimizeImageUrl(allImages[0], { width: 1400, quality: 90, format: 'auto', cacheBust: false })}
-                alt={listing.title}
+                alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'}` : (listing.title || 'Travel Package')}
                 className="w-full h-full object-cover"
                 loading="eager"
               />
@@ -604,7 +613,7 @@ export default function PackageDetailView({
                   >
                     <img
                       src={optimizeImageUrl(img, { width: 1000, quality: 90, format: 'auto', cacheBust: false })}
-                      alt={`${listing.title} photo ${idx + 1}`}
+                      alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'} - Photo ${idx + 1}` : `${listing.title} photo ${idx + 1}`}
                       className="w-full h-full object-cover"
                       loading={idx < 2 ? 'eager' : 'lazy'}
                     />
@@ -900,7 +909,7 @@ export default function PackageDetailView({
                               <div className="rounded-lg overflow-hidden" style={{ height: '200px' }}>
                                 <img
                                   src={optimizeImageUrl(dayImage, { width: 600, quality: 85, format: 'auto', cacheBust: false })}
-                                  alt={day.placeName || `Day ${day.day}`}
+                                  alt={locationName && day.placeName ? `${locationName} - ${cleanPlaceNameForSEO(day.placeName)}` : (day.placeName || `Day ${day.day}`)}
                                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
                                   loading="lazy"
                                 />
@@ -1528,7 +1537,7 @@ export default function PackageDetailView({
                 >
                   <img
                     src={optimizeImageUrl(image, { width: 1200, quality: 85, format: 'auto', cacheBust: false })}
-                    alt={`Gallery Image ${index + 1}`}
+                    alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'} - Gallery Image ${index + 1}` : `Gallery Image ${index + 1}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     loading={index < 4 ? 'eager' : 'lazy'}
                     decoding="async"
@@ -1559,7 +1568,7 @@ export default function PackageDetailView({
             <X className="h-6 w-6" />
           </button>
           <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-xl" onClick={e => e.stopPropagation()}>
-            <img src={selectedGalleryImage} alt="Full size photo" className="w-full h-full object-contain" />
+            <img src={selectedGalleryImage} alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'} - Full size photo` : "Full size photo"} className="w-full h-full object-contain" />
           </div>
         </div>
       )}

@@ -58,6 +58,20 @@ interface AgencyListingFormProps {
   initialData?: FormData & { id?: string };
 }
 
+const sanitizeFileName = (name: string) => {
+  if (!name) return '';
+  return name.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+};
+
+const cleanPlaceNameForSEO = (name: string) => {
+  if (!name) return '';
+  const parts = name.split(/[\s\-\/]+/);
+  const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight)$/i;
+  const cleanedParts = parts.filter(part => !noiseWords.test(part));
+  if (cleanedParts.length === 0) return '';
+  return cleanedParts.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+};
+
 const tourCategories = [
   'Family',
   'Honeymoon', 
@@ -168,11 +182,12 @@ export default function AgencyListingForm({ agencyId, onSuccess, initialData }: 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
 
-const {
+  const {
     control,
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors }
   } = useForm<FormData>({
     defaultValues: initialData ? {
@@ -450,6 +465,14 @@ const {
       throw new Error('Storage instance not available');
     }
 
+    const values = getValues();
+    const stateOrCountry = values.packageType === 'domestic'
+      ? (values.stateNames && values.stateNames.length > 0 ? values.stateNames[0] : (values.stateName || ''))
+      : (values.countryNames && values.countryNames.length > 0 ? values.countryNames[0] : (values.countryName || ''));
+
+    const cleanState = sanitizeFileName(stateOrCountry || 'Travel');
+    const cleanPackageTitle = sanitizeFileName(values.title || 'Package');
+
     const updatedPlaces = [...places];
 
     for (let placeIndex = 0; placeIndex < places.length; placeIndex++) {
@@ -461,7 +484,11 @@ const {
 
         for (let imgIndex = 0; imgIndex < placeImages.length; imgIndex++) {
           const file = placeImages[imgIndex];
-          const storageRef = ref(storageInstance, `listings/${agencyId}/${Date.now()}_${placeIndex}_${imgIndex}_${file.name}`);
+          const fileExtension = file.name.split('.').pop() || 'jpg';
+          const placeName = place.name && place.name !== 'photos' ? place.name : cleanPackageTitle;
+          const placeNameOnly = cleanPlaceNameForSEO(placeName);
+          const cleanPlaceName = sanitizeFileName(placeNameOnly || cleanPackageTitle);
+          const storageRef = ref(storageInstance, `listings/${agencyId}/${cleanState} - ${cleanPlaceName}_${Date.now()}_${imgIndex}.${fileExtension}`);
 
           try {
             const snapshot = await uploadBytes(storageRef, file);
@@ -499,6 +526,13 @@ const {
       throw new Error('Storage instance not available');
     }
 
+    const values = getValues();
+    const stateOrCountry = values.packageType === 'domestic'
+      ? (values.stateNames && values.stateNames.length > 0 ? values.stateNames[0] : (values.stateName || ''))
+      : (values.countryNames && values.countryNames.length > 0 ? values.countryNames[0] : (values.countryName || ''));
+
+    const cleanState = sanitizeFileName(stateOrCountry || 'Travel');
+
     const updatedDays = [...days];
 
     for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
@@ -510,7 +544,10 @@ const {
 
         for (let imgIndex = 0; imgIndex < dayImages.length; imgIndex++) {
           const file = dayImages[imgIndex];
-          const storageRef = ref(storageInstance, `listings/${agencyId}/itinerary_${day.day}_${Date.now()}_${imgIndex}_${file.name}`);
+          const fileExtension = file.name.split('.').pop() || 'jpg';
+          const placeNameOnly = cleanPlaceNameForSEO(day.placeName);
+          const cleanPlace = sanitizeFileName(placeNameOnly || `Day-${day.day}`);
+          const storageRef = ref(storageInstance, `listings/${agencyId}/${cleanState} - ${cleanPlace}_${Date.now()}_${imgIndex}.${fileExtension}`);
 
           try {
             const snapshot = await uploadBytes(storageRef, file);
