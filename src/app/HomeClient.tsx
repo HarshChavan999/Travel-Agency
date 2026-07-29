@@ -6246,13 +6246,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                       </div>
                                     </div>
                                     <div className="flex space-x-2">
-                                      {/* <Button
+                                      <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleViewListing(listing)}
                                       >
-                                        View
-                                      </Button> */}
+                                        Preview
+                                      </Button>
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -6278,6 +6278,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             </div>
                           </CardContent>
                         </Card>
+                      )}
+
+                      {/* Preview Listing */}
+                      {!showListingForm && !showBulkUpload && viewingListing && (
+                        <PackageDetailView
+                          listing={viewingListing}
+                          onBack={() => setViewingListing(null)}
+                          isWishlisted={false}
+                          isPreview={true}
+                        />
                       )}
                     </div>
                   )}

@@ -47,10 +47,11 @@ import {
 interface PackageDetailViewProps {
   listing: any;
   onBack: () => void;
-  onBook: (listing: any) => void;
-  onChat: (listing: any) => void;
-  onWishlist: (listingId: string) => void;
+  onBook?: (listing: any) => void;
+  onChat?: (listing: any) => void;
+  onWishlist?: (listingId: string) => void;
   isWishlisted?: boolean;
+  isPreview?: boolean;
 }
 
 // Sample FAQ data
@@ -189,7 +190,8 @@ export default function PackageDetailView({
   onBook,
   onChat,
   onWishlist,
-  isWishlisted
+  isWishlisted,
+  isPreview = false
 }: PackageDetailViewProps) {
   const { user } = useAuth();
   const [expandedDays, setExpandedDays] = useState<number[]>([]);
@@ -645,67 +647,71 @@ export default function PackageDetailView({
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Back
               </button>
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
-              >
-                <Share2 className="h-3.5 w-3.5" /> Share
-              </button>
-              <button
-                onClick={() => onWishlist?.(listing.id)}
-                className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isWishlisted ? 'bg-red-500/80 text-white border-red-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
-              >
-                <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
-                {isWishlisted ? 'Saved' : 'Save'}
-              </button>
-              <button
-                onClick={() => {
-                  if (isInComparison(listing.id)) {
-                    setCompareToastMessage('This package is already in your comparison list!');
-                    setShowCompareToast(true);
-                    setTimeout(() => setShowCompareToast(false), 3000);
-                  } else if (!canAddMore) {
-                    setCompareToastMessage('You can only compare up to 3 packages. Remove one to add this.');
-                    setShowCompareToast(true);
-                    setTimeout(() => setShowCompareToast(false), 3000);
-                  } else {
-                    const success = addToComparison({
-                      id: listing.id,
-                      title: listing.title,
-                      description: listing.description,
-                      cost: listing.cost,
-                      price: listing.price,
-                      packageType: listing.packageType,
-                      stateName: listing.stateName,
-                      countryName: listing.countryName,
-                      stateNames: listing.stateNames,
-                      countryNames: listing.countryNames,
-                      duration: listing.duration,
-                      itinerary: listing.itinerary,
-                      placesCovered: listing.placesCovered,
-                      hotelTypes: listing.hotelTypes,
-                      inclusions: listing.inclusions,
-                      exclusions: listing.exclusions,
-                      agencyName: listing.agencyName,
-                      agencyId: listing.agencyId,
-                      agencyData: listing.agencyData,
-                      photos: listing.photos,
-                      rating: listing.rating,
-                      reviewsCount: listing.reviewsCount,
-                      tourCategories: listing.tourCategories,
-                    });
-                    if (success) {
-                      setCompareToastMessage(`Added to comparison! (${comparisonList.length + 1}/3 packages)`);
-                      setShowCompareToast(true);
-                      setTimeout(() => setShowCompareToast(false), 3000);
-                    }
-                  }
-                }}
-                className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isInComparison(listing.id) ? 'bg-blue-500/80 text-white border-blue-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
-              >
-                <Scale className="h-3.5 w-3.5" />
-                {isInComparison(listing.id) ? 'Comparing' : 'Compare'}
-              </button>
+              {!isPreview && (
+                <>
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Share
+                  </button>
+                  <button
+                    onClick={() => onWishlist?.(listing.id)}
+                    className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isWishlisted ? 'bg-red-500/80 text-white border-red-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
+                  >
+                    <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
+                    {isWishlisted ? 'Saved' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (isInComparison(listing.id)) {
+                        setCompareToastMessage('This package is already in your comparison list!');
+                        setShowCompareToast(true);
+                        setTimeout(() => setShowCompareToast(false), 3000);
+                      } else if (!canAddMore) {
+                        setCompareToastMessage('You can only compare up to 3 packages. Remove one to add this.');
+                        setShowCompareToast(true);
+                        setTimeout(() => setShowCompareToast(false), 3000);
+                      } else {
+                        const success = addToComparison({
+                          id: listing.id,
+                          title: listing.title,
+                          description: listing.description,
+                          cost: listing.cost,
+                          price: listing.price,
+                          packageType: listing.packageType,
+                          stateName: listing.stateName,
+                          countryName: listing.countryName,
+                          stateNames: listing.stateNames,
+                          countryNames: listing.countryNames,
+                          duration: listing.duration,
+                          itinerary: listing.itinerary,
+                          placesCovered: listing.placesCovered,
+                          hotelTypes: listing.hotelTypes,
+                          inclusions: listing.inclusions,
+                          exclusions: listing.exclusions,
+                          agencyName: listing.agencyName,
+                          agencyId: listing.agencyId,
+                          agencyData: listing.agencyData,
+                          photos: listing.photos,
+                          rating: listing.rating,
+                          reviewsCount: listing.reviewsCount,
+                          tourCategories: listing.tourCategories,
+                        });
+                        if (success) {
+                          setCompareToastMessage(`Added to comparison! (${comparisonList.length + 1}/3 packages)`);
+                          setShowCompareToast(true);
+                          setTimeout(() => setShowCompareToast(false), 3000);
+                        }
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isInComparison(listing.id) ? 'bg-blue-500/80 text-white border-blue-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
+                  >
+                    <Scale className="h-3.5 w-3.5" />
+                    {isInComparison(listing.id) ? 'Comparing' : 'Compare'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -748,7 +754,7 @@ export default function PackageDetailView({
                 <Clock className="h-3.5 w-3.5" />
                 {duration}D / {nights}N
               </span>
-              {reviewsData.totalReviewsCount > 0 && (
+              {!isPreview && reviewsData.totalReviewsCount > 0 && (
                 <span className="flex items-center gap-1.5 text-xs bg-amber-500/80 backdrop-blur-sm px-3 py-1 rounded-full border border-amber-400/50">
                   <Star className="h-3.5 w-3.5 fill-current" />
                   {reviewsData.avgRating.toFixed(1)} · {reviewsData.totalReviewsCount} reviews
@@ -1134,24 +1140,27 @@ export default function PackageDetailView({
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
-                    onChat(listing);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 text-white font-semibold rounded-lg py-3 text-sm transition-all hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)', fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Chat with Agency
-                </button>
+                {!isPreview && onChat && (
+                  <button
+                    onClick={() => {
+                      console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
+                      onChat(listing);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 text-white font-semibold rounded-lg py-3 text-sm transition-all hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)', fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Chat with Agency
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* ── FULL WIDTH REVIEWS & FAQ ── */}
-        <div ref={observerRef} className="mt-10 space-y-6">
+        {!isPreview && (
+          <div ref={observerRef} className="mt-10 space-y-6">
 
           {/* Reviews Section */}
           <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
@@ -1444,29 +1453,32 @@ export default function PackageDetailView({
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ─── SCROLL-TRIGGERED STICKY CHAT BAR ───────────────────── */}
-      <div
-        className={`fixed bottom-0 left-0 right-0 z-[150] bg-white border-t border-stone-200 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.12)] p-4 flex justify-between items-center transition-transform duration-500 ease-in-out ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
-      >
-        <div className="max-w-7xl mx-auto w-full flex justify-between items-center px-4 md:px-8">
-          <div className="hidden md:block">
-            <h3 className="font-bold text-gray-900 line-clamp-1 text-sm">{listing.title || 'Package'}</h3>
-            <p className="font-bold text-base" style={{ color: '#b84814' }}>
-              {currencySymbol}{displayPrice || 'Contact Us'}
-            </p>
+      {!isPreview && onChat && (
+        <div
+          className={`fixed bottom-0 left-0 right-0 z-[150] bg-white border-t border-stone-200 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.12)] p-4 flex justify-between items-center transition-transform duration-500 ease-in-out ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
+        >
+          <div className="max-w-7xl mx-auto w-full flex justify-between items-center px-4 md:px-8">
+            <div className="hidden md:block">
+              <h3 className="font-bold text-gray-900 line-clamp-1 text-sm">{listing.title || 'Package'}</h3>
+              <p className="font-bold text-base" style={{ color: '#b84814' }}>
+                {currencySymbol}{displayPrice || 'Contact Us'}
+              </p>
+            </div>
+            <Button
+              className="w-full md:w-auto text-white font-bold rounded-full px-8 h-12 text-base transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-pointer border-0"
+              style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)' }}
+              onClick={() => onChat(listing)}
+            >
+              <MessageCircle className="h-5 w-5 mr-2" />
+              Chat with Agency
+            </Button>
           </div>
-          <Button
-            className="w-full md:w-auto text-white font-bold rounded-full px-8 h-12 text-base transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-pointer border-0"
-            style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)' }}
-            onClick={() => onChat(listing)}
-          >
-            <MessageCircle className="h-5 w-5 mr-2" />
-            Chat with Agency
-          </Button>
         </div>
-      </div>
+      )}
 
       {/* ─── COMPARE TOAST NOTIFICATION ─────────────────────────── */}
       {showCompareToast && (
