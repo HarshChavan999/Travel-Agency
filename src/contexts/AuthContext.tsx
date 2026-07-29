@@ -22,6 +22,8 @@ interface UserData {
   logoUrl?: string;
   agencyLogo?: string;
   coTravellers?: any[];
+  defaultInclusions?: string[] | string;
+  defaultExclusions?: string[] | string;
   plan?: 'free' | 'starter' | 'premium' | 'vip';
   credits?: number;
   freeChats?: number;

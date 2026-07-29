@@ -106,7 +106,7 @@ export default function ListingCard({
   const packageCode = listing.id ? listing.id.slice(-4).toUpperCase() : '1045';
   const pickupLocation = listing.pickUpLocation || listing.placesCovered?.[0]?.name?.trim() || listing.stateName || 'Delhi';
   const dropLocation = listing.dropLocation || listing.placesCovered?.[listing.placesCovered.length - 1]?.name?.trim() || listing.stateName || 'Delhi';
-  const cardTitle = (listing.packageType === 'international' ? listing.countryName : listing.stateName) || listing.title || `${packageType} Package`;
+  const cardTitle = listing.title || (listing.packageType === 'international' ? listing.countryName : listing.stateName) || `${packageType} Package`;
   const placesText = listing.placesCovered && listing.placesCovered.length > 0 
     ? listing.placesCovered.map((p: any) => p.name?.trim()).filter(Boolean).join(' | ') 
     : location;
@@ -352,6 +352,12 @@ export default function ListingCard({
           <h3 className="font-bold text-[18px] text-gray-900 leading-[1.3] line-clamp-2" title={cardTitle}>
             {cardTitle}
           </h3>
+          {listing.title && location && (
+            <div className="flex items-center gap-1 text-gray-500 text-[12px] mt-1.5 font-medium">
+              <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+              <span className="truncate" title={location}>{location}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 mt-1.5">
             <div className="flex items-center">
               {[1, 2, 3, 4, 5].map((s) => (

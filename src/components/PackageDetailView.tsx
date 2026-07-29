@@ -79,7 +79,8 @@ const defaultFAQs = [
 
 // Pure Real Review Data Processor (No Static / Mock Reviews)
 function getReviewsData(listing: any, userDbReviews: any[]) {
-  const packageTitle = listing?.title || 'Travel Package';
+  const locationName = listing?.packageType === 'international' ? listing?.countryName : listing?.stateName;
+  const packageTitle = listing?.title || locationName || 'Travel Package';
   const embeddedReviews = Array.isArray(listing?.reviews) ? listing.reviews : [];
 
   // Combine real user reviews from Firestore database & embedded listing reviews
@@ -478,10 +479,13 @@ export default function PackageDetailView({
       const countries = listing.countryNames && listing.countryNames.length > 0 ? listing.countryNames.join(', ') : listing.countryName;
       if (countries) parts.push(countries);
     }
-    parts.push(listing.title || 'Package');
+    const locationName = listing.packageType === 'international' ? listing.countryName : listing.stateName;
+    parts.push(listing.title || locationName || 'Package');
     return parts;
   };
 
+  const locationName = listing.packageType === 'international' ? listing.countryName : listing.stateName;
+  const detailTitle = listing.title || locationName || 'Travel Package';
   const breadcrumb = getBreadcrumb();
   const packageCode = `PKG${listing.id?.slice(-4).toUpperCase() || '0000'}`;
 
@@ -719,12 +723,19 @@ export default function PackageDetailView({
               ))}
             </div>
 
+            {/* Location Tagline (if custom title is present) */}
+            {listing.title && locationName && (
+              <div className="text-[12px] font-bold uppercase tracking-widest text-orange-400 mb-2" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                {locationName}
+              </div>
+            )}
+
             {/* Package Title */}
             <h1
               className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight"
               style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
             >
-              {listing.title || 'Travel Package'}
+              {detailTitle}
             </h1>
 
             {/* Places, duration, rating row */}

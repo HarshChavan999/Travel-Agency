@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Upload, ClipboardList, X } from 'lucide-react';
 import { getDbInstance, getStorageInstance } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface Place {
@@ -29,6 +29,7 @@ interface ItineraryDay {
 }
 
 interface FormData {
+  title?: string;
   packageType: 'international' | 'domestic';
   countryName?: string;
   stateName?: string;
@@ -172,6 +173,7 @@ const {
   } = useForm<FormData>({
     defaultValues: initialData ? {
       ...initialData,
+      title: initialData.title || '',
       stateNames: Array.isArray(initialData.stateNames)
         ? initialData.stateNames
         : (initialData.stateName
@@ -216,6 +218,7 @@ const {
             ? [initialData.experienceType]
             : [])
     } : {
+      title: '',
       packageType: 'domestic',
       countryName: '',
       stateName: '',
@@ -328,6 +331,41 @@ const {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Load default inclusions and exclusions if creating a new listing
+  useEffect(() => {
+    async function loadAgencyDefaults() {
+      if (initialData) return; // If editing, we use the package's existing values
+      const dbInstance = getDbInstance();
+      if (!dbInstance || !agencyId) return;
+      
+      try {
+        const agencyDoc = await getDoc(doc(dbInstance, 'users', agencyId));
+        if (agencyDoc.exists()) {
+          const data = agencyDoc.data();
+          if (data.defaultInclusions) {
+            const incls = Array.isArray(data.defaultInclusions)
+              ? data.defaultInclusions
+              : data.defaultInclusions.split('\n').filter((item: string) => item.trim() !== '');
+            if (incls.length > 0) {
+              setValue('inclusions', incls);
+            }
+          }
+          if (data.defaultExclusions) {
+            const excls = Array.isArray(data.defaultExclusions)
+              ? data.defaultExclusions
+              : data.defaultExclusions.split('\n').filter((item: string) => item.trim() !== '');
+            if (excls.length > 0) {
+              setValue('exclusions', excls);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading agency defaults:", error);
+      }
+    }
+    loadAgencyDefaults();
+  }, [agencyId, initialData, setValue]);
 
   const addInclusion = () => {
     setValue('inclusions', [...inclusions, '']);
@@ -646,11 +684,40 @@ const {
         {/* Form Container */}
         <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-10 space-y-12">
 
-            {/* 1. Package Type */}
+            {/* 1. Package Title */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+                  1
+                </div>
+                <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Title</h3>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="title" className="text-slate-700 font-medium">Package Title (SEO Friendly)</Label>
+                <Controller
+                  name="title"
+                  control={control}
+                  rules={{ required: 'Package title is required' }}
+                  render={({ field }) => (
+                    <Input
+                      id="title"
+                      placeholder="e.g., 5 Days / 4 Nights Honeymoon Package in Exotic Kerala"
+                      className="w-full flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                      {...field}
+                    />
+                  )}
+                />
+                {errors.title && (
+                  <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Package Type */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      1
+      2
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Type</h3>
   </div>
@@ -866,11 +933,11 @@ const {
               </div>
             </div>
 
-            {/* 2. Package Photos */}
+            {/* 3. Package Photos */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      2
+      3
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Photos (Our Photos)</h3>
   </div>
@@ -948,11 +1015,11 @@ const {
               </div>
             </div>
 
-            {/* 3. Tour Category */}
+            {/* 4. Tour Category */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      3
+      4
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Tour Category</h3>
   </div>
@@ -989,7 +1056,7 @@ const {
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      4
+      5
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Hotel Type</h3>
   </div>
@@ -1024,7 +1091,7 @@ const {
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      5
+      6
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Meal Plan</h3>
   </div>
@@ -1062,7 +1129,7 @@ const {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      6
+      7
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Itinerary Builder</h3>
   </div>
@@ -1185,11 +1252,11 @@ const {
 
 
 
-            {/* 6. Package Duration */}
+            {/* 8. Package Duration */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      7
+      8
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Duration</h3>
   </div>
@@ -1211,11 +1278,11 @@ const {
               </div>
             </div>
 
-            {/* 7. Starting Price */}
+            {/* 9. Starting Price */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      8
+      9
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Starting Price</h3>
   </div>
@@ -1247,7 +1314,7 @@ const {
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      9
+      10
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Experience Type</h3>
   </div>
@@ -1326,7 +1393,7 @@ const {
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      10
+      11
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Seasonal Escapes</h3>
   </div>
@@ -1353,7 +1420,7 @@ const {
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      11
+      12
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Festive & Event Specials</h3>
   </div>
@@ -1376,12 +1443,12 @@ const {
               </div>
             </div>
 
-            {/* 12. Inclusions & Exclusions */}
+            {/* 13. Inclusions & Exclusions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Inclusions */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <h3 className="text-lg font-semibold">12. Inclusions</h3>
+                  <h3 className="text-lg font-semibold">13. Inclusions</h3>
                   <Button type="button" size="sm" onClick={addInclusion} className="flex items-center gap-1">
                     <Plus className="h-3 w-3" /> Add Item
                   </Button>
@@ -1413,7 +1480,7 @@ const {
               {/* Exclusions */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <h3 className="text-lg font-semibold">13. Exclusions</h3>
+                  <h3 className="text-lg font-semibold">14. Exclusions</h3>
                   <Button type="button" size="sm" onClick={addExclusion} className="flex items-center gap-1">
                     <Plus className="h-3 w-3" /> Add Item
                   </Button>

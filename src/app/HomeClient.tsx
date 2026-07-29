@@ -975,6 +975,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [agencyLogoUrl, setAgencyLogoUrl] = useState('');
   const [agencyLogoError, setAgencyLogoError] = useState(false);
   const [savingAgencySettings, setSavingAgencySettings] = useState(false);
+  const [agencyDefaultInclusions, setAgencyDefaultInclusions] = useState<string[]>([]);
+  const [agencyDefaultExclusions, setAgencyDefaultExclusions] = useState<string[]>([]);
 
   // Load Agency States from userData & user
   useEffect(() => {
@@ -983,6 +985,20 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       setAgencyContactEmail(userData.contactEmail || user.email || '');
       setAgencyDescription(userData.description || userData.agencyDescription || '');
       setAgencyLogoUrl(userData.logoUrl || userData.agencyLogo || userData.avatarUrl || '');
+      
+      const incls = Array.isArray(userData.defaultInclusions)
+        ? userData.defaultInclusions
+        : userData.defaultInclusions 
+          ? userData.defaultInclusions.split('\n').filter(Boolean)
+          : [];
+      const excls = Array.isArray(userData.defaultExclusions)
+        ? userData.defaultExclusions
+        : userData.defaultExclusions 
+          ? userData.defaultExclusions.split('\n').filter(Boolean)
+          : [];
+          
+      setAgencyDefaultInclusions(incls);
+      setAgencyDefaultExclusions(excls);
       setAgencyLogoError(false);
     }
   }, [user, userData]);
@@ -1035,7 +1051,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         companyName: agencyCompanyName,
         contactEmail: agencyContactEmail,
         description: agencyDescription,
-        agencyDescription: agencyDescription
+        agencyDescription: agencyDescription,
+        defaultInclusions: agencyDefaultInclusions.filter((item) => item.trim() !== ''),
+        defaultExclusions: agencyDefaultExclusions.filter((item) => item.trim() !== '')
       });
       alert('Agency settings saved successfully!');
     } catch (error) {
@@ -6958,6 +6976,100 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             onChange={(e) => setAgencyDescription(e.target.value)}
                             placeholder="Tell travelers about your agency's expertise, popular tour packages, and premium services..."
                           />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Default Inclusions */}
+                          <div className="space-y-4 bg-white p-5 border border-gray-150 rounded-2xl shadow-sm">
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-2.5">
+                              <Label className="text-xs font-bold text-gray-800 uppercase tracking-wider block">Default Inclusions</Label>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => setAgencyDefaultInclusions(prev => [...prev, ''])}
+                                className="h-7 px-2.5 text-[11px] rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100 font-semibold shadow-xs flex items-center gap-1"
+                              >
+                                <Plus className="h-3.5 w-3.5" /> Add Option
+                              </Button>
+                            </div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                              {agencyDefaultInclusions.map((item, index) => (
+                                <div key={`def-inclusion-${index}`} className="flex items-center gap-2">
+                                  <Input
+                                    placeholder="e.g. 3 Star hotel stay, daily breakfast..."
+                                    value={item}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setAgencyDefaultInclusions(prev => {
+                                        const updated = [...prev];
+                                        updated[index] = val;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="flex-1 bg-gray-50/50 border-gray-200 text-gray-800 rounded-xl text-xs h-9 focus-visible:ring-orange-400"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    onClick={() => setAgencyDefaultInclusions(prev => prev.filter((_, i) => i !== index))}
+                                    className="h-9 w-9 shrink-0 rounded-xl"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                              {agencyDefaultInclusions.length === 0 && (
+                                <p className="text-[11px] text-gray-400 italic">No default inclusions defined yet.</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Default Exclusions */}
+                          <div className="space-y-4 bg-white p-5 border border-gray-150 rounded-2xl shadow-sm">
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-2.5">
+                              <Label className="text-xs font-bold text-gray-800 uppercase tracking-wider block">Default Exclusions</Label>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => setAgencyDefaultExclusions(prev => [...prev, ''])}
+                                className="h-7 px-2.5 text-[11px] rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100 font-semibold shadow-xs flex items-center gap-1"
+                              >
+                                <Plus className="h-3.5 w-3.5" /> Add Option
+                              </Button>
+                            </div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                              {agencyDefaultExclusions.map((item, index) => (
+                                <div key={`def-exclusion-${index}`} className="flex items-center gap-2">
+                                  <Input
+                                    placeholder="e.g. Flight tickets, personal expenses..."
+                                    value={item}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setAgencyDefaultExclusions(prev => {
+                                        const updated = [...prev];
+                                        updated[index] = val;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="flex-1 bg-gray-50/50 border-gray-200 text-gray-800 rounded-xl text-xs h-9 focus-visible:ring-orange-400"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    onClick={() => setAgencyDefaultExclusions(prev => prev.filter((_, i) => i !== index))}
+                                    className="h-9 w-9 shrink-0 rounded-xl"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                              {agencyDefaultExclusions.length === 0 && (
+                                <p className="text-[11px] text-gray-400 italic">No default exclusions defined yet.</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
                         <div>
