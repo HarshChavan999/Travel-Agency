@@ -64,7 +64,7 @@ interface ParsedListing {
 
 const VALID_TOUR_CATEGORIES = ['Family', 'Honeymoon', 'Friends', 'Religious', 'Fix Departure'];
 const VALID_HOTEL_TYPES = ['budget', 'deluxe', 'premium'];
-const VALID_MEAL_PLANS = ['no-meal', 'breakfast', 'breakfast-dinner', 'all-meals'];
+const VALID_MEAL_PLANS = ['no-meal', 'breakfast', 'lunch', 'dinner', 'breakfast-lunch', 'breakfast-dinner', 'lunch-dinner', 'all-meals'];
 
 export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormProps) {
   const [parsedListings, setParsedListings] = useState<ParsedListing[]>([]);
@@ -183,7 +183,7 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
           // 6. Validate mealPlan
           const mealPlan = (row.mealPlan || '').trim().toLowerCase() as any;
           if (!VALID_MEAL_PLANS.includes(mealPlan)) {
-            errors.push(`Invalid mealPlan: "${row.mealPlan}". Allowed: no-meal, breakfast, breakfast-dinner, all-meals. Defaulted to "no-meal".`);
+            errors.push(`Invalid mealPlan: "${row.mealPlan}". Allowed: no-meal, breakfast, lunch, dinner, breakfast-lunch, breakfast-dinner, lunch-dinner, all-meals. Defaulted to "no-meal".`);
           }
 
           // 7. Parse image URLs

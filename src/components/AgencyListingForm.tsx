@@ -75,7 +75,11 @@ const hotelTypes = [
 const mealPlans = [
   { value: 'no-meal', label: 'No Meal' },
   { value: 'breakfast', label: 'Breakfast' },
+  { value: 'lunch', label: 'Lunch' },
+  { value: 'dinner', label: 'Dinner' },
+  { value: 'breakfast-lunch', label: 'Breakfast + Lunch' },
   { value: 'breakfast-dinner', label: 'Breakfast + Dinner' },
+  { value: 'lunch-dinner', label: 'Lunch + Dinner' },
   { value: 'all-meals', label: 'All Meals' }
 ];
 
@@ -197,15 +201,7 @@ const {
       })) : [],
       mealPlan: Array.isArray(initialData.mealPlan)
         ? initialData.mealPlan
-        : (initialData.mealPlan === 'breakfast'
-          ? ['breakfast']
-          : (initialData.mealPlan === 'breakfast-dinner'
-            ? ['breakfast-dinner']
-            : (initialData.mealPlan === 'all-meals'
-              ? ['all-meals']
-              : (initialData.mealPlan === 'no-meal'
-                ? ['no-meal']
-                : [])))),
+        : (initialData.mealPlan ? [initialData.mealPlan] : []),
       inclusions: typeof (initialData.inclusions as any) === 'string'
         ? (initialData.inclusions as any).split('\n').filter((item: string) => item.trim() !== '')
         : (Array.isArray(initialData.inclusions) ? initialData.inclusions : ['']),

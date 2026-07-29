@@ -3526,15 +3526,21 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   ? (viewingAdminListing.mealPlan.length > 0
                                       ? viewingAdminListing.mealPlan.map((m: string) => {
                                           if (m === 'breakfast-dinner') return 'Breakfast & Dinner';
+                                          if (m === 'breakfast-lunch') return 'Breakfast & Lunch';
+                                          if (m === 'lunch-dinner') return 'Lunch & Dinner';
                                           if (m === 'all-meals') return 'All Meals';
                                           if (m === 'no-meal') return 'No Meal';
                                           return m.charAt(0).toUpperCase() + m.slice(1);
                                         }).join(' & ')
                                       : 'No Meals')
                                   : (viewingAdminListing.mealPlan === 'breakfast' ? 'Breakfast Included' :
-                                      viewingAdminListing.mealPlan === 'breakfast-dinner' ? 'Breakfast & Dinner' :
-                                        viewingAdminListing.mealPlan === 'all-meals' ? 'All Meals' : 
-                                          (viewingAdminListing.mealPlan === 'no-meal' ? 'No Meals' : viewingAdminListing.mealPlan))}
+                                      viewingAdminListing.mealPlan === 'lunch' ? 'Lunch Included' :
+                                        viewingAdminListing.mealPlan === 'dinner' ? 'Dinner Included' :
+                                          viewingAdminListing.mealPlan === 'breakfast-lunch' ? 'Breakfast & Lunch' :
+                                            viewingAdminListing.mealPlan === 'breakfast-dinner' ? 'Breakfast & Dinner' :
+                                              viewingAdminListing.mealPlan === 'lunch-dinner' ? 'Lunch & Dinner' :
+                                                viewingAdminListing.mealPlan === 'all-meals' ? 'All Meals' : 
+                                                  (viewingAdminListing.mealPlan === 'no-meal' ? 'No Meals' : viewingAdminListing.mealPlan))}
                               </span>
                             </div>
                           )}

@@ -164,6 +164,8 @@ const getFormattedHotelTypes = (types: any) => {
 const getFormattedMealPlan = (plan: any) => {
   const formatSingle = (m: string) => {
     if (m === 'breakfast-dinner') return 'Breakfast & Dinner';
+    if (m === 'breakfast-lunch') return 'Breakfast & Lunch';
+    if (m === 'lunch-dinner') return 'Lunch & Dinner';
     if (m === 'all-meals') return 'All Meals';
     if (m === 'no-meal') return 'No Meal';
     return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
