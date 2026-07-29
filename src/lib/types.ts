@@ -80,3 +80,30 @@ export interface SyncResponsePayload {
 export interface ErrorPayload {
   error: string;
 }
+
+export interface CouponRedemption {
+  agencyId: string;
+  agencyName?: string;
+  plan: string;
+  discountAmount: number;
+  amountPaid: number;
+  timestamp: number;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  maxDiscount?: number;
+  minOrderAmount?: number;
+  applicablePlans?: string[]; // e.g. ['starter', 'premium', 'vip'] or ['all']
+  usageLimit?: number | null;
+  usedCount: number;
+  validFrom?: string;
+  validUntil?: string;
+  isActive: boolean;
+  createdAt: number;
+  redemptions?: CouponRedemption[];
+}
+

@@ -5,7 +5,18 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: Request) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, agencyId, targetPlan, isAddon, creditsToBuy, amountPaid } = await req.json();
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      agencyId,
+      targetPlan,
+      isAddon,
+      creditsToBuy,
+      amountPaid,
+      couponCode,
+      discountAmount
+    } = await req.json();
 
     const secret = process.env.RAZORPAY_KEY_SECRET || '';
 
@@ -28,6 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Agency not found' }, { status: 404 });
     }
 
+    const agencyData = docSnap.data();
     const updates: any = {};
 
     if (isAddon) {
@@ -55,23 +67,48 @@ export async function POST(req: Request) {
 
     await agencyRef.update(updates);
 
+    // If coupon was applied, update coupon collection
+    if (couponCode) {
+      const cleanCode = couponCode.trim().toUpperCase();
+      const cQuery = await db.collection('coupons').where('code', '==', cleanCode).get();
+      if (!cQuery.empty) {
+        const cDoc = cQuery.docs[0];
+        await cDoc.ref.update({
+          usedCount: FieldValue.increment(1),
+          redemptions: FieldValue.arrayUnion({
+            agencyId,
+            agencyName: agencyData?.companyName || agencyData?.name || agencyData?.email || 'Agency',
+            plan: targetPlan || (isAddon ? 'addon' : ''),
+            discountAmount: discountAmount || 0,
+            amountPaid: amountPaid || 0,
+            timestamp: Date.now()
+          })
+        });
+      }
+    }
+
+    const couponDesc = couponCode ? ` (Coupon: ${couponCode.toUpperCase()})` : '';
+
     // Save transaction record
     const txRecord: any = {
       agencyId,
+      agencyName: agencyData?.companyName || agencyData?.name || '',
       razorpay_payment_id,
       razorpay_order_id,
       timestamp: Date.now(),
       status: 'success',
+      couponCode: couponCode ? couponCode.toUpperCase() : null,
+      discountAmount: discountAmount || 0
     };
 
     if (isAddon) {
       txRecord.type = 'credit-topup';
-      txRecord.description = `Purchased ${creditsToBuy} Credits`;
+      txRecord.description = `Purchased ${creditsToBuy} Credits${couponDesc}`;
       txRecord.credits = creditsToBuy;
       txRecord.amountPaid = amountPaid || null;
     } else {
       txRecord.type = 'plan-upgrade';
-      txRecord.description = `Upgraded to ${(targetPlan || '').toUpperCase()} Plan`;
+      txRecord.description = `Upgraded to ${(targetPlan || '').toUpperCase()} Plan${couponDesc}`;
       txRecord.plan = targetPlan;
       txRecord.amountPaid = amountPaid || null;
     }
@@ -87,6 +124,8 @@ export async function POST(req: Request) {
         description: txRecord.description,
         amount: isAddon ? creditsToBuy : targetPlan,
         amountPaid: amountPaid || null,
+        discountAmount: discountAmount || 0,
+        couponCode: couponCode ? couponCode.toUpperCase() : null,
         timestamp: Date.now(),
         razorpay_payment_id,
       })
