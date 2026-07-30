@@ -214,26 +214,12 @@ const subcategoryDescriptions: { [key: string]: string } = {
   'Long Weekend Escapes': 'Quick 2-3 day getaways'
 };
 
-const HERO_IMAGES = [
-  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2074&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1434394354979-a235cd36269d?q=80&w=2070&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1542332213-9b5a5a3fad35?q=80&w=2070&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?q=80&w=2070&auto=format&fit=crop',
-];
+const HERO_IMAGE = '/homepage-image.png';
 
 
 export default function HomeClient({ initialListings = [], routeMode }: { initialListings?: any[], routeMode?: string }) {
   const { user, userData, loading, signIn, signInWithGoogle, signOut, register } = useAuth();
-  
-  const [currentHeroImage, setCurrentHeroImage] = useState(0);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentHeroImage((prev) => (prev + 1) % HERO_IMAGES.length);
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
@@ -3971,14 +3957,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
           >
             {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
               <div className="fixed inset-0 z-0 w-full h-full flex flex-col justify-center items-center overflow-hidden pointer-events-none">
-                {/* Background image slider with fixed attachment covering full page */}
-                {HERO_IMAGES.map((img, index) => (
-                  <div 
-                    key={index}
-                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-95 scale-105' : 'opacity-0'}`}
-                    style={{ backgroundImage: `url('${img}')` }}
-                  ></div>
-                ))}
+                {/* Single hero background image */}
+                <div 
+                  className="absolute inset-0 bg-cover bg-center bg-fixed opacity-95 scale-105"
+                  style={{ backgroundImage: `url('${HERO_IMAGE}')` }}
+                ></div>
                 {/* Subtle dark ambient overlay covering full page */}
                 <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] pointer-events-none"></div>
               </div>
