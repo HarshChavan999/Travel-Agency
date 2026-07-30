@@ -3,7 +3,7 @@ import { parseFirestoreDocument } from '@/lib/firestoreParser';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 async function getApprovedListings() {
   try {
@@ -47,7 +47,13 @@ async function getApprovedListings() {
   }
 }
 
+import { Suspense } from 'react';
+
 export default async function AdminPage() {
   const initialListings = await getApprovedListings();
-  return <HomeClient initialListings={initialListings} routeMode="admin" />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeClient initialListings={initialListings} routeMode="admin" />
+    </Suspense>
+  );
 }

@@ -4,7 +4,27 @@ import { notFound } from 'next/navigation';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
-export const dynamic = 'force-dynamic';
+export async function generateStaticParams() {
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/blogs?pageSize=1000`;
+    const res = await fetch(url);
+    if (!res.ok) return [{ slug: 'default' }];
+    const data = await res.json();
+    if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
+      return [{ slug: 'default' }];
+    }
+    const paths = data.documents
+      .map((doc: any) => {
+        const fields = doc.fields || {};
+        const slug = fields.slug?.stringValue;
+        return slug ? { slug } : null;
+      })
+      .filter(Boolean);
+    return paths.length > 0 ? paths : [{ slug: 'default' }];
+  } catch {
+    return [{ slug: 'default' }];
+  }
+}
 
 interface Blog {
   id: string;

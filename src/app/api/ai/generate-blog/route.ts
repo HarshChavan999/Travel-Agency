@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+export const dynamic = 'force-static';
+
 
 export async function POST(req: Request) {
   try {

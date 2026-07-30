@@ -4,6 +4,8 @@ import { initializeFirebase } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-static';
+
 const REVIEWS_FILE = path.join(process.cwd(), 'data', 'reviews.json');
 
 function getLocalReviews(): any[] {

@@ -52,6 +52,7 @@ import {
   Clock,
   XCircle,
   ChevronLeft,
+  ChevronRight,
   Calendar,
   DollarSign,
   Check,
@@ -3819,13 +3820,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-          {/* Top Navigation Bar */}
-          <header className="header-transition text-gray-900 z-[100] sticky top-0 bg-white shadow-sm border-b border-gray-200 h-16 flex items-center">
+          {/* Top Navigation Bar (Transparent Background) */}
+          <header className="header-transition z-[100] sticky top-0 bg-transparent backdrop-blur-md text-white border-b border-white/15 h-16 flex items-center">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
               {/* Logo & Search */}
               <div className="flex items-center gap-4 flex-1 w-full h-full">
                 <div
-                  className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer"
+                  className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer shrink-0"
                   onClick={() => {
                     setUserActiveSection('listings');
                     setViewingListing(null);
@@ -3842,8 +3843,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setShowComparison(false);
                   }}
                 >
-                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-20 w-auto object-contain" />
+                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 w-auto object-contain brightness-125 filter drop-shadow" />
                 </div>
+
                 <div className="relative w-full max-w-xl">
                   <AutocompleteSearch
                     placeholder="Search your Holiday Destination"
@@ -3855,8 +3857,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       setSearchTerm(val);
                     }}
                     suggestions={allDestinations}
-                    inputClassName="w-full pl-10 pr-4 py-1.5 rounded-md text-black bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:outline-none border border-gray-200 text-sm h-10 shadow-inner"
-                    iconClassName="left-3 top-3 text-gray-400"
+                    inputClassName="w-full pl-10 pr-4 py-1.5 rounded-md text-white bg-slate-950/40 backdrop-blur-md focus:ring-2 focus:ring-orange-500 focus:outline-none border border-white/20 text-sm h-10 placeholder:text-slate-300"
+                    iconClassName="left-3 top-3 text-orange-400"
                   />
                 </div>
               </div>
@@ -3864,18 +3866,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               {/* Right Links */}
               <div className="flex items-center gap-5 w-full md:w-auto justify-between md:justify-end flex-wrap pl-4">
                 
-                {/* Location */}
-                <div className="flex items-center gap-1.5 text-gray-700 select-none mr-2">
-                  <MapPin className="h-4 w-4 text-orange-500" />
+                {/* Location Badge */}
+                <div className="flex items-center gap-1.5 text-slate-300 select-none mr-1 bg-slate-900/60 px-2.5 py-1 rounded-md border border-white/10">
+                  <MapPin className="h-4 w-4 text-orange-400 shrink-0" />
                   <div className="flex flex-col leading-[1.1] hidden sm:flex">
-                    <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
-                    
+                    <span className="font-semibold text-white text-[12px]">{pincode}</span>
                   </div>
                 </div>
 
                 {/* Compare */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${showComparison ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 flex items-center gap-1.5 ${showComparison ? 'text-orange-400 font-bold' : 'text-slate-200'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('listings');
@@ -3887,41 +3888,41 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Wishlist */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-400 font-bold' : 'text-slate-200'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('wishlist');
                     setShowComparison(false);
                   }}
                 >
-                  <Heart className="h-4 w-4 text-orange-500" /> Wishlist
+                  <Heart className="h-4 w-4 text-orange-400" /> Wishlist
                 </span>
 
                 {/* Messages */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-400 font-bold' : 'text-slate-200'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('chat');
                   }}
                 >
-                  <MessageSquare className="h-4 w-4 text-orange-500" /> Messages
+                  <MessageSquare className="h-4 w-4 text-orange-400" /> Messages
                 </span>
 
                 {/* Profile / Sign In */}
                 {user && userData ? (
-                  <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-5">
+                  <div className="flex items-center gap-3 ml-2 border-l border-white/15 pl-5">
                     <div
-                      className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
+                      className={`flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-400' : 'text-slate-200'}`}
                       onClick={() => {
                         setFromSection(userActiveSection);
                         setUserActiveSection('profile');
                       }}
                     >
                       {userData.avatarUrl ? (
-                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-md object-cover border border-white/20" />
                       ) : (
-                        <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200">
+                        <div className="w-7 h-7 bg-slate-800 rounded-md flex items-center justify-center text-slate-300 border border-white/20">
                           <User className="h-4 w-4" />
                         </div>
                       )}
@@ -3929,7 +3930,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                     
                     <span
-                      className="text-[13px] text-gray-500 hover:text-orange-500 cursor-pointer"
+                      className="text-xs text-slate-400 hover:text-orange-400 cursor-pointer transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         signOut();
@@ -3941,7 +3942,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 ) : (
                   <button
                     onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors flex items-center gap-1.5"
+                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-md px-5 py-1.5 text-sm font-bold tracking-wide rounded-md ml-2 transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <User className="h-4 w-4" /> Login
                   </button>
@@ -3959,17 +3960,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             id="user-dashboard-scroll-container"
           >
             {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-              <div className="w-full bg-gray-50 fixed top-16 left-0 right-0 z-0 h-[400px] flex flex-col justify-center items-center overflow-hidden">
-                {/* Background image slider with fixed attachment for parallax */}
+              <div className="fixed inset-0 z-0 w-full h-full flex flex-col justify-center items-center overflow-hidden pointer-events-none">
+                {/* Background image slider with fixed attachment covering full page */}
                 {HERO_IMAGES.map((img, index) => (
                   <div 
                     key={index}
-                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-90' : 'opacity-0'}`}
+                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-95 scale-105' : 'opacity-0'}`}
                     style={{ backgroundImage: `url('${img}')` }}
                   ></div>
                 ))}
-                {/* Gradient to fade into the gray-50 background below */}
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-gray-50/40 to-transparent pointer-events-none"></div>
+                {/* Subtle dark ambient overlay covering full page */}
+                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] pointer-events-none"></div>
               </div>
             )}
 
@@ -4045,8 +4046,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </Card>
                   )}
 
-                  {/* Category Emoji Navigation Strip */}
-                  <div id="category-nav-strip" className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-md relative">
+                  {/* Category Navigation Strip (Transparent Background) */}
+                  <div id="category-nav-strip" className="w-full bg-transparent border-b border-white/15 p-2 mb-8 flex items-center justify-between gap-4 py-2 sticky top-16 z-[90] backdrop-blur-md relative text-white">
                     <div className="flex gap-2 sm:gap-3.5 w-full justify-start items-center min-w-max px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
@@ -4077,10 +4078,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 setSelectedCategoryFilter(item.filter);
                               }
                             }}
-                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 flex items-center gap-2 shrink-0 ${
+                            className={`px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all duration-150 flex items-center gap-2 shrink-0 ${
                               isActive
-                                ? 'bg-[#FF9900] text-white shadow-sm border border-[#FF9900]'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300'
+                                ? 'bg-orange-500 text-white shadow-md border border-orange-400'
+                                : 'bg-transparent border border-white/20 text-slate-200 hover:bg-white/15 hover:text-white backdrop-blur-sm'
                             }`}
                           >
                             {getTabIcon(item.id, "h-3.5 w-3.5")}
@@ -4090,14 +4091,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       })}
                     </div>
                     
-                    <div className="h-6 w-px bg-gray-300 mx-1 shrink-0"></div>
+                    <div className="h-6 w-px bg-white/20 mx-1 shrink-0"></div>
                     
                     <div className="relative shrink-0 flex items-center">
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 flex items-center gap-2 border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 shadow-sm"
+                        className="px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all duration-150 flex items-center gap-2 border bg-transparent border-white/20 text-slate-200 hover:bg-white/15 backdrop-blur-sm shadow-md"
                       >
-                        <Settings className="h-4 w-4" />
+                        <Settings className="h-4 w-4 text-orange-400" />
                         Filter
                       </button>
                       <FilterSidebar 
@@ -4116,10 +4117,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                   {/* Category Details Banner */}
                   {selectedCategoryFilter && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-6 flex justify-between items-center shadow-sm">
+                    <div className="bg-slate-900/90 backdrop-blur-md border border-orange-500/30 rounded-md p-4 mb-6 flex justify-between items-center shadow-lg text-white">
                       <div>
-                        <span className="text-[10px] text-orange-600 font-extrabold uppercase tracking-wider">Filtered Category</span>
-                        <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-0.5">
+                        <span className="text-[10px] text-orange-400 font-extrabold uppercase tracking-wider">Filtered Category</span>
+                        <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
                           {selectedCategoryFilter.title} {selectedCategoryFilter.subcategory ? `• ${selectedCategoryFilter.subcategory}` : ''}
                         </h2>
                       </div>
@@ -4127,7 +4128,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         variant="ghost"
                         size="sm"
                         onClick={() => setSelectedCategoryFilter(null)}
-                        className="text-orange-700 hover:text-orange-955 hover:bg-orange-100 font-bold text-xs"
+                        className="text-orange-400 hover:text-orange-300 hover:bg-white/10 font-bold text-xs"
                       >
                         Clear Filter
                       </Button>
@@ -4136,10 +4137,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                   {/* Search Term Banner */}
                   {searchTerm && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex justify-between items-center shadow-sm">
+                    <div className="bg-slate-900/90 backdrop-blur-md border border-blue-500/30 rounded-md p-4 mb-6 flex justify-between items-center shadow-lg text-white">
                       <div>
-                        <span className="text-[10px] text-blue-600 font-extrabold uppercase tracking-wider">Search Results For</span>
-                        <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-0.5">
+                        <span className="text-[10px] text-blue-400 font-extrabold uppercase tracking-wider">Search Results For</span>
+                        <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
                           "{searchTerm}"
                         </h2>
                       </div>
@@ -4147,7 +4148,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         variant="ghost"
                         size="sm"
                         onClick={() => setSearchTerm('')}
-                        className="text-blue-700 hover:text-blue-955 hover:bg-blue-100 font-bold text-xs"
+                        className="text-blue-400 hover:text-blue-300 hover:bg-white/10 font-bold text-xs"
                       >
                         Clear Search
                       </Button>
@@ -4156,21 +4157,65 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                   {/* Main View Controller */}
                   {dashboardViewMode === 'categories' && !selectedCategoryFilter && !searchTerm ? (
-                    /* Category Landing Page */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-
-                      {/* Loop Categories Config */}
+                    /* Containerless Horizontal Category Landing Page */
+                    <div className="flex flex-col gap-10 mb-12">
                       {categoriesConfig.map((category) => (
                         <div
                           key={category.id}
                           id={`section-${category.id}`}
-                          className="scroll-mt-32 bg-white border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8 flex flex-col rounded-none overflow-hidden"
+                          className="flex flex-col gap-4 py-2 relative group/rail"
                         >
-                          <h3 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight mb-6">
-                            {category.title}
-                          </h3>
+                          {/* Containerless Rail Header */}
+                          <div className="flex items-center justify-between border-b border-white/15 pb-3">
+                            <div>
+                              <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-400">Category Collection</span>
+                              <h3 className="text-xl sm:text-2xl font-heading font-black text-white tracking-tight drop-shadow-md">
+                                {category.title}
+                              </h3>
+                            </div>
 
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-6 flex-1">
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => setSelectedCategoryFilter({
+                                  category: category.id,
+                                  title: category.title
+                                })}
+                                className="text-xs sm:text-sm font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors group/link"
+                              >
+                                {category.linkText} <span className="transition-transform group-hover/link:translate-x-1">→</span>
+                              </button>
+
+                              {/* Rail Navigation Controls */}
+                              <div className="flex items-center gap-1.5 ml-2">
+                                <button
+                                  onClick={() => {
+                                    const el = document.getElementById(`rail-container-${category.id}`);
+                                    if (el) el.scrollBy({ left: -320, behavior: 'smooth' });
+                                  }}
+                                  className="w-8 h-8 rounded-md bg-black/40 hover:bg-orange-500 text-white flex items-center justify-center transition-all border border-white/20 shadow-md cursor-pointer"
+                                  aria-label="Scroll left"
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const el = document.getElementById(`rail-container-${category.id}`);
+                                    if (el) el.scrollBy({ left: 320, behavior: 'smooth' });
+                                  }}
+                                  className="w-8 h-8 rounded-md bg-black/40 hover:bg-orange-500 text-white flex items-center justify-center transition-all border border-white/20 shadow-md cursor-pointer"
+                                  aria-label="Scroll right"
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Horizontal Subcategory Rail */}
+                          <div
+                            id={`rail-container-${category.id}`}
+                            className="flex gap-5 overflow-x-auto category-rail-scroll no-scrollbar py-2 px-1"
+                          >
                             {category.subcategories.map((sub) => {
                               const matched = getFilteredListingsForSubcategory(category.id, sub);
                               const img = getSubcategoryCoverImage(category.id, sub, matched);
@@ -4178,50 +4223,52 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               return (
                                 <div
                                   key={sub}
-                                  className="flex flex-col cursor-pointer group/item"
+                                  className="category-rail-item w-[260px] sm:w-[300px] shrink-0 h-[220px] rounded-md relative overflow-hidden group/item cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-white/15"
                                   onClick={() => setSelectedCategoryFilter({
                                     category: category.id,
                                     subcategory: sub,
                                     title: `${category.title} - ${sub}`
                                   })}
                                 >
-                                  <div className="relative aspect-[16/10] rounded-none overflow-hidden bg-slate-50 border border-slate-200/40">
-                                    <img
-                                      src={img}
-                                      alt={sub}
-                                      className="w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-105"
-                                      loading="lazy"
-                                    />
-                                    <div className="absolute inset-0 bg-black/5 group-hover/item:bg-transparent transition-colors duration-300"></div>
+                                  {/* Background Image */}
+                                  <img
+                                    src={img}
+                                    alt={sub}
+                                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover/item:scale-110"
+                                    loading="lazy"
+                                  />
+                                  
+                                  {/* Dark Gradient Overlay */}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
+
+                                  {/* Top Badge */}
+                                  <div className="absolute top-3 left-3 z-10">
+                                    <span className="bg-black/50 backdrop-blur-md text-white px-2.5 py-0.5 rounded-sm text-[10px] font-semibold border border-white/20">
+                                      {matched.length} {matched.length === 1 ? 'Package' : 'Packages'}
+                                    </span>
                                   </div>
-                                    <div className="mt-2.5 px-0.5">
-                                      <p className="text-xs md:text-sm font-semibold text-slate-900 leading-snug group-hover/item:text-orange-500 transition-colors duration-200">
-                                      {category.id === 'tourCategory' && desc
-                                        ? `${sub} | ${desc}`
-                                        : sub
-                                      }
-                                    </p>
+
+                                  {/* Content Info */}
+                                  <div className="absolute bottom-0 inset-x-0 p-4 z-10 flex flex-col gap-1 text-white">
+                                    <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white tracking-tight leading-snug group-hover/item:text-orange-400 transition-colors">
+                                      {sub}
+                                    </h4>
+                                    {desc && (
+                                      <p className="text-xs text-slate-300 line-clamp-1 font-normal">
+                                        {desc}
+                                      </p>
+                                    )}
+                                    <div className="flex items-center text-[11px] font-bold text-orange-400 mt-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                      <span>Explore Packages</span>
+                                      <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+                                    </div>
                                   </div>
                                 </div>
                               );
                             })}
                           </div>
-
-                          <div className="mt-6 flex items-center">
-                            <button
-                              onClick={() => setSelectedCategoryFilter({
-                                category: category.id,
-                                title: category.title
-                              })}
-                              className="text-sm font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors group"
-                            >
-                              {category.linkText} <span className="transition-transform group-hover:translate-x-1">→</span>
-                            </button>
-                          </div>
                         </div>
                       ))}
-
-
                     </div>
                   ) : (
                     /* Filtered Listings Grid */
