@@ -8,9 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Upload, ClipboardList, X } from 'lucide-react';
-import { getDbInstance, getStorageInstance } from '@/lib/firebase';
+import { getDbInstance } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface Place {
   id: string;
@@ -459,12 +458,6 @@ export default function AgencyListingForm({ agencyId, onSuccess, initialData }: 
   };
 
   const uploadImages = async (places: Place[]): Promise<Place[]> => {
-    const storageInstance = getStorageInstance();
-
-    if (!storageInstance) {
-      throw new Error('Storage instance not available');
-    }
-
     const values = getValues();
     const stateOrCountry = values.packageType === 'domestic'
       ? (values.stateNames && values.stateNames.length > 0 ? values.stateNames[0] : (values.stateName || ''))
@@ -484,16 +477,24 @@ export default function AgencyListingForm({ agencyId, onSuccess, initialData }: 
 
         for (let imgIndex = 0; imgIndex < placeImages.length; imgIndex++) {
           const file = placeImages[imgIndex];
-          const fileExtension = file.name.split('.').pop() || 'jpg';
           const placeName = place.name && place.name !== 'photos' ? place.name : cleanPackageTitle;
           const placeNameOnly = cleanPlaceNameForSEO(placeName);
           const cleanPlaceName = sanitizeFileName(placeNameOnly || cleanPackageTitle);
-          const storageRef = ref(storageInstance, `listings/${agencyId}/${cleanState} - ${cleanPlaceName}_${Date.now()}_${imgIndex}.${fileExtension}`);
 
           try {
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            imageUrls.push(downloadURL);
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('category', 'listings');
+            formData.append('userId', agencyId);
+            formData.append('subfolder', `${cleanState}/${cleanPlaceName}`);
+
+            const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (!uploadRes.ok) {
+              const errData = await uploadRes.json().catch(() => ({}));
+              throw new Error(errData.error || 'Image upload failed');
+            }
+            const uploadData = await uploadRes.json();
+            imageUrls.push(uploadData.url);
 
             // Update progress
             const totalProgress = Math.round(((placeIndex * 100) + ((imgIndex + 1) / placeImages.length * 100)) / places.length);
@@ -511,7 +512,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, initialData }: 
         updatedPlaces[placeIndex] = {
           ...place,
           imageUrls: [...(place.imageUrls || []), ...imageUrls],
-          images: [] // Clear File objects to avoid Firebase error
+          images: [] // Clear File objects
         };
       }
     }
@@ -520,12 +521,6 @@ export default function AgencyListingForm({ agencyId, onSuccess, initialData }: 
   };
 
   const uploadItineraryImages = async (days: ItineraryDay[]): Promise<ItineraryDay[]> => {
-    const storageInstance = getStorageInstance();
-
-    if (!storageInstance) {
-      throw new Error('Storage instance not available');
-    }
-
     const values = getValues();
     const stateOrCountry = values.packageType === 'domestic'
       ? (values.stateNames && values.stateNames.length > 0 ? values.stateNames[0] : (values.stateName || ''))
@@ -544,15 +539,23 @@ export default function AgencyListingForm({ agencyId, onSuccess, initialData }: 
 
         for (let imgIndex = 0; imgIndex < dayImages.length; imgIndex++) {
           const file = dayImages[imgIndex];
-          const fileExtension = file.name.split('.').pop() || 'jpg';
           const placeNameOnly = cleanPlaceNameForSEO(day.placeName);
           const cleanPlace = sanitizeFileName(placeNameOnly || `Day-${day.day}`);
-          const storageRef = ref(storageInstance, `listings/${agencyId}/${cleanState} - ${cleanPlace}_${Date.now()}_${imgIndex}.${fileExtension}`);
 
           try {
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            imageUrls.push(downloadURL);
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('category', 'listings');
+            formData.append('userId', agencyId);
+            formData.append('subfolder', `itinerary/${cleanState}/${cleanPlace}`);
+
+            const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (!uploadRes.ok) {
+              const errData = await uploadRes.json().catch(() => ({}));
+              throw new Error(errData.error || 'Itinerary image upload failed');
+            }
+            const uploadData = await uploadRes.json();
+            imageUrls.push(uploadData.url);
 
             setUploadProgress(prev => ({
               ...prev,

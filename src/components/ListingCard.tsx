@@ -196,7 +196,7 @@ export default function ListingCard({
   };
 
   return (
-    <div className="bg-white rounded-[20px] shadow-[0_2px_12px_rgb(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgb(0,0,0,0.1)] transition-all duration-200 relative overflow-hidden group flex flex-col w-full max-w-[420px] border border-gray-100">
+    <div className="bg-white/95 backdrop-blur-sm rounded-[18px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group flex flex-col w-full max-w-[420px] border border-slate-100/90">
       {/* Compare Toast */}
       {showCompareToast && (
         <div className="absolute top-4 right-4 z-20 animate-in fade-in duration-200">

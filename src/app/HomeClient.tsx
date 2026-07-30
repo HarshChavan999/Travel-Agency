@@ -90,8 +90,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getDbInstance, getStorageInstance } from '@/lib/firebase';
+import { getDbInstance } from '@/lib/firebase';
 import { getFirestore } from 'firebase/firestore';
 import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
 
@@ -966,18 +965,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       return;
     }
 
-    const storageInstance = getStorageInstance();
     const dbInstance = getDbInstance();
-    if (!storageInstance || !dbInstance) return;
+    if (!dbInstance) return;
 
     try {
       const compressedFiles = await compressMultipleImages([selectedFile]);
       const fileToUpload = compressedFiles[0];
 
-      // Store under listings path to align with existing active storage security rules
-      const storageRef = ref(storageInstance, `listings/${user.uid}/avatars/${Date.now()}_${fileToUpload.name}`);
-      await uploadBytes(storageRef, fileToUpload);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('category', 'avatars');
+      formData.append('userId', user.uid);
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const uploadData = await res.json();
+      const downloadUrl = uploadData.url;
 
       await updateDoc(doc(dbInstance, 'users', user.uid), {
         avatarUrl: downloadUrl
@@ -1036,18 +1039,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       return;
     }
 
-    const storageInstance = getStorageInstance();
     const dbInstance = getDbInstance();
-    if (!storageInstance || !dbInstance) return;
+    if (!dbInstance) return;
 
     try {
       const compressedFiles = await compressMultipleImages([selectedFile]);
       const fileToUpload = compressedFiles[0];
 
-      // Store under listings path to align with existing active storage security rules
-      const storageRef = ref(storageInstance, `listings/${user.uid}/logos/${Date.now()}_${fileToUpload.name}`);
-      await uploadBytes(storageRef, fileToUpload);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('category', 'logos');
+      formData.append('userId', user.uid);
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const uploadData = await res.json();
+      const downloadUrl = uploadData.url;
 
       await updateDoc(doc(dbInstance, 'users', user.uid), {
         logoUrl: downloadUrl
@@ -2314,13 +2321,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       // Upload photos if any
       const photoUrls: string[] = [];
       if (tempPhotoFiles.length > 0) {
-        const storageInstance = getStorageInstance();
-        if (!storageInstance) return;
         for (const file of tempPhotoFiles) {
-          const storageRef = ref(storageInstance, `listings/${user.uid}/${Date.now()}_${file.name}`);
-          await uploadBytes(storageRef, file);
-          const downloadURL = await getDownloadURL(storageRef);
-          photoUrls.push(downloadURL);
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('category', 'listings');
+          formData.append('userId', user.uid);
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          if (res.ok) {
+            const data = await res.json();
+            photoUrls.push(data.url);
+          }
         }
       }
 
@@ -3855,8 +3865,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       setSearchTerm(val);
                     }}
                     suggestions={allDestinations}
-                    inputClassName="w-full pl-10 pr-4 py-1.5 rounded-md text-black bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:outline-none border border-gray-200 text-sm h-10 shadow-inner"
-                    iconClassName="left-3 top-3 text-gray-400"
+                    inputClassName="w-full pl-10 pr-4 py-2 rounded-full text-slate-900 bg-slate-50/90 focus:bg-white focus:ring-2 focus:ring-amber-500/40 focus:outline-none border border-slate-200/90 text-sm h-10 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:border-slate-300 transition-all font-medium"
+                    iconClassName="left-3.5 top-3 text-slate-400"
                   />
                 </div>
               </div>
@@ -3959,17 +3969,19 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             id="user-dashboard-scroll-container"
           >
             {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-              <div className="w-full bg-gray-50 fixed top-16 left-0 right-0 z-0 h-[400px] flex flex-col justify-center items-center overflow-hidden">
+              <div className="w-full bg-slate-900 fixed top-16 left-0 right-0 z-0 h-[480px] flex flex-col justify-center items-center overflow-hidden">
                 {/* Background image slider with fixed attachment for parallax */}
                 {HERO_IMAGES.map((img, index) => (
                   <div 
                     key={index}
-                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-90' : 'opacity-0'}`}
+                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-85' : 'opacity-0'}`}
                     style={{ backgroundImage: `url('${img}')` }}
                   ></div>
                 ))}
-                {/* Gradient to fade into the gray-50 background below */}
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-gray-50/40 to-transparent pointer-events-none"></div>
+                {/* Gradient mesh to smoothly transition into the page canvas */}
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-stone-900/10 to-[#f8fafc] pointer-events-none"></div>
+                {/* Subtle ambient radial highlights */}
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-amber-500/10 blur-[120px] rounded-full pointer-events-none"></div>
               </div>
             )}
 
@@ -4046,7 +4058,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {/* Category Emoji Navigation Strip */}
-                  <div id="category-nav-strip" className="w-full bg-white/95 border border-gray-200 rounded-3xl p-3 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-md relative">
+                  <div id="category-nav-strip" className="w-full bg-white/85 border border-white/80 rounded-3xl p-3 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
                     <div className="flex gap-2 sm:gap-3.5 w-full justify-start items-center min-w-max px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
@@ -4077,10 +4089,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 setSelectedCategoryFilter(item.filter);
                               }
                             }}
-                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 flex items-center gap-2 shrink-0 ${
+                            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 ${
                               isActive
-                                ? 'bg-[#FF9900] text-white shadow-sm border border-[#FF9900]'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300'
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                                : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
                             }`}
                           >
                             {getTabIcon(item.id, "h-3.5 w-3.5")}
@@ -4090,14 +4102,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       })}
                     </div>
                     
-                    <div className="h-6 w-px bg-gray-300 mx-1 shrink-0"></div>
+                    <div className="h-6 w-px bg-slate-200/80 mx-1 shrink-0"></div>
                     
                     <div className="relative shrink-0 flex items-center">
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 flex items-center gap-2 border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 shadow-sm"
+                        className="px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]"
                       >
-                        <Settings className="h-4 w-4" />
+                        <Settings className="h-4 w-4 text-orange-500" />
                         Filter
                       </button>
                       <FilterSidebar 
@@ -4164,11 +4176,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         <div
                           key={category.id}
                           id={`section-${category.id}`}
-                          className="scroll-mt-32 bg-white border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8 flex flex-col rounded-none overflow-hidden"
+                          className="scroll-mt-32 bg-white/95 border border-slate-100/80 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_45px_-5px_rgba(0,0,0,0.08)] p-6 md:p-7 flex flex-col rounded-[18px] overflow-hidden transition-all duration-300 hover:-translate-y-0.5 group/card"
                         >
-                          <h3 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight mb-6">
-                            {category.title}
-                          </h3>
+                          <div className="mb-6">
+                            <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                              {category.title}
+                            </h3>
+                          </div>
 
                           <div className="grid grid-cols-2 gap-x-4 gap-y-6 flex-1">
                             {category.subcategories.map((sub) => {
@@ -4185,17 +4199,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     title: `${category.title} - ${sub}`
                                   })}
                                 >
-                                  <div className="relative aspect-[16/10] rounded-none overflow-hidden bg-slate-50 border border-slate-200/40">
+                                  <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/50 shadow-sm">
                                     <img
                                       src={img}
                                       alt={sub}
-                                      className="w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-105"
+                                      className="w-full h-full object-cover transition-transform duration-700 group-hover/item:scale-108"
                                       loading="lazy"
                                     />
-                                    <div className="absolute inset-0 bg-black/5 group-hover/item:bg-transparent transition-colors duration-300"></div>
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-70 group-hover/item:opacity-40 transition-opacity duration-300"></div>
                                   </div>
-                                    <div className="mt-2.5 px-0.5">
-                                      <p className="text-xs md:text-sm font-semibold text-slate-900 leading-snug group-hover/item:text-orange-500 transition-colors duration-200">
+                                  <div className="mt-2.5 px-0.5">
+                                    <p className="text-xs md:text-sm font-bold text-slate-900 leading-snug group-hover/item:text-orange-500 transition-colors duration-200">
                                       {category.id === 'tourCategory' && desc
                                         ? `${sub} | ${desc}`
                                         : sub
@@ -4207,15 +4221,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             })}
                           </div>
 
-                          <div className="mt-6 flex items-center">
+                          <div className="mt-6 flex items-center pt-4 border-t border-slate-100">
                             <button
                               onClick={() => setSelectedCategoryFilter({
                                 category: category.id,
                                 title: category.title
                               })}
-                              className="text-sm font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors group"
+                              className="text-sm font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1.5 transition-colors group px-3 py-1.5 rounded-full hover:bg-orange-50/80 -ml-3"
                             >
-                              {category.linkText} <span className="transition-transform group-hover:translate-x-1">→</span>
+                              {category.linkText} <span className="transition-transform group-hover:translate-x-1.5">→</span>
                             </button>
                           </div>
                         </div>

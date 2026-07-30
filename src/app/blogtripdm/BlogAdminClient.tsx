@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, orderBy, getDocs, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { getDbInstance, getStorageInstance } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getDbInstance } from '@/lib/firebase';
 import { compressMultipleImages } from '@/lib/imageUtils';
 
 const BLOG_ADMIN_EMAIL = 'tripdm26@gmail.com';
@@ -246,8 +245,7 @@ export default function BlogAdminClient() {
     }
     setUploadingImage(true);
     try {
-      const storageInstance = getStorageInstance();
-      if (!storageInstance || !user) throw new Error('Storage or User Auth not initialized');
+      if (!user) throw new Error('User Auth not initialized');
 
       let fileToUpload = file;
       try {
@@ -259,11 +257,19 @@ export default function BlogAdminClient() {
         console.warn('Image compression failed, using original', err);
       }
 
-      const storageRef = ref(storageInstance, `listings/${user.uid}/covers/${Date.now()}_${fileToUpload.name}`);
-      await uploadBytes(storageRef, fileToUpload);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('category', 'covers');
+      formData.append('userId', user.uid);
 
-      setForm(f => ({ ...f, coverImage: downloadUrl }));
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Cover image upload failed');
+      }
+      const uploadData = await uploadRes.json();
+
+      setForm(f => ({ ...f, coverImage: uploadData.url }));
     } catch (err: any) {
       console.error('Image upload failed:', err);
       alert(`Image upload failed: ${err.message}`);
