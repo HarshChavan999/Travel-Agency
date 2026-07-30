@@ -21,6 +21,8 @@ import WishlistView from '@/components/WishlistView';
 import AuthModal from '@/components/AuthModal';
 import FilterSidebar from '@/components/FilterSidebar';
 import UserProfile from '@/components/UserProfile';
+import AdminCouponManagement from '@/components/AdminCouponManagement';
+import CheckoutModal from '@/components/CheckoutModal';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { 
   User, 
@@ -298,6 +300,27 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [currentChatAgency, setCurrentChatAgency] = useState<string>('agency1');
+
+  // Checkout Modal State for Agency Plan Upgrades
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [checkoutTargetPlan, setCheckoutTargetPlan] = useState<'starter' | 'premium' | 'vip'>('starter');
+  const [checkoutPlanTitle, setCheckoutPlanTitle] = useState('Standard Plan');
+  const [checkoutOriginalPrice, setCheckoutOriginalPrice] = useState(2000);
+
+  const openUpgradeCheckout = (plan: 'starter' | 'premium' | 'vip') => {
+    setCheckoutTargetPlan(plan);
+    if (plan === 'starter') {
+      setCheckoutPlanTitle('Standard Plan');
+      setCheckoutOriginalPrice(pricingConfig.starterPrice || 2000);
+    } else if (plan === 'premium') {
+      setCheckoutPlanTitle('Premium Plan');
+      setCheckoutOriginalPrice(pricingConfig.premiumPrice || 5000);
+    } else if (plan === 'vip') {
+      setCheckoutPlanTitle('VIP Plan');
+      setCheckoutOriginalPrice(pricingConfig.vipPrice || 10000);
+    }
+    setCheckoutModalOpen(true);
+  };
   const [currentChatAgencyName, setCurrentChatAgencyName] = useState<string>('Adventure Travels');
   const [currentChatAgencyIsOnline, setCurrentChatAgencyIsOnline] = useState<boolean>(false);
   const [currentChatAgencyLogo, setCurrentChatAgencyLogo] = useState<string | null>(null);
@@ -2636,6 +2659,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 >
                   <MessageSquare className="h-4 w-4" /> All Chats
                 </button>
+                <button
+                  onClick={() => setActiveSection('coupons')}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'coupons'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  <Tag className="h-4 w-4 text-orange-500" /> Coupons &amp; Discounts
+                </button>
               </div>
             </nav>
           </div>
@@ -2652,6 +2684,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 {activeSection === 'manage_packages' && 'Manage Packages'}
                 {activeSection === 'settings' && 'Settings'}
                 {activeSection === 'chats' && 'All Chats'}
+                {activeSection === 'coupons' && 'Coupon & Discount Management'}
               </h1>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">Welcome, {userData.name}</span>
@@ -3623,6 +3656,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             })()}
 
               {activeSection === 'chats' && <AdminChatViewer />}
+              {activeSection === 'coupons' && <AdminCouponManagement />}
               {activeSection === 'settings' && (
                 <div className="space-y-6">
                   <Card>
@@ -3761,6 +3795,19 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
             </main>
           </div>
+          <CheckoutModal
+            isOpen={checkoutModalOpen}
+            onClose={() => setCheckoutModalOpen(false)}
+            targetPlan={checkoutTargetPlan}
+            planTitle={checkoutPlanTitle}
+            originalPrice={checkoutOriginalPrice}
+            agencyId={user?.uid || ''}
+            agencyName={userData?.companyName || userData?.name}
+            agencyEmail={userData?.email}
+            onSuccess={(newPlan) => {
+              window.location.reload();
+            }}
+          />
         </div>
       );
     }
@@ -7345,7 +7392,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 </ul>
                               </div>
                               <Button
-                                onClick={() => upgradePlan('starter')}
+                                onClick={() => openUpgradeCheckout('starter')}
                                 disabled={userData?.plan === 'starter'}
                                 className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'starter'
                                     ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
@@ -7381,7 +7428,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 </ul>
                               </div>
                               <Button
-                                onClick={() => upgradePlan('premium')}
+                                onClick={() => openUpgradeCheckout('premium')}
                                 disabled={userData?.plan === 'premium'}
                                 className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'premium'
                                     ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
@@ -7417,7 +7464,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 </ul>
                               </div>
                               <Button
-                                onClick={() => upgradePlan('vip')}
+                                onClick={() => openUpgradeCheckout('vip')}
                                 disabled={userData?.plan === 'vip'}
                                 className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'vip'
                                     ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
@@ -7471,6 +7518,19 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
             </main>
           </div>
+          <CheckoutModal
+            isOpen={checkoutModalOpen}
+            onClose={() => setCheckoutModalOpen(false)}
+            targetPlan={checkoutTargetPlan}
+            planTitle={checkoutPlanTitle}
+            originalPrice={checkoutOriginalPrice}
+            agencyId={user?.uid || ''}
+            agencyName={userData?.companyName || userData?.name}
+            agencyEmail={userData?.email}
+            onSuccess={(newPlan) => {
+              window.location.reload();
+            }}
+          />
         </div>
       );
     }
@@ -7738,6 +7798,21 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         onRegister={handleAuthModalRegister}
         onGoogleSignIn={signInWithGoogle}
         googleUser={user}
+      />
+
+      {/* Checkout Modal Overlay for Agency Plan Upgrades */}
+      <CheckoutModal
+        isOpen={checkoutModalOpen}
+        onClose={() => setCheckoutModalOpen(false)}
+        targetPlan={checkoutTargetPlan}
+        planTitle={checkoutPlanTitle}
+        originalPrice={checkoutOriginalPrice}
+        agencyId={user?.uid || ''}
+        agencyName={userData?.companyName || userData?.name}
+        agencyEmail={userData?.email}
+        onSuccess={(newPlan) => {
+          window.location.reload();
+        }}
       />
     </div>
   );
