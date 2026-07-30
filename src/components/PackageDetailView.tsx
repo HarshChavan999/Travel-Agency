@@ -78,13 +78,57 @@ const defaultFAQs = [
   }
 ];
 
+const CITY_ALIASES: Record<string, string> = {
+  'ahemdabad': 'Ahmedabad',
+  'ahemedabad': 'Ahmedabad',
+  'ahmadabad': 'Ahmedabad',
+  'ahmedabad': 'Ahmedabad',
+  'bengaluru': 'Bengaluru',
+  'bangalore': 'Bengaluru',
+  'bombay': 'Mumbai',
+  'mumbai': 'Mumbai',
+  'calcutta': 'Kolkata',
+  'kolkata': 'Kolkata',
+  'madras': 'Chennai',
+  'chennai': 'Chennai',
+  'gurgaon': 'Gurugram',
+  'gurugram': 'Gurugram',
+  'pondicherry': 'Puducherry',
+  'puducherry': 'Puducherry',
+  'banaras': 'Varanasi',
+  'benares': 'Varanasi',
+  'kashi': 'Varanasi',
+  'varanasi': 'Varanasi',
+  'allahabad': 'Prayagraj',
+  'prayagraj': 'Prayagraj',
+  'cochin': 'Kochi',
+  'kochi': 'Kochi',
+  'trivandrum': 'Thiruvananthapuram',
+  'thiruvananthapuram': 'Thiruvananthapuram',
+  'baroda': 'Vadodara',
+  'vadodara': 'Vadodara',
+  'vizag': 'Visakhapatnam',
+  'visakhapatnam': 'Visakhapatnam',
+  'ooty': 'Ooty',
+  'ootacamund': 'Ooty',
+  'udagamandalam': 'Ooty',
+  'mysore': 'Mysore',
+  'mysuru': 'Mysore',
+  'coorg': 'Coorg',
+  'kodagu': 'Coorg',
+  'pondichery': 'Puducherry',
+};
+
 const cleanPlaceNameForSEO = (name: string) => {
   if (!name) return '';
-  const parts = name.split(/[\s\-\/]+/);
+  const parts = name.split(/[\s\-\–\—→\u2192⇒\u21d2·•\/\\|,\.\(\)]+/);
   const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight)$/i;
-  const cleanedParts = parts.filter(part => !noiseWords.test(part));
+  const cleanedParts = parts.filter(part => part && !noiseWords.test(part));
   if (cleanedParts.length === 0) return '';
-  return cleanedParts.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  return cleanedParts.map(w => {
+    const lower = w.toLowerCase();
+    return CITY_ALIASES[lower] || (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  }).join(' ');
 };
 
 // Pure Real Review Data Processor (No Static / Mock Reviews)
@@ -436,28 +480,34 @@ export default function PackageDetailView({
   const getDisplayPlaces = () => {
     const cleanPlaceName = (rawName: string): string[] => {
       if (!rawName) return [];
-      // Normalize separators: dash, en-dash, em-dash, " to ", " & ", " and ", " / "
+      
+      // Normalize separators: dash, en-dash, em-dash, arrows, slash, dot, comma, parenthesis
       const normalized = rawName
-        .replace(/[-–—]/g, ',')
-        .replace(/\bto\b/gi, ',')
-        .replace(/\b&\b/gi, ',')
-        .replace(/\band\b/gi, ',')
-        .replace(/\b\/\b/gi, ',');
+        .replace(/[\-–—→\u2192⇒\u21d2·•\/\\|,\.\(\)]/g, ',')
+        .replace(/\b(to|towards|via|and|&)\b/gi, ',');
       
       const result: string[] = [];
-      const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|airport|station|railway|hotel|resort|day|visit|trip|journey|welcome|tourist|spot|spots)$/i;
-      
+      const leadingNoise = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort)\b\s*/i;
+      const trailingNoise = /\s*\b(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort)$/i;
+
       normalized.split(',').forEach(part => {
         let cleaned = part.trim();
-        // Remove common introductory prepositions/prefixes
-        cleaned = cleaned.replace(/^(at|from|in|to|for|via|by|towards)\s+/i, '').trim();
+        let prev = '';
+        while (cleaned !== prev) {
+          prev = cleaned;
+          // Strip leading non-alphanumeric (except space)
+          cleaned = cleaned.replace(/^[^a-zA-Z0-9\s]+/g, '').trim();
+          // Strip trailing non-alphanumeric (except space)
+          cleaned = cleaned.replace(/[^a-zA-Z0-9\s]+$/g, '').trim();
+          // Strip leading noise words
+          cleaned = cleaned.replace(leadingNoise, '').trim();
+          // Strip trailing noise words
+          cleaned = cleaned.replace(trailingNoise, '').trim();
+        }
         
-        // Remove trailing prepositions/prefixes if any are left
-        cleaned = cleaned.replace(/\s+(at|from|in|to|for|via|by|towards)$/i, '').trim();
-        
-        if (cleaned && !noiseWords.test(cleaned)) {
-          // Capitalize first letter of each word to make it look professional
-          const capitalized = cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        if (cleaned) {
+          const lower = cleaned.toLowerCase();
+          const capitalized = CITY_ALIASES[lower] || cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
           result.push(capitalized);
         }
       });
