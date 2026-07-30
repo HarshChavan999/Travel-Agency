@@ -107,6 +107,7 @@ export default function ListingCard({
   const pickupLocation = listing.pickUpLocation || listing.placesCovered?.[0]?.name?.trim() || listing.stateName || 'Delhi';
   const dropLocation = listing.dropLocation || listing.placesCovered?.[listing.placesCovered.length - 1]?.name?.trim() || listing.stateName || 'Delhi';
   const cardTitle = listing.title || (listing.packageType === 'international' ? listing.countryName : listing.stateName) || `${packageType} Package`;
+  const locationName = listing.packageType === 'international' ? listing.countryName : listing.stateName;
   const placesText = listing.placesCovered && listing.placesCovered.length > 0 
     ? listing.placesCovered.map((p: any) => p.name?.trim()).filter(Boolean).join(' | ') 
     : location;
@@ -296,7 +297,7 @@ export default function ListingCard({
                       format: 'auto',
                       cacheBust: false
                     })}
-                    alt={`${cardTitle} photo ${idx + 1}`}
+                    alt={locationName ? `${locationName} - ${cardTitle} - Photo ${idx + 1}` : `${cardTitle} photo ${idx + 1}`}
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                     loading={idx === 0 ? "eager" : "lazy"}
                     decoding="async"
@@ -352,7 +353,7 @@ export default function ListingCard({
             )}
             <img
               src={optimizedImageUrl}
-              alt={cardTitle}
+              alt={locationName ? `${locationName} - ${cardTitle}` : cardTitle}
               className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               } group-hover:scale-105`}

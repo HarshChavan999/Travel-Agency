@@ -78,6 +78,59 @@ const defaultFAQs = [
   }
 ];
 
+const CITY_ALIASES: Record<string, string> = {
+  'ahemdabad': 'Ahmedabad',
+  'ahemedabad': 'Ahmedabad',
+  'ahmadabad': 'Ahmedabad',
+  'ahmedabad': 'Ahmedabad',
+  'bengaluru': 'Bengaluru',
+  'bangalore': 'Bengaluru',
+  'bombay': 'Mumbai',
+  'mumbai': 'Mumbai',
+  'calcutta': 'Kolkata',
+  'kolkata': 'Kolkata',
+  'madras': 'Chennai',
+  'chennai': 'Chennai',
+  'gurgaon': 'Gurugram',
+  'gurugram': 'Gurugram',
+  'pondicherry': 'Puducherry',
+  'puducherry': 'Puducherry',
+  'banaras': 'Varanasi',
+  'benares': 'Varanasi',
+  'kashi': 'Varanasi',
+  'varanasi': 'Varanasi',
+  'allahabad': 'Prayagraj',
+  'prayagraj': 'Prayagraj',
+  'cochin': 'Kochi',
+  'kochi': 'Kochi',
+  'trivandrum': 'Thiruvananthapuram',
+  'thiruvananthapuram': 'Thiruvananthapuram',
+  'baroda': 'Vadodara',
+  'vadodara': 'Vadodara',
+  'vizag': 'Visakhapatnam',
+  'visakhapatnam': 'Visakhapatnam',
+  'ooty': 'Ooty',
+  'ootacamund': 'Ooty',
+  'udagamandalam': 'Ooty',
+  'mysore': 'Mysore',
+  'mysuru': 'Mysore',
+  'coorg': 'Coorg',
+  'kodagu': 'Coorg',
+  'pondichery': 'Puducherry',
+};
+
+const cleanPlaceNameForSEO = (name: string) => {
+  if (!name) return '';
+  const parts = name.split(/[\s\-\–\—→\u2192⇒\u21d2·•\/\\|,\.\(\)]+/);
+  const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight)$/i;
+  const cleanedParts = parts.filter(part => part && !noiseWords.test(part));
+  if (cleanedParts.length === 0) return '';
+  return cleanedParts.map(w => {
+    const lower = w.toLowerCase();
+    return CITY_ALIASES[lower] || (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  }).join(' ');
+};
+
 // Pure Real Review Data Processor (No Static / Mock Reviews)
 function getReviewsData(listing: any, userDbReviews: any[]) {
   const locationName = listing?.packageType === 'international' ? listing?.countryName : listing?.stateName;
@@ -427,28 +480,34 @@ export default function PackageDetailView({
   const getDisplayPlaces = () => {
     const cleanPlaceName = (rawName: string): string[] => {
       if (!rawName) return [];
-      // Normalize separators: dash, en-dash, em-dash, " to ", " & ", " and ", " / "
+      
+      // Normalize separators: dash, en-dash, em-dash, arrows, slash, dot, comma, parenthesis
       const normalized = rawName
-        .replace(/[-–—]/g, ',')
-        .replace(/\bto\b/gi, ',')
-        .replace(/\b&\b/gi, ',')
-        .replace(/\band\b/gi, ',')
-        .replace(/\b\/\b/gi, ',');
+        .replace(/[\-–—→\u2192⇒\u21d2·•\/\\|,\.\(\)]/g, ',')
+        .replace(/\b(to|towards|via|and|&)\b/gi, ',');
       
       const result: string[] = [];
-      const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|airport|station|railway|hotel|resort|day|visit|trip|journey|welcome|tourist|spot|spots)$/i;
-      
+      const leadingNoise = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort)\b\s*/i;
+      const trailingNoise = /\s*\b(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort)$/i;
+
       normalized.split(',').forEach(part => {
         let cleaned = part.trim();
-        // Remove common introductory prepositions/prefixes
-        cleaned = cleaned.replace(/^(at|from|in|to|for|via|by|towards)\s+/i, '').trim();
+        let prev = '';
+        while (cleaned !== prev) {
+          prev = cleaned;
+          // Strip leading non-alphanumeric (except space)
+          cleaned = cleaned.replace(/^[^a-zA-Z0-9\s]+/g, '').trim();
+          // Strip trailing non-alphanumeric (except space)
+          cleaned = cleaned.replace(/[^a-zA-Z0-9\s]+$/g, '').trim();
+          // Strip leading noise words
+          cleaned = cleaned.replace(leadingNoise, '').trim();
+          // Strip trailing noise words
+          cleaned = cleaned.replace(trailingNoise, '').trim();
+        }
         
-        // Remove trailing prepositions/prefixes if any are left
-        cleaned = cleaned.replace(/\s+(at|from|in|to|for|via|by|towards)$/i, '').trim();
-        
-        if (cleaned && !noiseWords.test(cleaned)) {
-          // Capitalize first letter of each word to make it look professional
-          const capitalized = cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        if (cleaned) {
+          const lower = cleaned.toLowerCase();
+          const capitalized = CITY_ALIASES[lower] || cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
           result.push(capitalized);
         }
       });
@@ -583,7 +642,7 @@ export default function PackageDetailView({
             {allImages.length === 1 ? (
               <img
                 src={optimizeImageUrl(allImages[0], { width: 1400, quality: 90, format: 'auto', cacheBust: false })}
-                alt={listing.title}
+                alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'}` : (listing.title || 'Travel Package')}
                 className="w-full h-full object-cover"
                 loading="eager"
               />
@@ -604,7 +663,7 @@ export default function PackageDetailView({
                   >
                     <img
                       src={optimizeImageUrl(img, { width: 1000, quality: 90, format: 'auto', cacheBust: false })}
-                      alt={`${listing.title} photo ${idx + 1}`}
+                      alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'} - Photo ${idx + 1}` : `${listing.title} photo ${idx + 1}`}
                       className="w-full h-full object-cover"
                       loading={idx < 2 ? 'eager' : 'lazy'}
                     />
@@ -900,7 +959,7 @@ export default function PackageDetailView({
                               <div className="rounded-lg overflow-hidden" style={{ height: '200px' }}>
                                 <img
                                   src={optimizeImageUrl(dayImage, { width: 600, quality: 85, format: 'auto', cacheBust: false })}
-                                  alt={day.placeName || `Day ${day.day}`}
+                                  alt={locationName && day.placeName ? `${locationName} - ${cleanPlaceNameForSEO(day.placeName)}` : (day.placeName || `Day ${day.day}`)}
                                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
                                   loading="lazy"
                                 />
@@ -1528,7 +1587,7 @@ export default function PackageDetailView({
                 >
                   <img
                     src={optimizeImageUrl(image, { width: 1200, quality: 85, format: 'auto', cacheBust: false })}
-                    alt={`Gallery Image ${index + 1}`}
+                    alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'} - Gallery Image ${index + 1}` : `Gallery Image ${index + 1}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     loading={index < 4 ? 'eager' : 'lazy'}
                     decoding="async"
@@ -1559,7 +1618,7 @@ export default function PackageDetailView({
             <X className="h-6 w-6" />
           </button>
           <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-xl" onClick={e => e.stopPropagation()}>
-            <img src={selectedGalleryImage} alt="Full size photo" className="w-full h-full object-contain" />
+            <img src={selectedGalleryImage} alt={locationName ? `${locationName} - ${listing.title || 'Travel Package'} - Full size photo` : "Full size photo"} className="w-full h-full object-contain" />
           </div>
         </div>
       )}

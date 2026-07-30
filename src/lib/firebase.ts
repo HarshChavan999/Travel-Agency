@@ -2,13 +2,11 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getDatabase, type Database } from 'firebase/database';
-import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 let app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 let _rtdb: Database | null = null;
-let _storage: FirebaseStorage | null = null;
 
 function getFirebaseConfig() {
   return {
@@ -58,18 +56,8 @@ export const getRtdbInstance = (): Database | null => {
   return _rtdb;
 };
 
-export const getStorageInstance = (): FirebaseStorage | null => {
-  if (!_storage) {
-    initializeFirebaseApp();
-    if (app) {
-      _storage = getStorage(app);
-    }
-  }
-  return _storage;
-};
-
 // For backward compatibility, but these will be null during SSR/build time
 export const auth = getAuthInstance();
 export const db = getDbInstance();
 export const rtdb = getRtdbInstance();
-export const storage = getStorageInstance();
+

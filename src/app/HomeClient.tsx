@@ -91,8 +91,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getDbInstance, getStorageInstance } from '@/lib/firebase';
+import { getDbInstance } from '@/lib/firebase';
 import { getFirestore } from 'firebase/firestore';
 import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
 
@@ -967,18 +966,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       return;
     }
 
-    const storageInstance = getStorageInstance();
     const dbInstance = getDbInstance();
-    if (!storageInstance || !dbInstance) return;
+    if (!dbInstance) return;
 
     try {
       const compressedFiles = await compressMultipleImages([selectedFile]);
       const fileToUpload = compressedFiles[0];
 
-      // Store under listings path to align with existing active storage security rules
-      const storageRef = ref(storageInstance, `listings/${user.uid}/avatars/${Date.now()}_${fileToUpload.name}`);
-      await uploadBytes(storageRef, fileToUpload);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('category', 'avatars');
+      formData.append('userId', user.uid);
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const uploadData = await res.json();
+      const downloadUrl = uploadData.url;
 
       await updateDoc(doc(dbInstance, 'users', user.uid), {
         avatarUrl: downloadUrl
@@ -1037,18 +1040,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       return;
     }
 
-    const storageInstance = getStorageInstance();
     const dbInstance = getDbInstance();
-    if (!storageInstance || !dbInstance) return;
+    if (!dbInstance) return;
 
     try {
       const compressedFiles = await compressMultipleImages([selectedFile]);
       const fileToUpload = compressedFiles[0];
 
-      // Store under listings path to align with existing active storage security rules
-      const storageRef = ref(storageInstance, `listings/${user.uid}/logos/${Date.now()}_${fileToUpload.name}`);
-      await uploadBytes(storageRef, fileToUpload);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('category', 'logos');
+      formData.append('userId', user.uid);
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const uploadData = await res.json();
+      const downloadUrl = uploadData.url;
 
       await updateDoc(doc(dbInstance, 'users', user.uid), {
         logoUrl: downloadUrl
@@ -2315,13 +2322,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       // Upload photos if any
       const photoUrls: string[] = [];
       if (tempPhotoFiles.length > 0) {
-        const storageInstance = getStorageInstance();
-        if (!storageInstance) return;
         for (const file of tempPhotoFiles) {
-          const storageRef = ref(storageInstance, `listings/${user.uid}/${Date.now()}_${file.name}`);
-          await uploadBytes(storageRef, file);
-          const downloadURL = await getDownloadURL(storageRef);
-          photoUrls.push(downloadURL);
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('category', 'listings');
+          formData.append('userId', user.uid);
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          if (res.ok) {
+            const data = await res.json();
+            photoUrls.push(data.url);
+          }
         }
       }
 
@@ -4267,6 +4277,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               );
                             })}
                           </div>
+
                         </div>
                       ))}
                     </div>

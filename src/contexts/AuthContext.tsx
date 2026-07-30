@@ -3,8 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getAuthInstance, getDbInstance, getStorageInstance } from '@/lib/firebase';
+import { getAuthInstance, getDbInstance } from '@/lib/firebase';
 
 interface UserData {
   role: 'admin' | 'agency' | 'user';
@@ -386,14 +385,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const user = userCredential.user;
 
       let proofUrl = null;
-      // Upload file if provided
+      // Upload file if provided via R2 API
       if (file) {
-        const storageInstance = getStorageInstance();
-        if (storageInstance) {
-          const storageRef = ref(storageInstance, `proofs/${user.uid}/${file.name}`);
-          await uploadBytes(storageRef, file);
-          proofUrl = await getDownloadURL(storageRef);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', 'proofs');
+        formData.append('userId', user.uid);
+
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errData.error || 'Identity proof upload failed');
         }
+        const uploadData = await uploadRes.json();
+        proofUrl = uploadData.url;
       }
 
       const dbInstance = getDbInstance();

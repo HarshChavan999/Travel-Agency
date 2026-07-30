@@ -74,13 +74,13 @@ export default function Footer({ onNavigate }: FooterProps = {}) {
       <div className="border-t border-gray-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-center">
-            <div className="md:col-span-3 flex flex-wrap gap-4 text-xs text-gray-400">
+            <div className="md:col-span-2 flex justify-start items-center">
+              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-14 sm:h-16 w-auto object-contain" />
+            </div>
+            <div className="md:col-span-2 flex flex-wrap md:pl-32 gap-4 text-xs text-gray-400">
               <Link href="/policies/conditions-of-use" className="hover:text-white transition-colors">Condition of Use and Sale</Link>
               <Link href="/policies/privacy-notice" className="hover:text-white transition-colors">Privacy Notice</Link>
               <Link href="/policies/internet-based-policy" className="hover:text-white transition-colors">Internet-Based Policy</Link>
-            </div>
-            <div className="md:col-span-1 flex justify-start items-center">
-              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-14 sm:h-16 w-auto object-contain" />
             </div>
           </div>
         </div>
