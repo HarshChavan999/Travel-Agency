@@ -4,7 +4,7 @@ import BlogClient from './BlogClient';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Travel Blog | Expert Tips, Guides & Destinations | TripDM',

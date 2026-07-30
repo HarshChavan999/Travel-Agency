@@ -3,6 +3,8 @@ import Razorpay from 'razorpay';
 import { initializeFirebase } from '@/lib/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
+export const dynamic = 'force-static';
+
 export async function POST(req: Request) {
   try {
     const { creditsToBuy, currency = 'INR', receipt, agencyId, targetPlan, isAddon, couponCode } = await req.json();

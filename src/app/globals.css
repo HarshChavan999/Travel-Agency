@@ -6,9 +6,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-heading: var(--font-poppins);
-  --font-playfair: var(--font-playfair);
+  --font-sans: var(--font-jakarta), var(--font-inter), sans-serif;
+  --font-heading: var(--font-outfit), var(--font-poppins), sans-serif;
+  --font-playfair: var(--font-playfair), serif;
+  --font-jakarta: var(--font-jakarta), sans-serif;
+  --font-outfit: var(--font-outfit), sans-serif;
   --color-brand-orange: #FF9900;
   --color-brand-navy: #0D1B2A;
   --color-brand-slate: #334155;
@@ -563,4 +565,32 @@ article tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
   border-color: rgba(249,115,22,0.3) !important;
   box-shadow: 0 12px 40px rgba(0,0,0,0.1);
 }
+
+/* Horizontal scrollbar hide helper */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Modern Pictorial Card & Glass Overlay animations */
+.pictorial-card {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pictorial-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.15), 0 0 20px -5px rgba(255, 153, 0, 0.15);
+}
+
+/* Horizontal Category Rail Snap */
+.category-rail-scroll {
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+}
+.category-rail-item {
+  scroll-snap-align: start;
+}
+
 

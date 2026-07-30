@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins, Inter, Playfair_Display, DM_Sans } from "next/font/google";
+import { Poppins, Inter, Playfair_Display, DM_Sans, Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ComparisonProvider } from "@/contexts/ComparisonContext";
@@ -30,6 +30,20 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+const jakarta = Plus_Jakarta_Sans({
+  weight: ['400', '500', '600', '700', '800'],
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const outfit = Outfit({
+  weight: ['400', '500', '600', '700', '800'],
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "TripDM: Direct Message. Better Travel.",
   description: "TripDM connects travelers directly with trusted travel agents through instant messaging.",
@@ -46,7 +60,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${poppins.variable} ${inter.variable} ${playfair.variable} ${dmSans.variable} font-inter antialiased`}
+        className={`${poppins.variable} ${inter.variable} ${playfair.variable} ${dmSans.variable} ${jakarta.variable} ${outfit.variable} font-sans antialiased`}
       >
         <AuthProvider>
           <ComparisonProvider>

@@ -4,7 +4,7 @@ import { parseFirestoreDocument } from '@/lib/firestoreParser';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 async function getApprovedListings() {
   try {
@@ -55,10 +55,16 @@ export const metadata: Metadata = {
   description: "TripDM connects travelers directly with trusted travel agents through instant messaging. Browse top travel packages.",
 };
 
+import { Suspense } from 'react';
+
 export default async function HomePage() {
   // Fetch initial data on the server for pure HTML SSR
   const initialListings = await getApprovedListings();
 
   // Render the client component monolith, passing the server-fetched data as initial state
-  return <HomeClient initialListings={initialListings} routeMode="user" />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeClient initialListings={initialListings} routeMode="user" />
+    </Suspense>
+  );
 }

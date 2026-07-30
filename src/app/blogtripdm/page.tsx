@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   },
 };
 
+import { Suspense } from 'react';
+
 export default function BlogAdminPage() {
-  return <BlogAdminClient />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <BlogAdminClient />
+    </Suspense>
+  );
 }

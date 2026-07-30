@@ -4,7 +4,27 @@ import { parseFirestoreDocument } from '@/lib/firestoreParser';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
-export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/listings?pageSize=1000`;
+    const res = await fetch(url);
+    if (!res.ok) return [{ id: 'default' }];
+    const data = await res.json();
+    if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
+      return [{ id: 'default' }];
+    }
+    const paths = data.documents.map((doc: any) => {
+      const parts = doc.name.split('/');
+      return { id: parts[parts.length - 1] };
+    });
+    return paths.length > 0 ? paths : [{ id: 'default' }];
+  } catch {
+    return [{ id: 'default' }];
+  }
+}
 
 async function getListing(id: string) {
   try {

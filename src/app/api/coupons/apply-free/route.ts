@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/lib/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
+export const dynamic = 'force-static';
+
 export async function POST(req: Request) {
   try {
     const { agencyId, targetPlan, couponCode, originalAmount } = await req.json();
