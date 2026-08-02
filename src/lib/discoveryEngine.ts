@@ -575,7 +575,22 @@ export function getDynamicDestinationSections(
       });
     };
 
-    if (isIntl) {
+    // Check if package covers multiple states or countries
+    const isMultiState = !isIntl && (
+      (Array.isArray(listing.stateNames) && listing.stateNames.filter(Boolean).length > 1) ||
+      (typeof listing.stateName === 'string' && /,|\/|\band\b/i.test(listing.stateName))
+    );
+
+    const isMultiCountry = isIntl && (
+      (Array.isArray(listing.countryNames) && listing.countryNames.filter(Boolean).length > 1) ||
+      (typeof listing.countryName === 'string' && /,|\/|\band\b/i.test(listing.countryName))
+    );
+
+    if (isMultiState) {
+      locationNames.add("Multi State");
+    } else if (isMultiCountry) {
+      locationNames.add("Multi Country");
+    } else if (isIntl) {
       if (listing.countryName) cleanAndAdd(listing.countryName);
       if (Array.isArray(listing.countryNames)) listing.countryNames.forEach(cleanAndAdd);
       if (listing.destination) cleanAndAdd(listing.destination);
