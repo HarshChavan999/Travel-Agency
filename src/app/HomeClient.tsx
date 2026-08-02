@@ -4115,6 +4115,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           <button
                             key={item.id}
                             onClick={() => {
+                              setSearchTerm('');
                               if (item.type === 'categories') {
                                 setDashboardViewMode('categories');
                                 setSelectedCategoryFilter(null);
@@ -4200,8 +4201,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       }
                     />
                   ) : (
-                    /* Filtered Listings Grid */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    /* Filtered Listings Grid - Matching original 3-column card dimensions */
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                       {listings.length === 0 ? (
                         <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border border-gray-100 border-dashed">
                           <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner relative overflow-hidden">
