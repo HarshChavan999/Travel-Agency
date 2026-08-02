@@ -56,33 +56,49 @@ export default function ListingCard({
     return null;
   };
 
-  // Get all images from placesCovered and photos
+  // Get all images for listing card carousel (prefer placesCovered > photos > itinerary to avoid repeating images)
   const getAllImages = () => {
-    const images: string[] = [];
-    if (listing.placesCovered && listing.placesCovered.length > 0) {
+    const imagesSet = new Set<string>();
+    const seenBaseUrls = new Set<string>();
+
+    const addImage = (rawUrl: string) => {
+      if (!rawUrl || typeof rawUrl !== 'string') return;
+      const trimmed = rawUrl.trim();
+      if (!trimmed) return;
+      
+      const baseUrl = trimmed.split('?')[0].toLowerCase();
+      if (!seenBaseUrls.has(baseUrl)) {
+        seenBaseUrls.add(baseUrl);
+        imagesSet.add(trimmed);
+      }
+    };
+    
+    // Priority 1: Primary package photos from placesCovered
+    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
       listing.placesCovered.forEach((place: any) => {
-        if (place.imageUrls && place.imageUrls.length > 0) {
-          images.push(...place.imageUrls);
+        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
+          place.imageUrls.forEach(addImage);
         }
       });
     }
-    if (listing.photos && listing.photos.length > 0) {
-      listing.photos.forEach((photo: string) => {
-        if (photo && !images.includes(photo)) {
-          images.push(photo);
-        }
-      });
+
+    // Priority 2: Standalone photos (only if placesCovered had no images)
+    if (imagesSet.size === 0 && listing.photos && Array.isArray(listing.photos)) {
+      listing.photos.forEach(addImage);
     }
-    if (images.length === 0 && listing.itinerary && listing.itinerary.length > 0) {
+
+    // Priority 3: Itinerary day photos (only if neither placesCovered nor photos had images)
+    if (imagesSet.size === 0 && listing.itinerary && Array.isArray(listing.itinerary)) {
       listing.itinerary.forEach((day: any) => {
-        if (day.imageUrls && day.imageUrls.length > 0) {
-          images.push(...day.imageUrls);
-        } else if (day.imageUrl) {
-          images.push(day.imageUrl);
+        if (day?.imageUrls && Array.isArray(day.imageUrls)) {
+          day.imageUrls.forEach(addImage);
+        } else if (day?.imageUrl) {
+          addImage(day.imageUrl);
         }
       });
     }
-    return images;
+
+    return Array.from(imagesSet);
   };
 
   const mainImage = getMainImage();
@@ -282,27 +298,31 @@ export default function ListingCard({
             </div>
             
             {/* Navigation Arrows */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
-              }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1.5 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
-              aria-label="Previous image"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
+            {currentImageIndex > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => Math.max(0, prev - 1));
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1.5 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
             
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1.5 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
-              aria-label="Next image"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            {currentImageIndex < allImages.length - 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => Math.min(allImages.length - 1, prev + 1));
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-1.5 shadow-sm hover:shadow transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 hover:scale-110 active:scale-95 focus:outline-none z-20 cursor-pointer"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
 
             {/* Dot Indicators */}
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 backdrop-blur-[2px] px-2 py-1 rounded-full opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 transition-all duration-200 z-20">

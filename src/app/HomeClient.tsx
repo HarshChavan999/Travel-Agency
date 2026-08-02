@@ -66,6 +66,7 @@ import {
   BarChart2, 
   Building, 
   Settings, 
+  SlidersHorizontal,
   Plane, 
   Map as MapIcon, 
   Sparkles, 
@@ -4100,9 +4101,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     <div className="relative shrink-0 flex items-center">
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]"
+                        className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${
+                          showFilters 
+                            ? 'bg-orange-50 border-orange-300 text-orange-600 shadow-sm'
+                            : 'bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                        }`}
                       >
-                        <Settings className="h-4 w-4 text-orange-500" />
+                        <SlidersHorizontal className={`h-4 w-4 ${showFilters ? 'text-orange-500' : 'text-slate-500'}`} />
                         Filter
                       </button>
                       <FilterSidebar 

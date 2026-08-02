@@ -313,30 +313,52 @@ export default function PackageDetailView({
     fetchPackageReviews();
   }, [listing?.id, listing?.docId]);
 
-  // Get all images from placesCovered
+  // Get all images from placesCovered, photos, and itinerary (deduplicated by base URL)
   const getAllImages = () => {
-    const images: string[] = [];
-    if (listing.placesCovered && listing.placesCovered.length > 0) {
+    const imagesSet = new Set<string>();
+    const seenBaseUrls = new Set<string>();
+
+    const addImage = (rawUrl: string) => {
+      if (!rawUrl || typeof rawUrl !== 'string') return;
+      const trimmed = rawUrl.trim();
+      if (!trimmed) return;
+      
+      const baseUrl = trimmed.split('?')[0].toLowerCase();
+      if (!seenBaseUrls.has(baseUrl)) {
+        seenBaseUrls.add(baseUrl);
+        imagesSet.add(trimmed);
+      }
+    };
+
+    // Priority 1: Primary package photos from placesCovered
+    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
       listing.placesCovered.forEach((place: any) => {
-        if (place.imageUrls && place.imageUrls.length > 0) images.push(...place.imageUrls);
-      });
-    }
-    if (images.length === 0 && listing.itinerary && listing.itinerary.length > 0) {
-      listing.itinerary.forEach((day: any) => {
-        if (day.imageUrls && day.imageUrls.length > 0) {
-          images.push(...day.imageUrls);
-        } else if (day.imageUrl) {
-          images.push(day.imageUrl);
+        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
+          place.imageUrls.forEach(addImage);
         }
       });
     }
-    return images;
+
+    // Priority 2: Standalone photos (only if placesCovered had no images)
+    if (imagesSet.size === 0 && listing.photos && Array.isArray(listing.photos)) {
+      listing.photos.forEach(addImage);
+    }
+
+    // Priority 3: Itinerary day photos (only if neither placesCovered nor photos had images)
+    if (imagesSet.size === 0 && listing.itinerary && Array.isArray(listing.itinerary)) {
+      listing.itinerary.forEach((day: any) => {
+        if (day?.imageUrls && Array.isArray(day.imageUrls)) {
+          day.imageUrls.forEach(addImage);
+        } else if (day?.imageUrl) {
+          addImage(day.imageUrl);
+        }
+      });
+    }
+    return Array.from(imagesSet);
   };
   const allImages = getAllImages();
 
-  const loopImages = allImages.length >= 2 
-    ? [...allImages, allImages[0], allImages[1]] 
-    : allImages;
+  const loopImages = allImages;
 
   // Auto-slide every 4 seconds, infinite loop
   useEffect(() => {
