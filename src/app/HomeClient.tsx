@@ -23,6 +23,7 @@ import FilterSidebar from '@/components/FilterSidebar';
 import UserProfile from '@/components/UserProfile';
 import AdminCouponManagement from '@/components/AdminCouponManagement';
 import CheckoutModal from '@/components/CheckoutModal';
+import LandingDiscovery from '@/components/LandingDiscovery';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { 
   User, 
@@ -121,6 +122,9 @@ const getTabIcon = (id: string, className?: string) => {
       return <Globe className={className || "h-4 w-4"} />;
     case 'all_categories':
       return <LayoutGrid className={className || "h-4 w-4"} />;
+    case 'family':
+    case 'family_tab':
+      return <Users className={className || "h-4 w-4"} />;
     case 'trending_tab':
       return <Flame className={className || "h-4 w-4"} />;
     case 'experience_tab':
@@ -3968,24 +3972,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             }`}
             id="user-dashboard-scroll-container"
           >
-            {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-              <div className="w-full bg-slate-900 fixed top-16 left-0 right-0 z-0 h-[480px] flex flex-col justify-center items-center overflow-hidden">
-                {/* Background image slider with fixed attachment for parallax */}
-                {HERO_IMAGES.map((img, index) => (
-                  <div 
-                    key={index}
-                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-85' : 'opacity-0'}`}
-                    style={{ backgroundImage: `url('${img}')` }}
-                  ></div>
-                ))}
-                {/* Gradient mesh to smoothly transition into the page canvas */}
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-stone-900/10 to-[#f8fafc] pointer-events-none"></div>
-                {/* Subtle ambient radial highlights */}
-                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-amber-500/10 blur-[120px] rounded-full pointer-events-none"></div>
-              </div>
-            )}
-
-            <main className={`${(userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat') ? 'w-full' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
+            <main className={`${(userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat' || userActiveSection === 'listings') ? 'w-full max-w-[1600px] mx-auto px-4 sm:px-8' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
               {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && userActiveSection !== 'chat' && (
                 <div className="mb-6 mt-6 px-6 max-w-7xl mx-auto flex justify-between items-center border-b pb-4 border-gray-200">
@@ -4008,7 +3995,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
 
               {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-                <div className="relative z-10 pt-[160px] w-full">
+                <div className="relative z-10 w-full pt-4">
 
                   {/* Comparison Bar */}
                   {comparisonList.length > 0 && (
@@ -4058,16 +4045,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {/* Category Emoji Navigation Strip */}
-                  <div id="category-nav-strip" className="w-full bg-white/85 border border-white/80 rounded-3xl p-3 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
-                    <div className="flex gap-2 sm:gap-3.5 w-full justify-start items-center min-w-max px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide">
+                  <div id="category-nav-strip" className="w-fit max-w-full mx-auto bg-white/85 border border-white/80 rounded-3xl p-3 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] flex items-center justify-center gap-3 sm:gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
+                    <div className="flex gap-2 sm:gap-3.5 items-center justify-center px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide max-w-full">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
                         { id: 'all_packages', label: 'All Packages', type: 'all', filter: null },
                         { id: 'domestic_tab', label: 'Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
                         { id: 'intl_tab', label: 'International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
-                        { id: 'trending_tab', label: 'Trending', type: 'all', filter: { category: 'trending', title: 'Trending Destinations' } },
-                        { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } },
-                        { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } }
+                        { id: 'family_tab', label: 'Family', type: 'all', filter: { category: 'tourCategory', subcategory: 'Family Tour', title: 'Tour by Category - Family Tour' } },
+                        { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } },
+                        { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } }
                       ].map((item) => {
                         const isCategoriesActive = item.type === 'categories' && dashboardViewMode === 'categories' && !selectedCategoryFilter;
                         const isAllActive = item.type === 'all' && dashboardViewMode === 'all' && !selectedCategoryFilter && !item.filter;
@@ -4084,12 +4071,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               if (item.type === 'categories') {
                                 setDashboardViewMode('categories');
                                 setSelectedCategoryFilter(null);
+                              } else if (item.id === 'domestic_tab') {
+                                setDashboardViewMode('categories');
+                                setSelectedCategoryFilter({ category: 'domestic', title: 'Domestic Packages' });
+                              } else if (item.id === 'intl_tab') {
+                                setDashboardViewMode('categories');
+                                setSelectedCategoryFilter({ category: 'international', title: 'International Packages' });
                               } else {
                                 setDashboardViewMode('all');
                                 setSelectedCategoryFilter(item.filter);
                               }
                             }}
-                            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 ${
+                            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
                               isActive
                                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
                                 : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
@@ -4126,26 +4119,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                   </div>
 
-                  {/* Category Details Banner */}
-                  {selectedCategoryFilter && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-6 flex justify-between items-center shadow-sm">
-                      <div>
-                        <span className="text-[10px] text-orange-600 font-extrabold uppercase tracking-wider">Filtered Category</span>
-                        <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-0.5">
-                          {selectedCategoryFilter.title} {selectedCategoryFilter.subcategory ? `• ${selectedCategoryFilter.subcategory}` : ''}
-                        </h2>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedCategoryFilter(null)}
-                        className="text-orange-700 hover:text-orange-955 hover:bg-orange-100 font-bold text-xs"
-                      >
-                        Clear Filter
-                      </Button>
-                    </div>
-                  )}
-
                   {/* Search Term Banner */}
                   {searchTerm && (
                     <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex justify-between items-center shadow-sm">
@@ -4167,76 +4140,30 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {/* Main View Controller */}
-                  {dashboardViewMode === 'categories' && !selectedCategoryFilter && !searchTerm ? (
-                    /* Category Landing Page */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-
-                      {/* Loop Categories Config */}
-                      {categoriesConfig.map((category) => (
-                        <div
-                          key={category.id}
-                          id={`section-${category.id}`}
-                          className="scroll-mt-32 bg-white/95 border border-slate-100/80 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_45px_-5px_rgba(0,0,0,0.08)] p-6 md:p-7 flex flex-col rounded-[18px] overflow-hidden transition-all duration-300 hover:-translate-y-0.5 group/card"
-                        >
-                          <div className="mb-6">
-                            <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                              {category.title}
-                            </h3>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-6 flex-1">
-                            {category.subcategories.map((sub) => {
-                              const matched = getFilteredListingsForSubcategory(category.id, sub);
-                              const img = getSubcategoryCoverImage(category.id, sub, matched);
-                              const desc = subcategoryDescriptions[sub] || '';
-                              return (
-                                <div
-                                  key={sub}
-                                  className="flex flex-col cursor-pointer group/item"
-                                  onClick={() => setSelectedCategoryFilter({
-                                    category: category.id,
-                                    subcategory: sub,
-                                    title: `${category.title} - ${sub}`
-                                  })}
-                                >
-                                  <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/50 shadow-sm">
-                                    <img
-                                      src={img}
-                                      alt={sub}
-                                      className="w-full h-full object-cover transition-transform duration-700 group-hover/item:scale-108"
-                                      loading="lazy"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-70 group-hover/item:opacity-40 transition-opacity duration-300"></div>
-                                  </div>
-                                  <div className="mt-2.5 px-0.5">
-                                    <p className="text-xs md:text-sm font-bold text-slate-900 leading-snug group-hover/item:text-orange-500 transition-colors duration-200">
-                                      {category.id === 'tourCategory' && desc
-                                        ? `${sub} | ${desc}`
-                                        : sub
-                                      }
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          <div className="mt-6 flex items-center pt-4 border-t border-slate-100">
-                            <button
-                              onClick={() => setSelectedCategoryFilter({
-                                category: category.id,
-                                title: category.title
-                              })}
-                              className="text-sm font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1.5 transition-colors group px-3 py-1.5 rounded-full hover:bg-orange-50/80 -ml-3"
-                            >
-                              {category.linkText} <span className="transition-transform group-hover:translate-x-1.5">→</span>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-
-
-                    </div>
+                  {dashboardViewMode === 'categories' && !searchTerm ? (
+                    /* Amazon & Thrillophilia Travel Discovery Landing Page */
+                    <LandingDiscovery
+                      listings={listings}
+                      onView={setViewingListing}
+                      onBook={startBooking}
+                      onChat={handleInitiateChat}
+                      onWishlist={handleWishlistToggle}
+                      wishlist={wishlist}
+                      searchTerm={searchTerm}
+                      setSearchTerm={setSearchTerm}
+                      allDestinations={allDestinations}
+                      onSelectCategoryFilter={(filter) => {
+                        setSelectedCategoryFilter(filter);
+                        setDashboardViewMode('all');
+                      }}
+                      initialPackageTypeTab={
+                        selectedCategoryFilter?.category === 'domestic'
+                          ? 'domestic'
+                          : selectedCategoryFilter?.category === 'international'
+                          ? 'international'
+                          : 'all'
+                      }
+                    />
                   ) : (
                     /* Filtered Listings Grid */
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -4282,22 +4209,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               else if (category === 'domestic') {
                                 if (listing.packageType !== 'domestic') return false;
                                 if (subcategory) {
-                                  const state = (listing.stateName || '').toLowerCase();
-                                  if (subcategory === 'Kashmir' && !state.includes('kashmir') && !state.includes('jammu')) return false;
-                                  if (subcategory === 'Himachal' && !state.includes('himachal')) return false;
-                                  if (subcategory === 'South' && !state.includes('kerala') && !state.includes('karnataka') && !state.includes('tamil') && !state.includes('south') && !state.includes('goa') && !state.includes('andhra')) return false;
-                                  if (subcategory === 'Rajasthan' && !state.includes('rajasthan')) return false;
+                                  const state = ((listing.stateName || '') + ' ' + (listing.destination || '') + ' ' + (listing.title || '')).toLowerCase();
+                                  const target = subcategory.toLowerCase();
+                                  if (!state.includes(target)) return false;
                                 }
                               }
 
                               else if (category === 'international') {
                                 if (listing.packageType !== 'international') return false;
                                 if (subcategory) {
-                                  const country = (listing.countryName || '').toLowerCase();
-                                  if (subcategory === 'Dubai' && !country.includes('dubai') && !country.includes('emirates') && !country.includes('uae')) return false;
-                                  if (subcategory === 'Europe' && !country.includes('europe') && !country.includes('switzerland') && !country.includes('france') && !country.includes('italy') && !country.includes('germany') && !country.includes('united kingdom') && !country.includes('london')) return false;
-                                  if (subcategory === 'Bali' && !country.includes('bali') && !country.includes('indonesia')) return false;
-                                  if (subcategory === 'Turkey' && !country.includes('turkey')) return false;
+                                  const country = ((listing.countryName || '') + ' ' + (listing.destination || '') + ' ' + (listing.title || '')).toLowerCase();
+                                  const target = subcategory.toLowerCase();
+                                  if (!country.includes(target)) return false;
                                 }
                               }
 
