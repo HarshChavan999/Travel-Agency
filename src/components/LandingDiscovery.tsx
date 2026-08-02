@@ -106,7 +106,7 @@ export default function LandingDiscovery({
       {/* ==========================================
           TOP DESTINATION PILLS STRIP (THRILLOPHILIA STYLE)
           ========================================== */}
-      {packageTypeTab !== 'all' && destinationPills.length > 0 && (
+      {/* {packageTypeTab !== 'all' && destinationPills.length > 0 && (
         <div className="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs py-2.5 px-4 sm:px-8 mb-6">
           <div className="max-w-[1600px] mx-auto flex items-center gap-3 overflow-x-auto scrollbar-hide py-0.5">
             <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">
@@ -134,7 +134,7 @@ export default function LandingDiscovery({
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* ==========================================
           DYNAMIC DESTINATION SECTIONS (THRILLOPHILIA STYLE)
@@ -145,12 +145,15 @@ export default function LandingDiscovery({
         <div className="space-y-4 border-b border-slate-200/80 pb-8 mb-6">
           <div className="px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto pt-2 flex items-center justify-between">
             <div>
-              <span className="text-xs font-extrabold text-orange-600 uppercase tracking-wider">
+              {/* <span className="text-xs font-extrabold text-orange-600 uppercase tracking-wider">
                 {packageTypeTab === 'domestic' ? '🇮🇳 Domestic Destination Cards' : '✈️ International Destination Cards'}
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-0.5">
+              </span> */}
+              {/* <h2 
+                className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-0.5"
+                style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}
+              >
                 Packages by Destination ({destinationSections.length} Locations)
-              </h2>
+              </h2> */}
             </div>
           </div>
           {destinationSections.map((sec) => (
@@ -159,15 +162,20 @@ export default function LandingDiscovery({
               id={`section-${sec.id}`}
               className="py-8 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100 scroll-mt-28"
             >
-              {/* Section Header: Title on Left + Thrillophilia "View All >" Button on Right */}
+              {/* Section Header: Unique Font for State / Country Name */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  <h2 
+                    className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight drop-shadow-xs"
+                    style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}
+                  >
                     {sec.name}
                   </h2>
-                  <span className="bg-slate-100 text-slate-600 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border border-slate-200">
-                    {sec.packageType === 'international' ? 'International' : 'Domestic'} • {sec.packageCount} {sec.packageCount === 1 ? 'Package' : 'Packages'}
-                  </span>
+                  {/* <span className="bg-gradient-to-r from-orange-50 to-amber-50 text-orange-700 text-[11px] font-extrabold px-3 py-1 rounded-full border border-orange-200/80 shadow-2xs flex items-center gap-1">
+                    <span>{sec.packageType === 'international' ? '✈️ Country' : '🇮🇳 State'}</span>
+                    <span>•</span>
+                    <span>{sec.packageCount} {sec.packageCount === 1 ? 'Package' : 'Packages'}</span>
+                  </span> */}
                 </div>
 
                 <button

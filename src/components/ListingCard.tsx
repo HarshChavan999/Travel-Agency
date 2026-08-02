@@ -374,9 +374,9 @@ export default function ListingCard({
             {cardTitle}
           </h3>
           {listing.title && location && (
-            <div className="flex items-center gap-1 text-gray-500 text-[12px] mt-1.5 font-medium">
+            <div className="flex items-center gap-1 text-[12px] mt-1.5 font-bold tracking-wide text-slate-700">
               <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-              <span className="truncate" title={location}>{location}</span>
+              <span className="truncate" style={{ fontFamily: 'var(--font-outfit), var(--font-jakarta), sans-serif' }} title={location}>{location}</span>
             </div>
           )}
           <div className="flex items-center gap-1.5 mt-1.5">
