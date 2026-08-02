@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -259,7 +259,7 @@ export default function PackageDetailView({
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
 
-  const observerRef = useRef<HTMLDivElement>(null);
+  const offeredByRef = useRef<HTMLDivElement>(null);
   const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Review specific states
@@ -275,17 +275,17 @@ export default function PackageDetailView({
   });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
-  // Sticky bar observer
+  // Sticky bar observer: trigger as soon as "Offered By" section scrolls out of view
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setShowStickyBar(entry.isIntersecting || entry.boundingClientRect.top < 0);
+        setShowStickyBar(!entry.isIntersecting && entry.boundingClientRect.top <= 0);
       },
-      { threshold: 0, rootMargin: "0px 0px -100px 0px" }
+      { threshold: 0 }
     );
-    if (observerRef.current) observer.observe(observerRef.current);
+    if (offeredByRef.current) observer.observe(offeredByRef.current);
     return () => {
-      if (observerRef.current) observer.unobserve(observerRef.current);
+      if (offeredByRef.current) observer.unobserve(offeredByRef.current);
     };
   }, []);
 
@@ -358,7 +358,11 @@ export default function PackageDetailView({
   };
   const allImages = getAllImages();
 
-  const loopImages = allImages;
+  // Create loop array for smooth 2-up sliding carousel (1-2, 2-3, 3-4, 4-5, 5-1)
+  const loopImages = useMemo(() => {
+    if (allImages.length <= 1) return allImages;
+    return [...allImages, allImages[0], allImages[1] || allImages[0]];
+  }, [allImages]);
 
   // Auto-slide every 4 seconds, infinite loop
   useEffect(() => {
@@ -677,7 +681,7 @@ export default function PackageDetailView({
                   transition: isTransitioning ? 'transform 800ms cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
                 }}
               >
-                {loopImages.map((img, idx) => (
+                {loopImages.map((img: string, idx: number) => (
                   <div 
                     key={idx} 
                     style={{ width: `${100 / loopImages.length}%` }} 
@@ -1141,7 +1145,7 @@ export default function PackageDetailView({
 
           {/* ── RIGHT SIDEBAR ────────────────────────────────────── */}
           <div className="lg:col-span-1" style={{ fontFamily: "var(--font-dm-sans, 'DM Sans', 'Inter', sans-serif)" }}>
-            <div className="sticky top-4 space-y-0">
+            <div className="space-y-0">
 
               {/* ── Price block — floats on page, no card ── */}
               <div className="pb-5 border-b border-stone-200">
@@ -1189,7 +1193,7 @@ export default function PackageDetailView({
               </div>
 
               {/* ── Agency — no card, just open block ── */}
-              <div className="py-5 border-b border-stone-200">
+              <div ref={offeredByRef} className="py-5 border-b border-stone-200">
                 <p
                   className="text-[9px] uppercase tracking-[0.18em] text-stone-400 mb-4"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
@@ -1243,7 +1247,7 @@ export default function PackageDetailView({
 
         {/* ── FULL WIDTH REVIEWS & FAQ ── */}
         {!isPreview && (
-          <div ref={observerRef} className="mt-10 space-y-6">
+          <div className="mt-10 space-y-6">
 
           {/* Reviews Section */}
           <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
@@ -1539,27 +1543,42 @@ export default function PackageDetailView({
         )}
       </div>
 
-      {/* ─── SCROLL-TRIGGERED STICKY CHAT BAR ───────────────────── */}
+      {/* ─── SCROLL-TRIGGERED FLOATING CHAT POPUP WITH AGENCY LOGO ───────────────────── */}
       {!isPreview && onChat && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-[150] bg-white border-t border-stone-200 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.12)] p-4 flex justify-between items-center transition-transform duration-500 ease-in-out ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
+          className={`fixed bottom-6 right-6 z-[150] transition-all duration-500 ease-out ${
+            showStickyBar ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-12 opacity-0 scale-90 pointer-events-none'
+          }`}
         >
-          <div className="max-w-7xl mx-auto w-full flex justify-between items-center px-4 md:px-8">
-            <div className="hidden md:block">
-              <h3 className="font-bold text-gray-900 line-clamp-1 text-sm">{listing.title || 'Package'}</h3>
-              <p className="font-bold text-base" style={{ color: '#b84814' }}>
-                {currencySymbol}{displayPrice || 'Contact Us'}
-              </p>
+          <button
+            onClick={() => onChat(listing)}
+            className="group flex items-center gap-3 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white p-2 pr-5 rounded-full border border-orange-300/40 shadow-[0_10px_30px_rgba(234,88,12,0.4)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+          >
+            {/* Agency Logo Avatar */}
+            <div className="w-10 h-10 rounded-full border-2 border-white/90 bg-white shrink-0 flex items-center justify-center shadow-md overflow-hidden">
+              {(listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl || listing.agencyLogo || listing.logoUrl) ? (
+                <img
+                  src={listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl || listing.agencyLogo || listing.logoUrl}
+                  alt={listing.agencyName || 'Agency Logo'}
+                  className="w-full h-full object-cover object-center"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              ) : (
+                <Building2 className="h-5 w-5 text-orange-500" />
+              )}
             </div>
-            <Button
-              className="w-full md:w-auto text-white font-bold rounded-full px-8 h-12 text-base transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-pointer border-0"
-              style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)' }}
-              onClick={() => onChat(listing)}
-            >
-              <MessageCircle className="h-5 w-5 mr-2" />
-              Chat with Agency
-            </Button>
-          </div>
+
+            {/* Professional Agency & Action Text */}
+            <div className="flex flex-col text-left">
+              <span className="text-[11px] font-extrabold text-white/95 truncate max-w-[130px] leading-tight">
+                {listing.agencyName || 'Travel Agency'}
+              </span>
+              <span className="text-xs font-black text-white flex items-center gap-1.5 leading-snug drop-shadow-sm">
+                <span>Chat with Agency</span>
+                <MessageCircle className="h-3.5 w-3.5 text-white group-hover:translate-x-0.5 transition-transform" />
+              </span>
+            </div>
+          </button>
         </div>
       )}
 
