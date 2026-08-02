@@ -137,6 +137,43 @@ const getTabIcon = (id: string, className?: string) => {
   }
 };
 
+const calcLevenshtein = (a: string, b: string): number => {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return matrix[a.length][b.length];
+};
+
+const isFuzzySearchMatch = (searchQuery: string, text: string): boolean => {
+  if (!searchQuery || !text) return false;
+  const q = searchQuery.trim().toLowerCase();
+  const t = text.toLowerCase();
+  if (t.includes(q)) return true;
+  if (q.length <= 2) return false;
+
+  const words = t.split(/[\s,/\-]+/).filter(Boolean);
+  return words.some(w => {
+    if (Math.abs(w.length - q.length) > 3) return false;
+    const dist = calcLevenshtein(q, w);
+    if (q.length <= 4) return dist <= 1;
+    if (q.length <= 7) return dist <= 2;
+    return dist <= 3;
+  });
+};
+
 const categoriesConfig = [
   {
     id: 'tourCategory',
@@ -431,14 +468,25 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     const popular = ['Goa', 'Kerala', 'Manali', 'Kashmir', 'Dubai', 'Bali', 'Singapore', 'Maldives', 'Thailand', 'Europe', 'Gujarat', 'Rajasthan', 'Himachal Pradesh', 'Uttarakhand'];
     popular.forEach(p => dests.add(p));
     listings.forEach(l => {
-      if (l.destination) dests.add(l.destination);
-      if (l.stateName) dests.add(l.stateName);
-      if (l.countryName) dests.add(l.countryName);
+      const addCleanedLocation = (raw: string) => {
+        if (!raw) return;
+        raw.split(/,|\/|\band\b/i).forEach((part) => {
+          const trimmed = part.trim();
+          if (trimmed.length > 2 && !/package|tour|trip|holiday|deal|special/i.test(trimmed)) {
+            const formatted = trimmed.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            dests.add(formatted);
+          }
+        });
+      };
+
+      if (l.destination) addCleanedLocation(l.destination);
+      if (l.stateName) addCleanedLocation(l.stateName);
+      if (l.countryName) addCleanedLocation(l.countryName);
       if (l.stateNames && Array.isArray(l.stateNames)) {
-        l.stateNames.forEach((s: string) => { if (s) dests.add(s); });
+        l.stateNames.forEach((s: string) => addCleanedLocation(s));
       }
       if (l.countryNames && Array.isArray(l.countryNames)) {
-        l.countryNames.forEach((c: string) => { if (c) dests.add(c); });
+        l.countryNames.forEach((c: string) => addCleanedLocation(c));
       }
       if (l.itinerary && Array.isArray(l.itinerary)) {
         l.itinerary.forEach((day: any) => {
@@ -950,11 +998,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         phone: profilePhone,
         coTravellers: coTravellers
       });
-      alert('Profile details saved successfully!');
       setIsEditingProfile(false);
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile details. Please try again.');
     } finally {
       setSavingProfile(false);
     }
@@ -4046,7 +4092,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {/* Category Emoji Navigation Strip */}
-                  <div id="category-nav-strip" className="w-fit max-w-full mx-auto bg-white/85 border border-white/80 rounded-3xl p-3 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] flex items-center justify-center gap-3 sm:gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
+                  <div id="category-nav-strip" className="w-fit max-w-full mx-auto bg-white/85 border border-white/80 rounded-xl p-2.5 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] flex items-center justify-center gap-3 sm:gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
                     <div className="flex gap-2 sm:gap-3.5 items-center justify-center px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide max-w-full">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
@@ -4083,11 +4129,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 setSelectedCategoryFilter(item.filter);
                               }
                             }}
-                            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
+                            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
                               isActive
                                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
                                 : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
                             }`}
+                            style={{ borderRadius: '6px' }}
                           >
                             {getTabIcon(item.id, "h-3.5 w-3.5")}
                             {item.label}
@@ -4101,11 +4148,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     <div className="relative shrink-0 flex items-center">
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${
+                        className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${
                           showFilters 
                             ? 'bg-orange-50 border-orange-300 text-orange-600 shadow-sm'
                             : 'bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
                         }`}
+                        style={{ borderRadius: '6px' }}
                       >
                         <SlidersHorizontal className={`h-4 w-4 ${showFilters ? 'text-orange-500' : 'text-slate-500'}`} />
                         Filter
@@ -4124,25 +4172,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                   </div>
 
-                  {/* Search Term Banner */}
-                  {searchTerm && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex justify-between items-center shadow-sm">
-                      <div>
-                        <span className="text-[10px] text-blue-600 font-extrabold uppercase tracking-wider">Search Results For</span>
-                        <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-0.5">
-                          "{searchTerm}"
-                        </h2>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSearchTerm('')}
-                        className="text-blue-700 hover:text-blue-955 hover:bg-blue-100 font-bold text-xs"
-                      >
-                        Clear Search
-                      </Button>
-                    </div>
-                  )}
+
 
                   {/* Main View Controller */}
                   {dashboardViewMode === 'categories' && !searchTerm ? (
@@ -4321,30 +4351,31 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               const itineraryPlaces = (Array.isArray(listing.itinerary) ? listing.itinerary : [])
                                 .map((d: any) => String(d?.placeName || '').toLowerCase()).join(' ');
  
-                              const matches = title.includes(searchLower) ||
-                                description.includes(searchLower) ||
-                                destination.includes(searchLower) ||
-                                stateName.includes(searchLower) ||
-                                countryName.includes(searchLower) ||
-                                stateNamesCombined.includes(searchLower) ||
-                                countryNamesCombined.includes(searchLower) ||
-                                packageType.includes(searchLower) ||
-                                type.includes(searchLower) ||
+                              const matches = 
+                                isFuzzySearchMatch(searchLower, title) ||
+                                isFuzzySearchMatch(searchLower, description) ||
+                                isFuzzySearchMatch(searchLower, destination) ||
+                                isFuzzySearchMatch(searchLower, stateName) ||
+                                isFuzzySearchMatch(searchLower, countryName) ||
+                                isFuzzySearchMatch(searchLower, stateNamesCombined) ||
+                                isFuzzySearchMatch(searchLower, countryNamesCombined) ||
+                                isFuzzySearchMatch(searchLower, packageType) ||
+                                isFuzzySearchMatch(searchLower, type) ||
                                 price.includes(searchLower) ||
                                 duration.includes(searchLower) ||
                                 itineraryDays.includes(searchLower) ||
-                                pickup.includes(searchLower) ||
-                                drop.includes(searchLower) ||
+                                isFuzzySearchMatch(searchLower, pickup) ||
+                                isFuzzySearchMatch(searchLower, drop) ||
                                 code.includes(searchLower) ||
-                                tourCats.includes(searchLower) ||
-                                inclusions.includes(searchLower) ||
-                                agencyName.includes(searchLower) ||
-                                places.includes(searchLower) ||
-                                itineraryPlaces.includes(searchLower) ||
-                                'sightseeing'.includes(searchLower) ||
-                                'transport'.includes(searchLower) ||
-                                'hotel stay'.includes(searchLower) ||
-                                'meal'.includes(searchLower);
+                                isFuzzySearchMatch(searchLower, tourCats) ||
+                                isFuzzySearchMatch(searchLower, inclusions) ||
+                                isFuzzySearchMatch(searchLower, agencyName) ||
+                                isFuzzySearchMatch(searchLower, places) ||
+                                isFuzzySearchMatch(searchLower, itineraryPlaces) ||
+                                isFuzzySearchMatch(searchLower, 'sightseeing') ||
+                                isFuzzySearchMatch(searchLower, 'transport') ||
+                                isFuzzySearchMatch(searchLower, 'hotel stay') ||
+                                isFuzzySearchMatch(searchLower, 'meal');
 
                               if (!matches) {
                                 return false;
@@ -5371,6 +5402,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   onNavigateToWishlist={() => {
                     setFromSection('profile');
                     setUserActiveSection('wishlist');
+                  }}
+                  onNavigateToCompare={() => {
+                    setFromSection('profile');
+                    setUserActiveSection('listings');
+                    setShowComparison(true);
+                  }}
+                  onNavigateToChat={() => {
+                    setFromSection('profile');
+                    setUserActiveSection('chat');
                   }}
                 />
               )}
