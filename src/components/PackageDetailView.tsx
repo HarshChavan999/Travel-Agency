@@ -833,7 +833,7 @@ export default function PackageDetailView({
 
             {/* Places, duration, rating row */}
             <div className="flex items-center flex-wrap gap-3 text-white/90 text-sm mb-4">
-              <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
+              <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20 font-semibold" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>
                 <MapPin className="h-3.5 w-3.5" />
                 {getDisplayPlaces().join(' · ') || 'Multiple Destinations'}
               </span>
@@ -955,8 +955,8 @@ export default function PackageDetailView({
                             style={{ background: '#b84814' }}
                           />
                           <span
-                            className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                            style={{ color: '#b84814' }}
+                            className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                            style={{ color: '#b84814', fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}
                           >
                             Day {dayLabel}
                           </span>
@@ -1014,133 +1014,7 @@ export default function PackageDetailView({
               )}
             </div>
 
-            {/* ── INCLUSIONS & EXCLUSIONS ── */}
-            <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-              <div className="px-6 py-5 border-b border-stone-100 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>Inclusions & Exclusions</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-stone-100">
-                {/* Inclusions */}
-                <div className="p-6">
-                  <h3 className="flex items-center gap-2 text-sm font-bold text-emerald-700 mb-4 uppercase tracking-wide">
-                    <CheckCircle2 className="h-4 w-4" /> What's Included
-                  </h3>
-                  {inclusions.length > 0 ? (
-                    <ul className="space-y-3">
-                      {inclusions.map((item: string, i: number) => (
-                        <li key={i} className="flex items-start gap-3">
-                          <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Check className="h-3 w-3 text-emerald-600" strokeWidth={2.5} />
-                          </div>
-                          <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-stone-400 italic">Inclusions will be listed here.</p>
-                  )}
-                </div>
-                {/* Exclusions */}
-                <div className="p-6">
-                  <h3 className="flex items-center gap-2 text-sm font-bold text-red-600 mb-4 uppercase tracking-wide">
-                    <X className="h-4 w-4" strokeWidth={2.5} /> Not Included
-                  </h3>
-                  {exclusions.length > 0 ? (
-                    <ul className="space-y-3">
-                      {exclusions.map((item: string, i: number) => (
-                        <li key={i} className="flex items-start gap-3">
-                          <div className="w-5 h-5 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <X className="h-3 w-3 text-red-500" strokeWidth={2.5} />
-                          </div>
-                          <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-stone-400 italic">Exclusions will be listed here.</p>
-                  )}
-                </div>
-              </div>
-            </div>
 
-            {/* ── IMAGE GALLERY STRIP (auto-slide) ── */}
-            {allImages.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-                <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center">
-                      <Camera className="h-4 w-4 text-stone-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>Moments of Adventure</h2>
-                  </div>
-                  <button
-                    onClick={() => setShowAllPhotos(true)}
-                    className="text-xs font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2 transition-colors"
-                  >
-                    View All ({allImages.length})
-                  </button>
-                </div>
-                <div className="p-4">
-                  {/* Grid gallery that follows auto-slide */}
-                  <div className="grid grid-cols-3 gap-2" style={{ height: '280px' }}>
-                    {/* Large featured image */}
-                    <div
-                      className="col-span-2 relative rounded-lg overflow-hidden cursor-pointer group"
-                      onClick={() => setShowAllPhotos(true)}
-                    >
-                      <img
-                        src={optimizeImageUrl(allImages[displayImageIndex], { width: 800, quality: 85, format: 'auto' })}
-                        alt="Featured"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                      />
-                    </div>
-                    {/* Two smaller side images */}
-                    <div className="grid grid-rows-2 gap-2">
-                      {[1, 2].map(offset => {
-                        const idx = (displayImageIndex + offset) % allImages.length;
-                        return (
-                          <div
-                            key={offset}
-                            className="relative rounded-lg overflow-hidden cursor-pointer group"
-                            onClick={() => setShowAllPhotos(true)}
-                          >
-                            {allImages[idx] && (
-                              <>
-                                <img
-                                  src={optimizeImageUrl(allImages[idx], { width: 400, quality: 80, format: 'auto' })}
-                                  alt={`Gallery ${offset}`}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                                />
-                                {offset === 2 && allImages.length > 3 && (
-                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                    <span className="text-white font-bold text-sm">+{allImages.length - 3} more</span>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {/* Dot navigation */}
-                  {allImages.length > 1 && (
-                    <div className="flex justify-center gap-1.5 mt-3">
-                      {allImages.slice(0, Math.min(allImages.length, 10)).map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => handleDotClick(idx)}
-                          className={`rounded-full transition-all duration-300 ${idx === displayImageIndex ? 'w-5 h-2 bg-orange-500' : 'w-2 h-2 bg-stone-300 hover:bg-stone-400'}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ── RIGHT SIDEBAR ────────────────────────────────────── */}
@@ -1150,19 +1024,24 @@ export default function PackageDetailView({
               {/* ── Price block — floats on page, no card ── */}
               <div className="pb-5 border-b border-stone-200">
                 <p
-                  className="text-[10px] uppercase tracking-[0.18em] text-stone-400 mb-1"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  className="text-[11px] uppercase tracking-[0.2em] text-slate-900 font-bold mb-1.5"
+                  style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}
                 >
                   Starting From
                 </p>
-                <div className="flex items-baseline gap-1.5">
+                <div className="flex items-baseline gap-2">
                   <span
-                    className="text-4xl font-bold text-gray-900 leading-none"
-                    style={{ fontFamily: "'DM Sans', sans-serif", letterSpacing: '-0.02em' }}
+                    className="text-4xl font-black text-slate-900 leading-none tracking-tight"
+                    style={{ fontFamily: "var(--font-outfit, 'Outfit', sans-serif)" }}
                   >
                     {currencySymbol}{displayPrice || '—'}
                   </span>
-                  <span className="text-sm text-stone-400 font-normal">/ person</span>
+                  <span
+                    className="text-sm font-bold text-slate-800 italic"
+                    style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}
+                  >
+                    / person
+                  </span>
                 </div>
               </div>
 
@@ -1233,11 +1112,15 @@ export default function PackageDetailView({
                       console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
                       onChat(listing);
                     }}
-                    className="w-full flex items-center justify-center gap-2 text-white font-semibold rounded-lg py-3 text-sm transition-all hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg, #b84814 0%, #e25c1a 100%)', fontFamily: "'DM Sans', sans-serif" }}
+                    className="w-full flex items-center justify-center gap-2.5 text-white font-bold py-3 text-sm transition-all hover:opacity-95 active:scale-[0.99] cursor-pointer border border-amber-300/40"
+                    style={{
+                      background: 'linear-gradient(135deg, #fb923c 0%, #ea580c 50%, #b45309 100%)',
+                      fontFamily: "'DM Sans', sans-serif",
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 18px rgba(234, 88, 12, 0.35)'
+                    }}
                   >
-                    <MessageCircle className="h-4 w-4" />
-                    Chat with Agency
+                    <span>Chat with Agency</span>
                   </button>
                 )}
               </div>
@@ -1245,12 +1128,64 @@ export default function PackageDetailView({
           </div>
         </div>
 
-        {/* ── FULL WIDTH REVIEWS & FAQ ── */}
+        {/* ── FULL WIDTH INCLUSIONS, EXCLUSIONS, REVIEWS & FAQ ── */}
         {!isPreview && (
           <div className="mt-10 space-y-6">
 
+            {/* ── FULL WIDTH INCLUSIONS & EXCLUSIONS ── */}
+            <div className="bg-white border border-stone-200 overflow-hidden shadow-sm" style={{ borderRadius: '6px' }}>
+              <div className="px-6 py-5 border-b border-stone-100 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>Inclusions & Exclusions</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-stone-100">
+                {/* Inclusions */}
+                <div className="p-6 md:p-8">
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-emerald-700 mb-4 uppercase tracking-wide">
+                    <CheckCircle2 className="h-4 w-4" /> What's Included
+                  </h3>
+                  {inclusions.length > 0 ? (
+                    <ul className="space-y-3">
+                      {inclusions.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="h-3 w-3 text-emerald-600" strokeWidth={2.5} />
+                          </div>
+                          <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-stone-400 italic">Inclusions will be listed here.</p>
+                  )}
+                </div>
+                {/* Exclusions */}
+                <div className="p-6 md:p-8">
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-red-600 mb-4 uppercase tracking-wide">
+                    <X className="h-4 w-4" strokeWidth={2.5} /> Not Included
+                  </h3>
+                  {exclusions.length > 0 ? (
+                    <ul className="space-y-3">
+                      {exclusions.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <X className="h-3 w-3 text-red-500" strokeWidth={2.5} />
+                          </div>
+                          <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-stone-400 italic">Exclusions will be listed here.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
           {/* Reviews Section */}
-          <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+          <div className="bg-white border border-stone-200 overflow-hidden shadow-sm" style={{ borderRadius: '6px' }}>
             <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
@@ -1284,7 +1219,7 @@ export default function PackageDetailView({
 
             <div className="p-6">
               {/* Rating overview */}
-              <div className="flex flex-col md:flex-row gap-8 mb-8 p-6 rounded-xl bg-stone-50 border border-stone-100">
+              <div className="flex flex-col md:flex-row gap-8 mb-8 p-6 bg-stone-50 border border-stone-100" style={{ borderRadius: '6px' }}>
                 <div className="flex flex-col items-center justify-center shrink-0 px-4">
                   {reviewsData.totalReviewsCount > 0 ? (
                     <>
@@ -1321,7 +1256,7 @@ export default function PackageDetailView({
 
               {/* Inline write review form */}
               {showWriteReviewModal && (
-                <div className="mb-8 border border-orange-200 rounded-xl overflow-hidden animate-in fade-in duration-200">
+                <div className="mb-8 border border-orange-200 overflow-hidden animate-in fade-in duration-200" style={{ borderRadius: '6px' }}>
                   <div className="bg-orange-50 border-b border-orange-100 p-5 flex justify-between items-center">
                     <div>
                       <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -1434,7 +1369,7 @@ export default function PackageDetailView({
               <div className="space-y-4">
                 {reviewsData.totalReviewsCount > 0 ? (
                   reviewsData.userReviews.map((review: any) => (
-                    <div key={review.id} className="border border-stone-200 rounded-xl p-5 bg-white hover:border-stone-300 transition-colors">
+                    <div key={review.id} className="border border-stone-200 p-5 bg-white hover:border-stone-300 transition-colors" style={{ borderRadius: '6px' }}>
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-sm">
@@ -1475,7 +1410,7 @@ export default function PackageDetailView({
                     </div>
                   ))
                 ) : (
-                  <div className="border-2 border-dashed border-stone-200 rounded-xl p-10 text-center">
+                  <div className="border-2 border-dashed border-stone-200 p-10 text-center" style={{ borderRadius: '6px' }}>
                     <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-400 flex items-center justify-center mx-auto mb-3">
                       <MessageCircle className="h-6 w-6" />
                     </div>
@@ -1510,7 +1445,7 @@ export default function PackageDetailView({
           </div>
 
           {/* FAQ Section */}
-          <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+          <div className="bg-white border border-stone-200 overflow-hidden shadow-sm" style={{ borderRadius: '6px' }}>
             <div className="px-6 py-5 border-b border-stone-100 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
                 <MessageCircle className="h-4 w-4 text-blue-600" />
@@ -1552,10 +1487,14 @@ export default function PackageDetailView({
         >
           <button
             onClick={() => onChat(listing)}
-            className="group flex items-center gap-3 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white p-2 pr-5 rounded-full border border-orange-300/40 shadow-[0_10px_30px_rgba(234,88,12,0.4)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+            className="group flex items-center gap-3 text-white p-2 pr-5 border border-amber-300/50 shadow-[0_10px_30px_rgba(234,88,12,0.45)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+            style={{
+              background: 'linear-gradient(135deg, #fb923c 0%, #ea580c 50%, #9a3412 100%)',
+              borderRadius: '6px'
+            }}
           >
             {/* Agency Logo Avatar */}
-            <div className="w-10 h-10 rounded-full border-2 border-white/90 bg-white shrink-0 flex items-center justify-center shadow-md overflow-hidden">
+            <div className="w-10 h-10 rounded border-2 border-white/90 bg-white shrink-0 flex items-center justify-center shadow-md overflow-hidden" style={{ borderRadius: '6px' }}>
               {(listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl || listing.agencyLogo || listing.logoUrl) ? (
                 <img
                   src={listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl || listing.agencyLogo || listing.logoUrl}
@@ -1570,12 +1509,12 @@ export default function PackageDetailView({
 
             {/* Professional Agency & Action Text */}
             <div className="flex flex-col text-left">
-              <span className="text-[11px] font-extrabold text-white/95 truncate max-w-[130px] leading-tight">
+              <span className="text-[11px] font-extrabold text-amber-100 truncate max-w-[130px] leading-tight">
                 {listing.agencyName || 'Travel Agency'}
               </span>
               <span className="text-xs font-black text-white flex items-center gap-1.5 leading-snug drop-shadow-sm">
                 <span>Chat with Agency</span>
-                <MessageCircle className="h-3.5 w-3.5 text-white group-hover:translate-x-0.5 transition-transform" />
+                <MessageCircle className="h-3.5 w-3.5 text-amber-200 group-hover:translate-x-0.5 transition-transform" />
               </span>
             </div>
           </button>
