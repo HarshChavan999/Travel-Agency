@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search, MapPin, History } from 'lucide-react';
+import { event } from '@/lib/gtag';
 
 interface AutocompleteSearchProps {
   placeholder?: string;
@@ -158,6 +159,11 @@ export default function AutocompleteSearch({
   };
 
   const handleSelect = (item: string) => {
+    event({
+      action: 'destination_search_select',
+      category: 'search_filter',
+      label: item,
+    });
     onChange(item);
     if (onSelect) onSelect(item);
     setIsOpen(false);

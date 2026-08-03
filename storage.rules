@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             request.auth.token.admin == true;
+    }
+
+    // Public read access for all files (needed for images displayed publicly)
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Authenticated users can upload files to their own folders
+    match /users/{userId}/{allPaths=**} {
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Admins can manage all files
+    match /admins/{allPaths=**} {
+      allow write: if isAdmin();
+    }
+
+    // Agency uploads - agencies can write to their own agency folders
+    match /agencies/{agencyId}/{allPaths=**} {
+      allow write: if isAuthenticated() && request.auth.uid == agencyId;
+    }
+
+    // Listings images - authenticated users can upload, anyone can read
+    match /listings/{allPaths=**} {
+      allow write: if isAuthenticated();
+    }
+
+    // Blog images - authenticated users can upload
+    match /blogs/{allPaths=**} {
+      allow write: if isAuthenticated();
+    }
+
+    // Default deny all other writes
+    match /{allPaths=**} {
+      allow write: if false;
+    }
+  }
+}

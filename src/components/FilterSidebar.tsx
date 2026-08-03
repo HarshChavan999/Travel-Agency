@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { event } from '@/lib/gtag';
 
 export interface FilterState {
   duration: number;
@@ -142,6 +143,11 @@ export default function FilterSidebar({ isOpen, onClose, onApply, initialFilters
           <Button 
             className="w-20 h-8 bg-[#008cff] hover:bg-[#0077e6] text-white font-bold text-[12px] rounded tracking-wide shadow-sm"
             onClick={() => {
+              event({
+                action: 'apply_filters',
+                category: 'search_filter',
+                label: `duration:${duration}N,budget:${budget},category:${budgetCategory || 'all'},hotel:${hotelCategory || 'all'}`,
+              });
               onApply({ duration, budget, budgetCategory, hotelCategory });
               onClose();
             }}

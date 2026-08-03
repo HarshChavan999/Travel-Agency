@@ -1,118 +1,112 @@
 import { MetadataRoute } from 'next';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeFirebase } from '@/lib/auth';
 
-export const revalidate = 3600; // Revalidate sitemap every hour
+// Revalidate sitemap every hour so new packages and blogs automatically appear
+export const revalidate = 3600;
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://tripdm.com';
-  let packageUrls: MetadataRoute.Sitemap = [];
-  let blogUrls: MetadataRoute.Sitemap = [];
+async function fetchAllListings(baseUrl: string): Promise<MetadataRoute.Sitemap> {
+  const packageUrls: MetadataRoute.Sitemap = [];
 
-  // Fetch listing URLs for sitemap
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/listings?pageSize=1000`;
-    const res = await fetch(url, { next: { revalidate: 3600 } });
-    
-    if (res.ok) {
-      const data = await res.json();
-      if (data.documents && Array.isArray(data.documents)) {
-        packageUrls = data.documents.map((doc: any) => {
-          // Document name is formatted as projects/{project_id}/databases/{database_id}/documents/listings/{document_id}
-          const nameParts = doc.name.split('/');
-          const id = nameParts[nameParts.length - 1];
-          const updateTime = doc.updateTime;
-          
-          return {
-            url: `${baseUrl}/package/${id}`,
-            lastModified: updateTime ? new Date(updateTime) : new Date(),
-            changeFrequency: 'weekly' as const,
-            priority: 0.8,
-          };
-        });
-      }
-    } else {
-      console.error("Failed to fetch listings for sitemap:", res.status, res.statusText);
+    initializeFirebase();
+    const db = getFirestore();
+
+    const snapshot = await db.collection('listings').get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+
+      // Only include public (approved) packages
+      if (data.approved === false) continue;
+
+      const updateTime = data.updatedAt || data.createdAt || doc.updateTime;
+
+      packageUrls.push({
+        url: `${baseUrl}/package/${doc.id}`,
+        lastModified: updateTime ? new Date(updateTime.seconds ? updateTime.seconds * 1000 : updateTime) : new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.8,
+      });
     }
   } catch (error) {
     console.error("Error fetching listings for sitemap:", error);
   }
 
-  // Fetch published blog URLs for sitemap
+  return packageUrls;
+}
+
+async function fetchAllBlogs(baseUrl: string): Promise<MetadataRoute.Sitemap> {
+  const blogUrls: MetadataRoute.Sitemap = [];
+
   try {
-    const blogQueryUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
-    const blogQuery = {
-      structuredQuery: {
-        from: [{ collectionId: 'blogs' }],
-        where: {
-          fieldFilter: {
-            field: { fieldPath: 'published' },
-            op: 'EQUAL',
-            value: { booleanValue: true },
-          },
-        },
-        orderBy: [{ field: { fieldPath: 'publishedAt' }, direction: 'DESCENDING' }],
-        limit: 1000,
-      },
-    };
+    initializeFirebase();
+    const db = getFirestore();
 
-    const blogRes = await fetch(blogQueryUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(blogQuery),
-      next: { revalidate: 3600 },
-    });
+    const snapshot = await db.collection('blogs').get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
 
-    if (blogRes.ok) {
-      const blogData = await blogRes.json();
-      blogUrls = blogData
-        .filter((item: any) => item.document)
-        .map((item: any) => {
-          const fields = item.document.fields || {};
-          const slug = fields.slug?.stringValue || '';
-          const updatedAt = fields.updatedAt?.stringValue || fields.publishedAt?.stringValue || '';
-          return {
-            url: `${baseUrl}/blog/${slug}`,
-            lastModified: updatedAt ? new Date(updatedAt) : new Date(),
-            changeFrequency: 'weekly' as const,
-            priority: 0.7,
-          };
-        })
-        .filter((entry: any) => entry.url !== `${baseUrl}/blog/`);
+      // Only include published blogs
+      if (data.published === false) continue;
+
+      const slug = data.slug || doc.id;
+      if (!slug || slug === 'undefined') continue;
+
+      const updatedAt = data.updatedAt || data.publishedAt || doc.updateTime;
+
+      blogUrls.push({
+        url: `${baseUrl}/blog/${slug}`,
+        lastModified: updatedAt ? new Date(updatedAt) : new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      });
     }
   } catch (error) {
     console.error("Error fetching blogs for sitemap:", error);
   }
 
+  return blogUrls;
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = 'https://tripdm.com';
+
+  const [packageUrls, blogUrls] = await Promise.all([
+    fetchAllListings(baseUrl),
+    fetchAllBlogs(baseUrl),
+  ]);
+
   const staticUrls: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: new Date(),
-      changeFrequency: 'daily' as const,
+      changeFrequency: 'daily',
       priority: 1,
     },
     {
       url: `${baseUrl}/blog`,
       lastModified: new Date(),
-      changeFrequency: 'daily' as const,
+      changeFrequency: 'daily',
       priority: 0.9,
     },
     {
       url: `${baseUrl}/policies/conditions-of-use`,
       lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
+      changeFrequency: 'monthly',
       priority: 0.5,
     },
     {
       url: `${baseUrl}/policies/internet-based-policy`,
       lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
+      changeFrequency: 'monthly',
       priority: 0.5,
     },
     {
       url: `${baseUrl}/policies/privacy-notice`,
       lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
+      changeFrequency: 'monthly',
       priority: 0.5,
     },
   ];

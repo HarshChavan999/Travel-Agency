@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   MapPin, CheckCircle, Pencil, Save, Camera, 
-  Shield, Users, Plus, Phone, Briefcase, User, ChevronRight
+  Shield, Users, Plus, Phone, Briefcase, User, ChevronRight,
+  Heart, Scale, MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,8 @@ interface UserProfileProps {
   savingProfile: boolean;
   handleSaveProfile: () => void;
   onNavigateToWishlist: () => void;
+  onNavigateToCompare?: () => void;
+  onNavigateToChat?: () => void;
 }
 
 export default function UserProfile({
@@ -47,7 +50,9 @@ export default function UserProfile({
   setIsEditingProfile,
   savingProfile,
   handleSaveProfile,
-  onNavigateToWishlist
+  onNavigateToWishlist,
+  onNavigateToCompare,
+  onNavigateToChat
 }: UserProfileProps) {
   const [scrollY, setScrollY] = useState(0);
   const [activeTab, setActiveTab] = useState<'account' | 'cotravellers'>('account');
@@ -157,19 +162,6 @@ export default function UserProfile({
                   <span className="flex items-center gap-1.5 opacity-80">Explorer • Adventure Lover</span>
                  </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0 z-10 w-full md:w-auto mt-4 md:mt-0 pt-4">
-                <Button 
-                  onClick={() => {
-                    setActiveTab('account');
-                    setIsEditingProfile(true);
-                  }}
-                  className="bg-orange-400 hover:bg-orange-500 text-white font-bold rounded-sm px-8 py-6 shadow-lg transition-all w-full md:w-auto flex items-center justify-center gap-2 text-sm"
-                >
-                  <Pencil className="w-4 h-4" /> Edit Profile
-                </Button>
-              </div>
             </div>
           </div>
         </div>
@@ -181,39 +173,65 @@ export default function UserProfile({
           
           {/* LEFT SIDEBAR: NAVIGATION */}
           <div className="lg:col-span-1">
-            <div className="bg-white border border-[#E5E7EB] rounded-sm shadow-sm p-4 sticky top-24">
-              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-2">Settings</h3>
-              <nav className="space-y-2">
-                <button
-                  onClick={() => setActiveTab('account')}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-sm text-sm transition-all duration-200 ${
-                    activeTab === 'account' 
-                      ? 'bg-orange-400 text-white font-bold shadow-md' 
-                      : 'text-[#6B7280] font-semibold hover:bg-orange-50 hover:text-orange-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Shield className={`w-5 h-5 ${activeTab === 'account' ? 'text-white' : 'text-gray-400'}`} />
-                    Account Details
-                  </div>
-                  {activeTab === 'account' && <ChevronRight className="w-4 h-4 text-white" />}
-                </button>
+            <div className="bg-white border border-[#E5E7EB] rounded-sm shadow-sm p-4 sticky top-24 space-y-6">
+              <div>
+              
+                <nav className="space-y-1.5">
+                  <button
+                    onClick={() => setActiveTab('account')}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-sm text-sm transition-all duration-200 ${
+                      activeTab === 'account' 
+                        ? 'bg-orange-400 text-white font-bold shadow-md' 
+                        : 'text-[#6B7280] font-semibold hover:bg-orange-50 hover:text-orange-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Shield className={`w-5 h-5 ${activeTab === 'account' ? 'text-white' : 'text-gray-400'}`} />
+                      Account Details
+                    </div>
+                    {activeTab === 'account' && <ChevronRight className="w-4 h-4 text-white" />}
+                  </button>
+                </nav>
+              </div>
 
-                <button
-                  onClick={() => setActiveTab('cotravellers')}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-sm text-sm transition-all duration-200 ${
-                    activeTab === 'cotravellers' 
-                      ? 'bg-orange-400 text-white font-bold shadow-md' 
-                      : 'text-[#6B7280] font-semibold hover:bg-orange-50 hover:text-orange-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Users className={`w-5 h-5 ${activeTab === 'cotravellers' ? 'text-white' : 'text-gray-400'}`} />
-                    Co-travellers
-                  </div>
-                  {activeTab === 'cotravellers' && <ChevronRight className="w-4 h-4 text-white" />}
-                </button>
-              </nav>
+              <div>
+                <nav className="space-y-1.5">
+                  <button
+                    onClick={onNavigateToWishlist}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-sm text-sm font-semibold text-[#6B7280] hover:bg-orange-50 hover:text-orange-600 transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Heart className="w-5 h-5 text-gray-500" />
+                      Wishlist
+                    </div>
+                    <span className="text-xs font-bold bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full">
+                      {wishlist?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={onNavigateToCompare}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-sm text-sm font-semibold text-[#6B7280] hover:bg-orange-50 hover:text-orange-600 transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Scale className="w-5 h-5 text-gray-500" />
+                      Compare
+                    </div>
+                   
+                  </button>
+
+                  <button
+                    onClick={onNavigateToChat}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-sm text-sm font-semibold text-[#6B7280] hover:bg-orange-50 hover:text-orange-600 transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <MessageSquare className="w-5 h-5 text-gray-500" />
+                      Chat with Agencies
+                    </div>
+                    
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
 
@@ -223,14 +241,25 @@ export default function UserProfile({
             {/* Account Settings Tab */}
             {activeTab === 'account' && (
               <div className="bg-white border border-[#E5E7EB] rounded-sm shadow-sm p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-4 border-b border-gray-100 pb-6 mb-6">
-                  <div className="w-12 h-12 rounded-sm bg-orange-50 flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-orange-400" />
+                <div className="flex items-center justify-between border-b border-gray-100 pb-6 mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-sm bg-orange-50 flex items-center justify-center">
+                      <Shield className="w-6 h-6 text-orange-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-extrabold text-[#111827]">Account Details</h2>
+                      <p className="text-sm font-medium text-[#6B7280]">Manage your personal credentials and contact information.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-extrabold text-[#111827]">Account Details</h2>
-                    <p className="text-sm font-medium text-[#6B7280]">Manage your personal credentials and contact information.</p>
-                  </div>
+
+                  {!isEditingProfile && (
+                    <Button 
+                      onClick={() => setIsEditingProfile(true)}
+                      className="bg-orange-400 hover:bg-orange-500 text-white font-bold rounded-sm px-5 py-2.5 shadow-md transition-all flex items-center gap-2 text-xs cursor-pointer"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit Profile
+                    </Button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -272,171 +301,6 @@ export default function UserProfile({
                 )}
               </div>
             )}
-
-            {/* Co-Traveller Tab */}
-            {activeTab === 'cotravellers' && (
-              <Card className="bg-white border border-[#E5E7EB] shadow-sm rounded-sm p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div>
-                  <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-orange-50 rounded-sm flex items-center justify-center shrink-0">
-                        <Users className="h-6 w-6 text-orange-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-extrabold text-[#111827]">Co-traveller Details</h3>
-                        <p className="text-sm text-[#6B7280] mt-1 font-medium">Manage details of passengers traveling with you</p>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => setShowAddCoTraveller(true)}
-                      className="bg-orange-400 hover:bg-orange-500 text-white rounded-sm font-bold shadow-md h-auto py-2.5 px-4 flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add
-                    </Button>
-                  </div>
-
-                  {/* Inline Add Co-traveller Form */}
-                  {showAddCoTraveller && (
-                    <div className="bg-blue-50/50 border border-blue-100 rounded-sm p-6 mb-8 space-y-5 animate-in slide-in-from-top-4 duration-200">
-                      <h4 className="text-base font-bold text-gray-900">Add New Co-traveller</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                          <Label htmlFor="coName" className="text-xs font-semibold text-gray-600 mb-1.5 block uppercase tracking-wider">Full Name</Label>
-                          <Input
-                            id="coName"
-                            placeholder="Full Name"
-                            value={newCoTraveller.name}
-                            onChange={(e) => setNewCoTraveller({ ...newCoTraveller, name: e.target.value })}
-                            className="bg-white rounded-sm text-sm focus-visible:ring-orange-400 p-3.5 border-gray-200"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="coContact" className="text-xs font-semibold text-gray-600 mb-1.5 block uppercase tracking-wider">Contact Number</Label>
-                          <Input
-                            id="coContact"
-                            placeholder="Phone"
-                            value={newCoTraveller.contact}
-                            onChange={(e) => setNewCoTraveller({ ...newCoTraveller, contact: e.target.value })}
-                            className="bg-white rounded-sm text-sm focus-visible:ring-orange-400 p-3.5 border-gray-200"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="coRelation" className="text-xs font-semibold text-gray-600 mb-1.5 block uppercase tracking-wider">Relationship</Label>
-                          <select
-                            id="coRelation"
-                            value={newCoTraveller.relationship}
-                            onChange={(e) => setNewCoTraveller({ ...newCoTraveller, relationship: e.target.value })}
-                            className="block w-full rounded-sm border-gray-200 bg-white p-3.5 text-sm text-gray-800 focus:border-orange-400 focus:ring-orange-400 focus-visible:ring-orange-400"
-                          >
-                            <option>Spouse</option>
-                            <option>Child</option>
-                            <option>Parent</option>
-                            <option>Sibling</option>
-                            <option>Friend</option>
-                            <option>Other</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex gap-3 justify-end pt-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowAddCoTraveller(false)}
-                          className="rounded-sm font-bold px-6 border-gray-200 text-gray-700"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={async () => {
-                            if (!newCoTraveller.name.trim() || !newCoTraveller.contact.trim()) {
-                              alert('Please fill in Name and Contact number');
-                              return;
-                            }
-                            const updatedList = [...coTravellers, {
-                              id: `${Date.now()}`,
-                              ...newCoTraveller
-                            }];
-
-                            const dbInstance = getDbInstance();
-                            if (dbInstance && user) {
-                              try {
-                                await updateDoc(doc(dbInstance, 'users', user.uid), {
-                                  coTravellers: updatedList
-                                });
-                              } catch (err) {
-                                console.error('Error saving co-travellers list:', err);
-                              }
-                            }
-
-                            setCoTravellers(updatedList);
-                            setNewCoTraveller({ name: '', contact: '', relationship: 'Spouse' });
-                            setShowAddCoTraveller(false);
-                          }}
-                          className="bg-orange-400 hover:bg-orange-500 text-white font-bold rounded-sm px-8 shadow-md"
-                        >
-                          Save Traveler
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* List of Co-travellers */}
-                  {coTravellers.length === 0 ? (
-                    <div className="py-14 px-4 bg-gray-50 rounded-sm text-center flex flex-col items-center">
-                      <Briefcase className="h-14 w-14 text-gray-300 mb-4" />
-                      <p className="text-[15px] font-extrabold text-gray-900 mb-2">No co-travellers added yet</p>
-                      <p className="text-[13px] text-gray-500 max-w-xs mx-auto font-medium leading-relaxed">Add your family members or frequent travel companions for instant booking autofill.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {coTravellers.map((traveller) => (
-                        <div
-                          key={traveller.id}
-                          className="flex justify-between items-center p-5 bg-white border border-gray-200 rounded-sm hover:border-orange-200 transition-all duration-200 shadow-sm group"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-blue-50 rounded-sm flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-105 transition-all">
-                              <User className="h-6 w-6" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-900">{traveller.name}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {traveller.contact}</span>
-                                <span>•</span>
-                                <span className="bg-blue-50 text-blue-600 border border-blue-100 px-2.5 py-0.5 rounded-sm font-bold text-[10px]">{traveller.relationship}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            onClick={async () => {
-                              const updatedList = coTravellers.filter(t => t.id !== traveller.id);
-
-                              const dbInstance = getDbInstance();
-                              if (dbInstance && user) {
-                                try {
-                                  await updateDoc(doc(dbInstance, 'users', user.uid), {
-                                    coTravellers: updatedList
-                                  });
-                                } catch (err) {
-                                  console.error('Error deleting co-traveller:', err);
-                                }
-                              }
-
-                              setCoTravellers(updatedList);
-                            }}
-                            className="text-gray-400 hover:text-red-500 p-2.5 hover:bg-red-50 rounded-sm transition-all duration-150"
-                            title="Remove Traveler"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )}
-
           </div>
         </div>
       </div>

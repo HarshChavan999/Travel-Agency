@@ -24,12 +24,7 @@ const COUNTRY_CODES = [
   { code: '+33', flag: '🇫🇷', name: 'France' },
 ];
 
-const CONFIDENCE_BADGES = [
-  { icon: '🧭', rating: '4.2/5', label: 'TRIP ADVISOR' },
-  { icon: '⭐', rating: '4.6/5', label: 'REVIEWS.IO' },
-  { icon: '🔍', rating: '4.4/5', label: 'GOOGLE' },
-  { icon: '💙', rating: '4.5/5', label: 'SMARTCUSTOMER' },
-];
+
 
 export default function AuthModal({
   isOpen,
@@ -119,13 +114,12 @@ export default function AuthModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="relative flex w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl"
-        style={{ maxHeight: '92vh', minHeight: '520px' }}
+        className="relative flex w-full max-w-3xl h-[580px] max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl bg-white"
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-900 transition-all shadow-md"
+          className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-900 transition-all shadow-md cursor-pointer"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
@@ -133,7 +127,7 @@ export default function AuthModal({
 
         {/* LEFT — Hero Image */}
         <div
-          className="hidden md:flex md:w-[46%] flex-col justify-end p-8 relative"
+          className="hidden md:flex md:w-[46%] h-full flex-col justify-end p-8 relative shrink-0"
           style={{
             backgroundImage: 'url(https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=800&q=80)',
             backgroundSize: 'cover',
@@ -153,12 +147,12 @@ export default function AuthModal({
         </div>
 
         {/* RIGHT — Auth Form */}
-        <div className="flex-1 bg-white flex flex-col overflow-y-auto" style={{ maxHeight: '92vh' }}>
+        <div className="flex-1 bg-white flex flex-col h-full overflow-hidden">
           {/* Tabs */}
-          <div className="flex border-b border-gray-100 pt-6 px-7">
+          <div className="flex border-b border-gray-100 pt-6 px-7 shrink-0">
             <button
               onClick={() => handleTabChange('login')}
-              className={`pb-3 px-2 text-base font-semibold mr-6 border-b-2 transition-colors ${
+              className={`pb-3 px-2 text-base font-semibold mr-6 border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'login'
                   ? 'border-orange-500 text-orange-500'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
@@ -168,7 +162,7 @@ export default function AuthModal({
             </button>
             <button
               onClick={() => handleTabChange('signup')}
-              className={`pb-3 px-2 text-base font-semibold border-b-2 transition-colors ${
+              className={`pb-3 px-2 text-base font-semibold border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'signup'
                   ? 'border-orange-500 text-orange-500'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
@@ -178,7 +172,7 @@ export default function AuthModal({
             </button>
           </div>
 
-          <div className="flex-1 px-7 py-5">
+          <div className="flex-1 px-7 py-5 overflow-y-auto custom-scrollbar">
             {/* — LOGIN TAB — */}
             {activeTab === 'login' && (
               <form onSubmit={handleLogin} className="space-y-4">
@@ -257,26 +251,7 @@ export default function AuthModal({
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
                 </button>
-
-                {/* Book With Confidence */}
-                <div className="pt-2">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">Book With Confidence</span>
-                    <div className="flex-1 h-px bg-gray-200" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CONFIDENCE_BADGES.map((badge) => (
-                      <div key={badge.label} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                        <span className="text-lg">{badge.icon}</span>
-                        <div>
-                          <div className="text-xs font-bold text-gray-800">{badge.rating}</div>
-                          <div className="text-[10px] text-gray-500 tracking-wide">{badge.label}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                
               </form>
             )}
 

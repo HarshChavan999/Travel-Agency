@@ -178,6 +178,8 @@ export default function BlogAdminClient() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [blogsLoading, setBlogsLoading] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
+  const [editingOriginalPublishedAt, setEditingOriginalPublishedAt] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [saveMsgType, setSaveMsgType] = useState<'success' | 'error'>('success');
@@ -338,22 +340,53 @@ export default function BlogAdminClient() {
     }));
   };
 
+  const handleEdit = (blog: Blog) => {
+    setEditingBlogId(blog.id);
+    setEditingOriginalPublishedAt(blog.publishedAt || '');
+    setForm({
+      title: blog.title || '',
+      slug: blog.slug || '',
+      excerpt: blog.excerpt || '',
+      content: blog.content || '',
+      coverImage: blog.coverImage || '',
+      category: blog.category || 'Travel Tips',
+      tags: Array.isArray(blog.tags) ? blog.tags.join(', ') : (blog.tags || ''),
+      author: blog.author || 'TripDM Team',
+      metaTitle: blog.metaTitle || blog.title || '',
+      metaDescription: blog.metaDescription || blog.excerpt || '',
+      published: blog.published || false,
+    });
+    setAiRichData(null);
+    setView('create');
+  };
+
+  const startNewPost = () => {
+    setEditingBlogId(null);
+    setEditingOriginalPublishedAt('');
+    setForm(defaultForm);
+    setAiRichData(null);
+    setView('create');
+  };
+
   const handleSubmit = async (publish: boolean) => {
     setSaving(true);
     setSaveMsg('');
     try {
       const db = getDbInstance();
       if (!db) throw new Error('DB not initialized');
-
       const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean);
       const wordCount = form.content.trim().split(/\s+/).length;
       const readTime = `${Math.ceil(wordCount / 200)} min read`;
       const now = new Date().toISOString();
-      const docId = form.slug || form.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+      const docId = editingBlogId || form.slug || form.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g,'-').trim();
+
+      const publishedAtDate = publish
+        ? (editingOriginalPublishedAt || now)
+        : (editingBlogId ? editingOriginalPublishedAt : '');
 
       const blogData: any = {
         title: form.title,
-        slug: docId,
+        slug: form.slug || docId,
         excerpt: form.excerpt,
         content: form.content,
         coverImage: form.coverImage,
@@ -381,10 +414,16 @@ export default function BlogAdminClient() {
       }
 
       const docRef = doc(db, 'blogs', docId);
-      await setDoc(docRef, { ...blogData, publishedAt: publish ? now : '' }, { merge: true });
+      await setDoc(docRef, { ...blogData, publishedAt: publishedAtDate }, { merge: true });
 
       setSaveMsgType('success');
-      setSaveMsg(publish ? '🚀 Blog published successfully!' : '💾 Draft saved!');
+      setSaveMsg(
+        publish
+          ? (editingBlogId ? '🚀 Blog updated and published successfully!' : '🚀 Blog published successfully!')
+          : (editingBlogId ? '💾 Draft updated!' : '💾 Draft saved!')
+      );
+      setEditingBlogId(null);
+      setEditingOriginalPublishedAt('');
       setForm(defaultForm);
       setView('dashboard');
       fetchBlogs();
@@ -1067,6 +1106,7 @@ export default function BlogAdminClient() {
         .nav-item:hover { background: rgba(249,115,22,0.08) !important; color: #ea580c !important; }
         .blog-row:hover { border-color: rgba(249,115,22,0.25) !important; background: rgba(249,115,22,0.02) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
         .action-btn:hover { background: rgba(0,0,0,0.04) !important; color: #0f172a !important; }
+        .edit-btn:hover { background: rgba(59,130,246,0.1) !important; color: #2563eb !important; }
         .del-btn:hover { background: rgba(239,68,68,0.1) !important; color: #dc2626 !important; }
         .pub-btn:hover { background: rgba(16,185,129,0.1) !important; color: #059669 !important; }
         .tab:hover { color: #0f172a !important; }
@@ -1110,8 +1150,8 @@ export default function BlogAdminClient() {
               </button>
               <button
                 className="nav-item"
-                onClick={() => { setForm(defaultForm); setView('create'); }}
-                style={{ ...s.navItem, ...(view === 'create' ? s.navItemActive : {}) }}
+                onClick={startNewPost}
+                style={{ ...s.navItem, ...(view === 'create' && !editingBlogId ? s.navItemActive : {}) }}
               >
                 <span style={s.navIcon}>✦</span> New Post
               </button>
@@ -1163,7 +1203,7 @@ export default function BlogAdminClient() {
                     <span>⚡</span> Bulk AI Generator
                   </button>
                   <button
-                    onClick={() => { setForm(defaultForm); setView('create'); }}
+                    onClick={startNewPost}
                     style={s.newPostBtn}
                   >
                     <span>+</span> New Post
@@ -1224,7 +1264,7 @@ export default function BlogAdminClient() {
                 <div style={s.empty}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
                   <p style={{ color: '#64748b', marginBottom: 20 }}>No posts yet. Create your first blog post!</p>
-                  <button onClick={() => { setForm(defaultForm); setView('create'); }} style={s.newPostBtn}>
+                  <button onClick={startNewPost} style={s.newPostBtn}>
                     + Write First Post
                   </button>
                 </div>
@@ -1255,7 +1295,9 @@ export default function BlogAdminClient() {
                         <a href={`/blog/${blog.slug}${blog.published ? '' : '?preview=true'}`} target="_blank" className="action-btn" style={{ ...s.actionBtn, color: '#0284c7', borderColor: 'rgba(2,132,199,0.2)', background: 'rgba(2,132,199,0.05)' }}>
                           👁️ View Live
                         </a>
-                        <button onClick={() => handleEdit(blog)} className="action-btn" style={{ ...s.actionBtn, color: '#ea580c' }}>Edit</button>
+                        <button onClick={() => handleEdit(blog)} className="edit-btn action-btn" style={{ ...s.actionBtn, color: '#2563eb', borderColor: 'rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.05)' }}>
+                          Edit
+                        </button>
                         <button onClick={() => handleTogglePublish(blog)} className={blog.published ? 'action-btn' : 'pub-btn action-btn'} style={{ ...s.actionBtn, ...(blog.published ? {} : { color: '#059669', borderColor: 'rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.05)' }) }}>
                           {blog.published ? 'Unpublish' : 'Publish'}
                         </button>
@@ -1275,8 +1317,8 @@ export default function BlogAdminClient() {
             <div>
               <div style={s.topBar}>
                 <div>
-                  <h1 style={s.pageTitle}>{form.slug ? 'Edit Blog Post' : 'New Blog Post'}</h1>
-                  <p style={s.pageSub}>Fill in the details below to create an SEO-optimized blog post</p>
+                  <h1 style={s.pageTitle}>{editingBlogId ? 'Edit Blog Post' : 'New Blog Post'}</h1>
+                  <p style={s.pageSub}>{editingBlogId ? 'Update the details below and save your changes' : 'Fill in the details below to create a SEO-optimized blog post'}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button 
@@ -1285,9 +1327,7 @@ export default function BlogAdminClient() {
                   >
                     ✨ Auto-Generate with AI
                   </button>
-                  <button onClick={() => setView('dashboard')} style={s.backBtn}>
-                    ← Back to Dashboard
-                  </button>
+                  <button onClick={() => { setEditingBlogId(null); setEditingOriginalPublishedAt(''); setView('dashboard'); }} style={s.backBtn}>← Back</button>
                 </div>
               </div>
 
@@ -1396,7 +1436,32 @@ export default function BlogAdminClient() {
                 {/* Sidebar controls */}
                 <div style={s.formSidebar}>
                   <div style={s.formCard}>
-                    <div style={s.cardTitle}>Publish Settings</div>
+                    <h2 style={s.cardTitle}>Publish</h2>
+                    <button
+                      type="button"
+                      onClick={() => handleSubmit(true)}
+                      disabled={saving || !form.title || !form.content || !form.excerpt}
+                      style={{ ...s.publishBtn, opacity: (saving || !form.title || !form.content || !form.excerpt) ? 0.5 : 1 }}
+                    >
+                      {saving ? <div style={{ ...s.btnSpinner, width: 16, height: 16, marginRight: 8, borderTopColor: '#fff' }} /> : '🚀 '}
+                      {saving ? 'Saving...' : (editingBlogId ? 'Update & Publish' : 'Publish Now')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSubmit(false)}
+                      disabled={saving || !form.title || !form.content}
+                      style={{ ...s.draftBtn, opacity: (saving || !form.title || !form.content) ? 0.5 : 1 }}
+                    >
+                      {saving ? 'Saving...' : (editingBlogId ? '💾 Update Draft' : '💾 Save as Draft')}
+                    </button>
+                    <p style={{ fontSize: 11, color: '#64748b', marginTop: 10, lineHeight: 1.5 }}>
+                      Published posts are immediately visible on <strong style={{ color: '#475569' }}>tripdm.com/blog</strong>
+                    </p>
+                  </div>
+
+                  {/* Post Details */}
+                  <div style={s.formCard}>
+                    <h2 style={s.cardTitle}>Post Details</h2>
                     <div style={s.fieldGroup}>
                       <label style={s.fLabel}>Category</label>
                       <select name="category" value={form.category} onChange={handleFormChange} style={s.fSelect}>

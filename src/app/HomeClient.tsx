@@ -23,6 +23,7 @@ import FilterSidebar from '@/components/FilterSidebar';
 import UserProfile from '@/components/UserProfile';
 import AdminCouponManagement from '@/components/AdminCouponManagement';
 import CheckoutModal from '@/components/CheckoutModal';
+import LandingDiscovery from '@/components/LandingDiscovery';
 import { useComparison } from '@/contexts/ComparisonContext';
 import { 
   User, 
@@ -52,7 +53,6 @@ import {
   Clock,
   XCircle,
   ChevronLeft,
-  ChevronRight,
   Calendar,
   DollarSign,
   Check,
@@ -66,6 +66,7 @@ import {
   BarChart2, 
   Building, 
   Settings, 
+  SlidersHorizontal,
   Plane, 
   Map as MapIcon, 
   Sparkles, 
@@ -122,6 +123,9 @@ const getTabIcon = (id: string, className?: string) => {
       return <Globe className={className || "h-4 w-4"} />;
     case 'all_categories':
       return <LayoutGrid className={className || "h-4 w-4"} />;
+    case 'family':
+    case 'family_tab':
+      return <Users className={className || "h-4 w-4"} />;
     case 'trending_tab':
       return <Flame className={className || "h-4 w-4"} />;
     case 'experience_tab':
@@ -131,6 +135,43 @@ const getTabIcon = (id: string, className?: string) => {
     default:
       return null;
   }
+};
+
+const calcLevenshtein = (a: string, b: string): number => {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return matrix[a.length][b.length];
+};
+
+const isFuzzySearchMatch = (searchQuery: string, text: string): boolean => {
+  if (!searchQuery || !text) return false;
+  const q = searchQuery.trim().toLowerCase();
+  const t = text.toLowerCase();
+  if (t.includes(q)) return true;
+  if (q.length <= 2) return false;
+
+  const words = t.split(/[\s,/\-]+/).filter(Boolean);
+  return words.some(w => {
+    if (Math.abs(w.length - q.length) > 3) return false;
+    const dist = calcLevenshtein(q, w);
+    if (q.length <= 4) return dist <= 1;
+    if (q.length <= 7) return dist <= 2;
+    return dist <= 3;
+  });
 };
 
 const categoriesConfig = [
@@ -427,14 +468,25 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     const popular = ['Goa', 'Kerala', 'Manali', 'Kashmir', 'Dubai', 'Bali', 'Singapore', 'Maldives', 'Thailand', 'Europe', 'Gujarat', 'Rajasthan', 'Himachal Pradesh', 'Uttarakhand'];
     popular.forEach(p => dests.add(p));
     listings.forEach(l => {
-      if (l.destination) dests.add(l.destination);
-      if (l.stateName) dests.add(l.stateName);
-      if (l.countryName) dests.add(l.countryName);
+      const addCleanedLocation = (raw: string) => {
+        if (!raw) return;
+        raw.split(/,|\/|\band\b/i).forEach((part) => {
+          const trimmed = part.trim();
+          if (trimmed.length > 2 && !/package|tour|trip|holiday|deal|special/i.test(trimmed)) {
+            const formatted = trimmed.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            dests.add(formatted);
+          }
+        });
+      };
+
+      if (l.destination) addCleanedLocation(l.destination);
+      if (l.stateName) addCleanedLocation(l.stateName);
+      if (l.countryName) addCleanedLocation(l.countryName);
       if (l.stateNames && Array.isArray(l.stateNames)) {
-        l.stateNames.forEach((s: string) => { if (s) dests.add(s); });
+        l.stateNames.forEach((s: string) => addCleanedLocation(s));
       }
       if (l.countryNames && Array.isArray(l.countryNames)) {
-        l.countryNames.forEach((c: string) => { if (c) dests.add(c); });
+        l.countryNames.forEach((c: string) => addCleanedLocation(c));
       }
       if (l.itinerary && Array.isArray(l.itinerary)) {
         l.itinerary.forEach((day: any) => {
@@ -946,11 +998,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         phone: profilePhone,
         coTravellers: coTravellers
       });
-      alert('Profile details saved successfully!');
       setIsEditingProfile(false);
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile details. Please try again.');
     } finally {
       setSavingProfile(false);
     }
@@ -3830,13 +3880,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-          {/* Top Navigation Bar (Transparent Background Overlay) */}
-          <header className={`header-transition z-[100] ${viewingListing ? 'absolute top-0 left-0 right-0 bg-gradient-to-b from-white/25 via-white/5 to-transparent border-b border-white/20 shadow-[0_6px_25px_rgba(255,255,255,0.12)]' : 'sticky top-0 bg-transparent backdrop-blur-md border-b border-white/15'} text-white h-16 flex items-center`}>
+          {/* Top Navigation Bar */}
+          <header className="header-transition text-gray-900 z-[100] sticky top-0 bg-white shadow-sm border-b border-gray-200 h-16 flex items-center">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
               {/* Logo & Search */}
               <div className="flex items-center gap-4 flex-1 w-full h-full">
                 <div
-                  className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer shrink-0"
+                  className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer"
                   onClick={() => {
                     setUserActiveSection('listings');
                     setViewingListing(null);
@@ -3853,9 +3903,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setShowComparison(false);
                   }}
                 >
-                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 w-auto object-contain brightness-125 filter drop-shadow" />
+                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-20 w-auto object-contain" />
                 </div>
-
                 <div className="relative w-full max-w-xl">
                   <AutocompleteSearch
                     placeholder="Search your Holiday Destination"
@@ -3867,8 +3916,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       setSearchTerm(val);
                     }}
                     suggestions={allDestinations}
-                    inputClassName="w-full pl-10 pr-4 py-1.5 rounded-md text-white bg-slate-950/40 backdrop-blur-md focus:ring-2 focus:ring-orange-500 focus:outline-none border border-white/20 text-sm h-10 placeholder:text-slate-300"
-                    iconClassName="left-3 top-3 text-orange-400"
+                    inputClassName="w-full pl-10 pr-4 py-2 rounded-full text-slate-900 bg-slate-50/90 focus:bg-white focus:ring-2 focus:ring-amber-500/40 focus:outline-none border border-slate-200/90 text-sm h-10 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:border-slate-300 transition-all font-medium"
+                    iconClassName="left-3.5 top-3 text-slate-400"
                   />
                 </div>
               </div>
@@ -3876,17 +3925,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               {/* Right Links */}
               <div className="flex items-center gap-5 w-full md:w-auto justify-between md:justify-end flex-wrap pl-4">
                 
-                {/* Location Badge */}
-                <div className="flex items-center gap-1.5 text-slate-300 select-none mr-1 bg-slate-900/60 px-2.5 py-1 rounded-md border border-white/10">
-                  <MapPin className="h-4 w-4 text-orange-400 shrink-0" />
+                {/* Location */}
+                <div className="flex items-center gap-1.5 text-gray-700 select-none mr-2">
+                  <MapPin className="h-4 w-4 text-orange-500" />
                   <div className="flex flex-col leading-[1.1] hidden sm:flex">
-                    <span className="font-semibold text-white text-[12px]">{pincode}</span>
+                    <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
+                    
                   </div>
                 </div>
 
                 {/* Compare */}
                 <span
-                  className={`cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 flex items-center gap-1.5 ${showComparison ? 'text-orange-400 font-bold' : 'text-slate-200'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${showComparison ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('listings');
@@ -3898,41 +3948,41 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Wishlist */}
                 <span
-                  className={`cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-400 font-bold' : 'text-slate-200'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('wishlist');
                     setShowComparison(false);
                   }}
                 >
-                  <Heart className="h-4 w-4 text-orange-400" /> Wishlist
+                  <Heart className="h-4 w-4 text-orange-500" /> Wishlist
                 </span>
 
                 {/* Messages */}
                 <span
-                  className={`cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-400 font-bold' : 'text-slate-200'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-500' : 'text-gray-800'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('chat');
                   }}
                 >
-                  <MessageSquare className="h-4 w-4 text-orange-400" /> Messages
+                  <MessageSquare className="h-4 w-4 text-orange-500" /> Messages
                 </span>
 
                 {/* Profile / Sign In */}
                 {user && userData ? (
-                  <div className="flex items-center gap-3 ml-2 border-l border-white/15 pl-5">
+                  <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-5">
                     <div
-                      className={`flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-400' : 'text-slate-200'}`}
+                      className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
                       onClick={() => {
                         setFromSection(userActiveSection);
                         setUserActiveSection('profile');
                       }}
                     >
                       {userData.avatarUrl ? (
-                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-md object-cover border border-white/20" />
+                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
                       ) : (
-                        <div className="w-7 h-7 bg-slate-800 rounded-md flex items-center justify-center text-slate-300 border border-white/20">
+                        <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200">
                           <User className="h-4 w-4" />
                         </div>
                       )}
@@ -3940,7 +3990,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                     
                     <span
-                      className="text-xs text-slate-400 hover:text-orange-400 cursor-pointer transition-colors"
+                      className="text-[13px] text-gray-500 hover:text-orange-500 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         signOut();
@@ -3952,7 +4002,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 ) : (
                   <button
                     onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-md px-5 py-1.5 text-sm font-bold tracking-wide rounded-md ml-2 transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-6 py-2 h-auto text-[15px] font-bold tracking-wide rounded-md ml-2 transition-colors flex items-center gap-1.5"
                   >
                     <User className="h-4 w-4" /> Login
                   </button>
@@ -3969,22 +4019,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             }`}
             id="user-dashboard-scroll-container"
           >
-            {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-              <div className="fixed inset-0 z-0 w-full h-full flex flex-col justify-center items-center overflow-hidden pointer-events-none">
-                {/* Background image slider with fixed attachment covering full page */}
-                {HERO_IMAGES.map((img, index) => (
-                  <div 
-                    key={index}
-                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ease-in-out ${index === currentHeroImage ? 'opacity-95 scale-105' : 'opacity-0'}`}
-                    style={{ backgroundImage: `url('${img}')` }}
-                  ></div>
-                ))}
-                {/* Subtle dark ambient overlay covering full page */}
-                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] pointer-events-none"></div>
-              </div>
-            )}
-
-            <main className={`${(userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat') ? 'w-full' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
+            <main className={`${(userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat' || userActiveSection === 'listings') ? 'w-full max-w-[1600px] mx-auto px-4 sm:px-8' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
               {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && userActiveSection !== 'chat' && (
                 <div className="mb-6 mt-6 px-6 max-w-7xl mx-auto flex justify-between items-center border-b pb-4 border-gray-200">
@@ -4007,7 +4042,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
 
               {userActiveSection === 'listings' && !viewingListing && !showBookingForm && !showComparison && (
-                <div className="relative z-10 pt-[160px] w-full">
+                <div className="relative z-10 w-full pt-4">
 
                   {/* Comparison Bar */}
                   {comparisonList.length > 0 && (
@@ -4056,17 +4091,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </Card>
                   )}
 
-                  {/* Category Navigation Strip (Transparent Background) */}
-                  <div id="category-nav-strip" className="w-full bg-transparent p-2 mb-8 flex items-center justify-between gap-4 py-2 sticky top-16 z-[90] backdrop-blur-md relative text-white">
-                    <div className="flex gap-2 sm:gap-3.5 w-full justify-start items-center min-w-max px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide">
+                  {/* Category Emoji Navigation Strip */}
+                  <div id="category-nav-strip" className="w-fit max-w-full mx-auto bg-white/85 border border-white/80 rounded-xl p-2.5 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] flex items-center justify-center gap-3 sm:gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
+                    <div className="flex gap-2 sm:gap-3.5 items-center justify-center px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide max-w-full">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
                         { id: 'all_packages', label: 'All Packages', type: 'all', filter: null },
                         { id: 'domestic_tab', label: 'Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
                         { id: 'intl_tab', label: 'International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
-                        { id: 'trending_tab', label: 'Trending', type: 'all', filter: { category: 'trending', title: 'Trending Destinations' } },
-                        { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } },
-                        { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } }
+                        { id: 'family_tab', label: 'Family', type: 'all', filter: { category: 'tourCategory', subcategory: 'Family Tour', title: 'Tour by Category - Family Tour' } },
+                        { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } },
+                        { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } }
                       ].map((item) => {
                         const isCategoriesActive = item.type === 'categories' && dashboardViewMode === 'categories' && !selectedCategoryFilter;
                         const isAllActive = item.type === 'all' && dashboardViewMode === 'all' && !selectedCategoryFilter && !item.filter;
@@ -4080,19 +4115,27 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           <button
                             key={item.id}
                             onClick={() => {
+                              setSearchTerm('');
                               if (item.type === 'categories') {
                                 setDashboardViewMode('categories');
                                 setSelectedCategoryFilter(null);
+                              } else if (item.id === 'domestic_tab') {
+                                setDashboardViewMode('categories');
+                                setSelectedCategoryFilter({ category: 'domestic', title: 'Domestic Packages' });
+                              } else if (item.id === 'intl_tab') {
+                                setDashboardViewMode('categories');
+                                setSelectedCategoryFilter({ category: 'international', title: 'International Packages' });
                               } else {
                                 setDashboardViewMode('all');
                                 setSelectedCategoryFilter(item.filter);
                               }
                             }}
-                            className={`px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all duration-150 flex items-center gap-2 shrink-0 ${
+                            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
                               isActive
-                                ? 'bg-orange-500 text-white shadow-md border border-orange-400'
-                                : 'bg-transparent border border-white/20 text-slate-200 hover:bg-white/15 hover:text-white backdrop-blur-sm'
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                                : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
                             }`}
+                            style={{ borderRadius: '6px' }}
                           >
                             {getTabIcon(item.id, "h-3.5 w-3.5")}
                             {item.label}
@@ -4101,14 +4144,19 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       })}
                     </div>
                     
-                    <div className="h-6 w-px bg-white/20 mx-1 shrink-0"></div>
+                    <div className="h-6 w-px bg-slate-200/80 mx-1 shrink-0"></div>
                     
                     <div className="relative shrink-0 flex items-center">
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all duration-150 flex items-center gap-2 border bg-transparent border-white/20 text-slate-200 hover:bg-white/15 backdrop-blur-sm shadow-md"
+                        className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${
+                          showFilters 
+                            ? 'bg-orange-50 border-orange-300 text-orange-600 shadow-sm'
+                            : 'bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                        }`}
+                        style={{ borderRadius: '6px' }}
                       >
-                        <Settings className="h-4 w-4 text-orange-400" />
+                        <SlidersHorizontal className={`h-4 w-4 ${showFilters ? 'text-orange-500' : 'text-slate-500'}`} />
                         Filter
                       </button>
                       <FilterSidebar 
@@ -4125,165 +4173,36 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                   </div>
 
-                  {/* Category Details Banner */}
-                  {selectedCategoryFilter && (
-                    <div className="bg-slate-900/90 backdrop-blur-md border border-orange-500/30 rounded-md p-4 mb-6 flex justify-between items-center shadow-lg text-white">
-                      <div>
-                        <span className="text-[10px] text-orange-400 font-extrabold uppercase tracking-wider">Filtered Category</span>
-                        <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
-                          {selectedCategoryFilter.title} {selectedCategoryFilter.subcategory ? `• ${selectedCategoryFilter.subcategory}` : ''}
-                        </h2>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedCategoryFilter(null)}
-                        className="text-orange-400 hover:text-orange-300 hover:bg-white/10 font-bold text-xs"
-                      >
-                        Clear Filter
-                      </Button>
-                    </div>
-                  )}
 
-                  {/* Search Term Banner */}
-                  {searchTerm && (
-                    <div className="bg-slate-900/90 backdrop-blur-md border border-blue-500/30 rounded-md p-4 mb-6 flex justify-between items-center shadow-lg text-white">
-                      <div>
-                        <span className="text-[10px] text-blue-400 font-extrabold uppercase tracking-wider">Search Results For</span>
-                        <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
-                          "{searchTerm}"
-                        </h2>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSearchTerm('')}
-                        className="text-blue-400 hover:text-blue-300 hover:bg-white/10 font-bold text-xs"
-                      >
-                        Clear Search
-                      </Button>
-                    </div>
-                  )}
 
                   {/* Main View Controller */}
-                  {dashboardViewMode === 'categories' && !selectedCategoryFilter && !searchTerm ? (
-                    /* Containerless Horizontal Category Landing Page */
-                    <div className="flex flex-col gap-10 mb-12">
-                      {categoriesConfig.map((category) => (
-                        <div
-                          key={category.id}
-                          id={`section-${category.id}`}
-                          className="flex flex-col gap-4 py-2 relative group/rail"
-                        >
-                          {/* Containerless Rail Header */}
-                          <div className="flex items-center justify-between pb-3">
-                            <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-400">Category Collection</span>
-                              <h3 className="text-xl sm:text-2xl font-heading font-black text-white tracking-tight drop-shadow-md">
-                                {category.title}
-                              </h3>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => setSelectedCategoryFilter({
-                                  category: category.id,
-                                  title: category.title
-                                })}
-                                className="text-xs sm:text-sm font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors group/link"
-                              >
-                                {category.linkText} <span className="transition-transform group-hover/link:translate-x-1">→</span>
-                              </button>
-
-                              {/* Rail Navigation Controls */}
-                              <div className="flex items-center gap-1.5 ml-2">
-                                <button
-                                  onClick={() => {
-                                    const el = document.getElementById(`rail-container-${category.id}`);
-                                    if (el) el.scrollBy({ left: -320, behavior: 'smooth' });
-                                  }}
-                                  className="w-8 h-8 rounded-md bg-black/40 hover:bg-orange-500 text-white flex items-center justify-center transition-all border border-white/20 shadow-md cursor-pointer"
-                                  aria-label="Scroll left"
-                                >
-                                  <ChevronLeft className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const el = document.getElementById(`rail-container-${category.id}`);
-                                    if (el) el.scrollBy({ left: 320, behavior: 'smooth' });
-                                  }}
-                                  className="w-8 h-8 rounded-md bg-black/40 hover:bg-orange-500 text-white flex items-center justify-center transition-all border border-white/20 shadow-md cursor-pointer"
-                                  aria-label="Scroll right"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Horizontal Subcategory Rail */}
-                          <div
-                            id={`rail-container-${category.id}`}
-                            className="flex gap-5 overflow-x-auto category-rail-scroll no-scrollbar py-2 px-1"
-                          >
-                            {category.subcategories.map((sub) => {
-                              const matched = getFilteredListingsForSubcategory(category.id, sub);
-                              const img = getSubcategoryCoverImage(category.id, sub, matched);
-                              const desc = subcategoryDescriptions[sub] || '';
-                              return (
-                                <div
-                                  key={sub}
-                                  className="category-rail-item w-[260px] sm:w-[300px] shrink-0 h-[220px] rounded-md relative overflow-hidden group/item cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
-                                  onClick={() => setSelectedCategoryFilter({
-                                    category: category.id,
-                                    subcategory: sub,
-                                    title: `${category.title} - ${sub}`
-                                  })}
-                                >
-                                  {/* Background Image */}
-                                  <img
-                                    src={img}
-                                    alt={sub}
-                                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover/item:scale-110"
-                                    loading="lazy"
-                                  />
-                                  
-                                  {/* Dark Gradient Overlay */}
-                                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
-
-                                  {/* Top Badge */}
-                                  <div className="absolute top-3 left-3 z-10">
-                                    <span className="bg-black/50 backdrop-blur-md text-white px-2.5 py-0.5 rounded-sm text-[10px] font-semibold">
-                                      {matched.length} {matched.length === 1 ? 'Package' : 'Packages'}
-                                    </span>
-                                  </div>
-
-                                  {/* Content Info */}
-                                  <div className="absolute bottom-0 inset-x-0 p-4 z-10 flex flex-col gap-1 text-white">
-                                    <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white tracking-tight leading-snug group-hover/item:text-orange-400 transition-colors">
-                                      {sub}
-                                    </h4>
-                                    {desc && (
-                                      <p className="text-xs text-slate-300 line-clamp-1 font-normal">
-                                        {desc}
-                                      </p>
-                                    )}
-                                    <div className="flex items-center text-[11px] font-bold text-orange-400 mt-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                      <span>Explore Packages</span>
-                                      <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                        </div>
-                      ))}
-                    </div>
+                  {dashboardViewMode === 'categories' && !searchTerm ? (
+                    /* Amazon & Thrillophilia Travel Discovery Landing Page */
+                    <LandingDiscovery
+                      listings={listings}
+                      onView={setViewingListing}
+                      onBook={startBooking}
+                      onChat={handleInitiateChat}
+                      onWishlist={handleWishlistToggle}
+                      wishlist={wishlist}
+                      searchTerm={searchTerm}
+                      setSearchTerm={setSearchTerm}
+                      allDestinations={allDestinations}
+                      onSelectCategoryFilter={(filter) => {
+                        setSelectedCategoryFilter(filter);
+                        setDashboardViewMode('all');
+                      }}
+                      initialPackageTypeTab={
+                        selectedCategoryFilter?.category === 'domestic'
+                          ? 'domestic'
+                          : selectedCategoryFilter?.category === 'international'
+                          ? 'international'
+                          : 'all'
+                      }
+                    />
                   ) : (
-                    /* Filtered Listings Grid */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    /* Filtered Listings Grid - Matching original 3-column card dimensions */
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                       {listings.length === 0 ? (
                         <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border border-gray-100 border-dashed">
                           <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner relative overflow-hidden">
@@ -4326,22 +4245,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               else if (category === 'domestic') {
                                 if (listing.packageType !== 'domestic') return false;
                                 if (subcategory) {
-                                  const state = (listing.stateName || '').toLowerCase();
-                                  if (subcategory === 'Kashmir' && !state.includes('kashmir') && !state.includes('jammu')) return false;
-                                  if (subcategory === 'Himachal' && !state.includes('himachal')) return false;
-                                  if (subcategory === 'South' && !state.includes('kerala') && !state.includes('karnataka') && !state.includes('tamil') && !state.includes('south') && !state.includes('goa') && !state.includes('andhra')) return false;
-                                  if (subcategory === 'Rajasthan' && !state.includes('rajasthan')) return false;
+                                  const state = ((listing.stateName || '') + ' ' + (listing.destination || '') + ' ' + (listing.title || '')).toLowerCase();
+                                  const target = subcategory.toLowerCase();
+                                  if (!state.includes(target)) return false;
                                 }
                               }
 
                               else if (category === 'international') {
                                 if (listing.packageType !== 'international') return false;
                                 if (subcategory) {
-                                  const country = (listing.countryName || '').toLowerCase();
-                                  if (subcategory === 'Dubai' && !country.includes('dubai') && !country.includes('emirates') && !country.includes('uae')) return false;
-                                  if (subcategory === 'Europe' && !country.includes('europe') && !country.includes('switzerland') && !country.includes('france') && !country.includes('italy') && !country.includes('germany') && !country.includes('united kingdom') && !country.includes('london')) return false;
-                                  if (subcategory === 'Bali' && !country.includes('bali') && !country.includes('indonesia')) return false;
-                                  if (subcategory === 'Turkey' && !country.includes('turkey')) return false;
+                                  const country = ((listing.countryName || '') + ' ' + (listing.destination || '') + ' ' + (listing.title || '')).toLowerCase();
+                                  const target = subcategory.toLowerCase();
+                                  if (!country.includes(target)) return false;
                                 }
                               }
 
@@ -4437,30 +4352,31 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               const itineraryPlaces = (Array.isArray(listing.itinerary) ? listing.itinerary : [])
                                 .map((d: any) => String(d?.placeName || '').toLowerCase()).join(' ');
  
-                              const matches = title.includes(searchLower) ||
-                                description.includes(searchLower) ||
-                                destination.includes(searchLower) ||
-                                stateName.includes(searchLower) ||
-                                countryName.includes(searchLower) ||
-                                stateNamesCombined.includes(searchLower) ||
-                                countryNamesCombined.includes(searchLower) ||
-                                packageType.includes(searchLower) ||
-                                type.includes(searchLower) ||
+                              const matches = 
+                                isFuzzySearchMatch(searchLower, title) ||
+                                isFuzzySearchMatch(searchLower, description) ||
+                                isFuzzySearchMatch(searchLower, destination) ||
+                                isFuzzySearchMatch(searchLower, stateName) ||
+                                isFuzzySearchMatch(searchLower, countryName) ||
+                                isFuzzySearchMatch(searchLower, stateNamesCombined) ||
+                                isFuzzySearchMatch(searchLower, countryNamesCombined) ||
+                                isFuzzySearchMatch(searchLower, packageType) ||
+                                isFuzzySearchMatch(searchLower, type) ||
                                 price.includes(searchLower) ||
                                 duration.includes(searchLower) ||
                                 itineraryDays.includes(searchLower) ||
-                                pickup.includes(searchLower) ||
-                                drop.includes(searchLower) ||
+                                isFuzzySearchMatch(searchLower, pickup) ||
+                                isFuzzySearchMatch(searchLower, drop) ||
                                 code.includes(searchLower) ||
-                                tourCats.includes(searchLower) ||
-                                inclusions.includes(searchLower) ||
-                                agencyName.includes(searchLower) ||
-                                places.includes(searchLower) ||
-                                itineraryPlaces.includes(searchLower) ||
-                                'sightseeing'.includes(searchLower) ||
-                                'transport'.includes(searchLower) ||
-                                'hotel stay'.includes(searchLower) ||
-                                'meal'.includes(searchLower);
+                                isFuzzySearchMatch(searchLower, tourCats) ||
+                                isFuzzySearchMatch(searchLower, inclusions) ||
+                                isFuzzySearchMatch(searchLower, agencyName) ||
+                                isFuzzySearchMatch(searchLower, places) ||
+                                isFuzzySearchMatch(searchLower, itineraryPlaces) ||
+                                isFuzzySearchMatch(searchLower, 'sightseeing') ||
+                                isFuzzySearchMatch(searchLower, 'transport') ||
+                                isFuzzySearchMatch(searchLower, 'hotel stay') ||
+                                isFuzzySearchMatch(searchLower, 'meal');
 
                               if (!matches) {
                                 return false;
@@ -5487,6 +5403,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   onNavigateToWishlist={() => {
                     setFromSection('profile');
                     setUserActiveSection('wishlist');
+                  }}
+                  onNavigateToCompare={() => {
+                    setFromSection('profile');
+                    setUserActiveSection('listings');
+                    setShowComparison(true);
+                  }}
+                  onNavigateToChat={() => {
+                    setFromSection('profile');
+                    setUserActiveSection('chat');
                   }}
                 />
               )}

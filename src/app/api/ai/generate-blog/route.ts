@@ -107,7 +107,7 @@ Return a single JSON object with this EXACT structure:
   "relatedTopics": ["Related article title 1", "Related article title 2", "Related article title 3"]
 }
 
-CRITICAL: The contentMarkdown must include proper Markdown tables like:
+CRITICAL: The contentMarkdown MUST include clean, complete Markdown tables with valid headers and separator rows like:
 | Month | Temp | Crowd | Verdict |
 |-------|------|-------|---------|
 | Jan   | 25°C | Low   | ✅ Best  |
@@ -116,6 +116,9 @@ And cost tables like:
 | Item | Budget | Mid-Range | Luxury |
 |------|--------|-----------|--------|
 | Hotel/night | ₹800 | ₹2,500 | ₹8,000+ |
+
+DO NOT break table rows into paragraph text. Always use pipe (|) characters for columns.
+DO NOT use Unicode box-drawing characters (like ┌, ─, ┐, │, ├, ┤, └, ┘) or ASCII box art for lists. Always use standard Markdown lists (1. Item or - Item).
 
 Include "💡 Pro Tip:" callouts throughout.
 Include a "⚠️ Common Mistake:" section.
@@ -233,12 +236,13 @@ function buildFullContent(data: any): string {
     parts.push('');
   }
 
-  // --- Table of Contents ---
+  // --- Quick Jumplinks to Navigate ---
   if (toc.length > 0) {
-    parts.push('## Table of Contents\n');
+    parts.push('## Quick Jumplinks to Navigate\n');
     toc.forEach((item: any) => {
       const indent = item.level === 3 ? '  ' : '';
-      parts.push(`${indent}- [${item.title}](#${item.id})`);
+      const targetId = item.id || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      parts.push(`${indent}- [${item.title}](#${targetId})`);
     });
     parts.push('');
   }
