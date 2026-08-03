@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, orderBy, getDocs, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
@@ -26,6 +26,27 @@ interface Blog {
   readTime: string;
 }
 
+export interface BulkItem {
+  id: string;
+  title: string;
+  category: string;
+  status: 'pending' | 'generating' | 'success' | 'failed' | 'skipped';
+  error?: string;
+  wordCount?: number;
+  timeTaken?: number;
+  slug?: string;
+  richData?: any;
+  blogFormData?: any;
+  published?: boolean;
+}
+
+export interface BulkLog {
+  id: string;
+  timestamp: string;
+  type: 'info' | 'success' | 'error' | 'warn';
+  message: string;
+}
+
 const CATEGORIES = [
   'Travel Tips', 'Destinations', 'Budget Travel', 'Luxury Travel',
   'Adventure', 'Family Travel', 'Solo Travel', 'Food & Culture',
@@ -46,6 +67,104 @@ const defaultForm = {
   published: false,
 };
 
+// Preset Titles from User Request
+const UTTARAKHAND_PRIORITY_TITLES = [
+  "Uttarakhand Travel Guide 2026: Best Places, Itinerary, Budget & Travel Tips",
+  "Uttarakhand 7-Day Itinerary: Complete Day-by-Day Travel Plan",
+  "Uttarakhand Trip Cost: Complete Budget Breakdown",
+  "Best Places to Visit in Uttarakhand: 25 Must-Visit Destinations",
+  "How to Plan an Uttarakhand Trip from Mumbai",
+  "Best Time to Visit Uttarakhand: Month-by-Month Guide",
+  "Nainital vs Mussoorie: Which Is Better for Your Trip?",
+  "Best Uttarakhand Tour Packages for Families, Couples & Groups",
+  "Kedarnath Travel Guide: Route, Budget & Itinerary",
+  "Auli Travel Guide: Snowfall, Skiing, Cost & Best Time"
+];
+
+const UTTARAKHAND_ALL_TITLES = [
+  "10-Day Uttarakhand Itinerary: Mountains, Temples, Lakes & Hill Stations",
+  "Mussoorie Travel Guide: Places to Visit, Budget, Hotels & Best Time",
+  "Nainital Travel Guide: Best Places, Things to Do & 3-Day Itinerary",
+  "Rishikesh Travel Guide: Best Places, Adventure Activities & Trip Cost",
+  "Haridwar Travel Guide: Temples, Ganga Aarti, Itinerary & Travel Tips",
+  "Auli Travel Guide: Best Time, Snowfall, Skiing, Cost & How to Reach",
+  "Jim Corbett Travel Guide: Safari Zones, Booking, Cost & Best Time to Visit",
+  "Chopta Tungnath Travel Guide: Trek, Budget, Itinerary & Best Time",
+  "Kedarnath Travel Guide: Route, Trek Distance, Budget & Complete Itinerary",
+  "Badrinath Travel Guide: How to Reach, Best Time, Cost & Places to Visit",
+  "Valley of Flowers Trek Guide: Cost, Route, Difficulty & Best Time",
+  "How Much Does an Uttarakhand Trip Cost? Complete Budget Guide",
+  "How Many Days Are Enough for an Uttarakhand Trip?",
+  "Which Is the Best Month to Visit Uttarakhand?",
+  "Is Uttarakhand Safe for Solo Travellers? Complete Safety Guide",
+  "Which Is Better: Nainital or Mussoorie? Complete Comparison",
+  "Which Is Better: Auli or Manali for a Snow Trip?",
+  "How to Reach Uttarakhand from Mumbai? Cheapest & Fastest Routes",
+  "Where Can You See Snow in Uttarakhand? 10 Best Snow Destinations",
+  "What Are the Best Places to Visit in Uttarakhand with Family?",
+  "What Are the Best Places to Visit in Uttarakhand for Couples?",
+  "15 Hidden Places in Uttarakhand Away from Tourist Crowds",
+  "10 Offbeat Places in Uttarakhand You Should Visit in 2026",
+  "Best Hill Stations in Uttarakhand for a Peaceful Vacation",
+  "Best Places to Visit in Uttarakhand in December for Snowfall",
+  "Best Places to Visit in Uttarakhand in May and June",
+  "Best Places to Visit in Uttarakhand During Monsoon",
+  "Best Weekend Trips in Uttarakhand from Delhi",
+  "Uttarakhand Road Trip: Best Routes, Stops, Budget & Itinerary",
+  "Best Treks in Uttarakhand for Beginners: Difficulty, Cost & Duration",
+  "Best Camping Places in Uttarakhand: Location, Cost & Best Time",
+  "Best Adventure Activities in Uttarakhand: Rafting, Trekking, Skiing & More",
+  "Best Waterfalls in Uttarakhand: 15 Beautiful Waterfalls to Visit",
+  "Uttarakhand Travel Guide 2026: Best Places, Itinerary, Budget & Travel Tips",
+  "Uttarakhand 7-Day Itinerary: Complete Day-by-Day Travel Plan",
+  "Uttarakhand Trip Cost: Complete Budget Breakdown",
+  "Best Places to Visit in Uttarakhand: 25 Must-Visit Destinations",
+  "How to Plan an Uttarakhand Trip from Mumbai",
+  "Best Time to Visit Uttarakhand: Month-by-Month Guide",
+  "Nainital vs Mussoorie: Which Is Better for Your Trip?",
+  "Best Uttarakhand Tour Packages for Families, Couples & Groups",
+  "Kedarnath Travel Guide: Route, Budget & Itinerary",
+  "Auli Travel Guide: Snowfall, Skiing, Cost & Best Time"
+];
+
+function renderMarkdownToHtml(content: string): string {
+  if (!content) return '';
+
+  let html = content.replace(/<!--[\s\S]*?-->/g, '');
+
+  html = html
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/^### (.+)$/gm, (_, t) => `<h3 id="${t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}">${t}</h3>`)
+    .replace(/^## (.+)$/gm, (_, t) => `<h2 id="${t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}">${t}</h2>`)
+    .replace(/^# (.+)$/gm, (_, t) => `<h1 id="${t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}">${t}</h1>`)
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/^---$/gm, '<hr>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/^[\*\-\+] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+    .replace(/^\|(.+)\|$/gm, (match) => {
+      const cells = match.split('|').filter((_, i, a) => i > 0 && i < a.length - 1);
+      const isHeader = cells.every(c => /^\s*[-:]+\s*$/.test(c));
+      if (isHeader) return '';
+      return '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
+    });
+
+  html = html.replace(/(<tr>[\s\S]*?<\/tr>\n?)+/g, (match) => `<div class="table-wrap"><table>${match}</table></div>`);
+
+  html = html.split('\n\n').map(block => {
+    const trimmed = block.trim();
+    if (!trimmed) return '';
+    if (/^<(h[1-6]|ul|ol|blockquote|hr|div|table|tr)/.test(trimmed)) return trimmed;
+    return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+  }).filter(Boolean).join('\n');
+
+  return html;
+}
+
 export default function BlogAdminClient() {
   const { user, signIn, signInWithGoogle, loading } = useAuth();
   const [email, setEmail] = useState('');
@@ -55,7 +174,7 @@ export default function BlogAdminClient() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [view, setView] = useState<'dashboard' | 'create'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'create' | 'bulk'>('dashboard');
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [blogsLoading, setBlogsLoading] = useState(false);
   const [form, setForm] = useState(defaultForm);
@@ -66,7 +185,7 @@ export default function BlogAdminClient() {
   const [saveMsgType, setSaveMsgType] = useState<'success' | 'error'>('success');
   const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft'>('all');
 
-  // AI States
+  // Single AI States
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiKeywords, setAiKeywords] = useState('');
@@ -80,7 +199,35 @@ export default function BlogAdminClient() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Bulk Generator States
+  const [bulkInputText, setBulkInputText] = useState<string>('');
+  const [bulkQueue, setBulkQueue] = useState<BulkItem[]>([]);
+  const [bulkRunning, setBulkRunning] = useState<boolean>(false);
+  const [bulkPaused, setBulkPaused] = useState<boolean>(false);
+  const [bulkCurrentIndex, setBulkCurrentIndex] = useState<number>(-1);
+  const [bulkCoolingTimer, setBulkCoolingTimer] = useState<number>(0);
+  const [bulkDelaySeconds, setBulkDelaySeconds] = useState<number>(8); // 8s default between calls
+  const [bulkSaveMode, setBulkSaveMode] = useState<'draft' | 'publish'>('draft');
+  const [bulkCategoryOverride, setBulkCategoryOverride] = useState<string>('Auto-Detect');
+  const [bulkLogs, setBulkLogs] = useState<BulkLog[]>([]);
+  const [previewModalItem, setPreviewModalItem] = useState<BulkItem | null>(null);
+  const [previewTab, setPreviewTab] = useState<'render' | 'markdown' | 'seo' | 'faq'>('render');
+  const [bulkFilterStatus, setBulkFilterStatus] = useState<'all' | 'pending' | 'success' | 'failed'>('all');
+  const [bulkSearchQuery, setBulkSearchQuery] = useState<string>('');
+
+  const bulkRunningRef = useRef<boolean>(false);
+  const bulkPausedRef = useRef<boolean>(false);
+  const terminalLogsEndRef = useRef<HTMLDivElement | null>(null);
+
   const isAuthorized = user?.email === BLOG_ADMIN_EMAIL;
+
+  useEffect(() => {
+    bulkRunningRef.current = bulkRunning;
+  }, [bulkRunning]);
+
+  useEffect(() => {
+    bulkPausedRef.current = bulkPaused;
+  }, [bulkPaused]);
 
   useEffect(() => {
     if (form.title && !form.slug) {
@@ -106,6 +253,18 @@ export default function BlogAdminClient() {
     }
   }, [form.excerpt]);
 
+  // Auto-scroll log console
+  useEffect(() => {
+    if (terminalLogsEndRef.current) {
+      terminalLogsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [bulkLogs, bulkCoolingTimer]);
+
+  const addLog = useCallback((type: 'info' | 'success' | 'error' | 'warn', message: string) => {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    setBulkLogs(prev => [...prev.slice(-400), { id: Math.random().toString(), timestamp, type, message }]);
+  }, []);
+
   const fetchBlogs = useCallback(async () => {
     setBlogsLoading(true);
     try {
@@ -123,10 +282,10 @@ export default function BlogAdminClient() {
           excerpt: data.excerpt || '',
           content: data.content || '',
           coverImage: data.coverImage || '',
-          category: data.category || '',
+          category: data.category || 'Travel',
           tags: data.tags || [],
           author: data.author || 'TripDM Team',
-          published: data.published || false,
+          published: data.published ?? false,
           publishedAt: data.publishedAt || '',
           updatedAt: data.updatedAt || '',
           metaTitle: data.metaTitle || '',
@@ -136,16 +295,17 @@ export default function BlogAdminClient() {
       });
       setBlogs(fetchedBlogs);
     } catch (err) {
-      console.error(err);
-      setBlogs([]);
+      console.error('Error fetching blogs:', err);
     } finally {
       setBlogsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (isAuthorized) fetchBlogs();
-  }, [isAuthorized, fetchBlogs]);
+    if (user && isAuthorized) {
+      fetchBlogs();
+    }
+  }, [user, isAuthorized, fetchBlogs]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,7 +374,6 @@ export default function BlogAdminClient() {
     try {
       const db = getDbInstance();
       if (!db) throw new Error('DB not initialized');
-      
       const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean);
       const wordCount = form.content.trim().split(/\s+/).length;
       const readTime = `${Math.ceil(wordCount / 200)} min read`;
@@ -242,7 +401,6 @@ export default function BlogAdminClient() {
         wordCount,
       };
 
-      // Save rich EEAT SEO data if AI generated it
       if (aiRichData) {
         blogData.focusKeyword = aiRichData.seo?.focusKeyword || '';
         blogData.secondaryKeywords = aiRichData.seo?.secondaryKeywords || [];
@@ -254,7 +412,7 @@ export default function BlogAdminClient() {
         blogData.relatedTopics = aiRichData.relatedTopics || [];
         blogData.tableOfContents = aiRichData.article?.tableOfContents || [];
       }
-      
+
       const docRef = doc(db, 'blogs', docId);
       await setDoc(docRef, { ...blogData, publishedAt: publishedAtDate }, { merge: true });
 
@@ -288,30 +446,30 @@ export default function BlogAdminClient() {
       if (!user) throw new Error('User Auth not initialized');
 
       let fileToUpload = file;
-      try {
+      if (file.size > 2 * 1024 * 1024) {
         const compressed = await compressMultipleImages([file]);
-        if (compressed && compressed[0]) {
+        if (compressed.length > 0) {
           fileToUpload = compressed[0];
         }
-      } catch (err) {
-        console.warn('Image compression failed, using original', err);
       }
 
       const formData = new FormData();
       formData.append('file', fileToUpload);
-      formData.append('category', 'covers');
-      formData.append('userId', user.uid);
 
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!uploadRes.ok) {
-        const errData = await uploadRes.json().catch(() => ({}));
-        throw new Error(errData.error || 'Cover image upload failed');
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        setForm(f => ({ ...f, coverImage: data.url }));
+      } else {
+        throw new Error(data.error || 'Failed to upload image.');
       }
-      const uploadData = await uploadRes.json();
-
-      setForm(f => ({ ...f, coverImage: uploadData.url }));
     } catch (err: any) {
-      console.error('Image upload failed:', err);
+      console.error('Image upload error:', err);
       alert(`Image upload failed: ${err.message}`);
     } finally {
       setUploadingImage(false);
@@ -323,7 +481,8 @@ export default function BlogAdminClient() {
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
     setIsDragging(false);
   };
 
@@ -344,7 +503,6 @@ export default function BlogAdminClient() {
     setAiGenerating(true);
     setAiGenStep('🔍 Researching keywords and search intent...');
     try {
-      // Simulate pipeline steps for UX feedback
       setTimeout(() => setAiGenStep('📝 Generating detailed article outline...'), 2000);
       setTimeout(() => setAiGenStep('✍️ Writing 1500–2500 word EEAT article...'), 5000);
       setTimeout(() => setAiGenStep('📊 Creating cost tables, tips & FAQs...'), 10000);
@@ -402,7 +560,7 @@ export default function BlogAdminClient() {
   };
 
   const handleDelete = async (blog: Blog) => {
-    if (!confirm(`Delete "${blog.title}"?`)) return;
+    if (!confirm(`Are you sure you want to delete "${blog.title}"?`)) return;
     try {
       const db = getDbInstance();
       if (!db) return;
@@ -413,190 +571,517 @@ export default function BlogAdminClient() {
     }
   };
 
-  const formatDate = (d: string) => {
-    if (!d) return '—';
-    try { return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
-    catch { return d; }
+
+
+  // BULK GENERATOR LOGIC
+  const autoDetectCategory = (title: string): string => {
+    const t = title.toLowerCase();
+    if (t.includes('itinerary') || t.includes('day') || t.includes('plan')) return 'Travel Guides';
+    if (t.includes('cost') || t.includes('budget') || t.includes('cheapest') || t.includes('price')) return 'Budget Travel';
+    if (t.includes('trek') || t.includes('rafting') || t.includes('camping') || t.includes('adventure') || t.includes('skiing')) return 'Adventure';
+    if (t.includes('snow') || t.includes('family') || t.includes('couples') || t.includes('solo') || t.includes('safety') || t.includes('tips')) return 'Travel Tips';
+    return 'Destinations';
   };
 
-  const getRelativeTime = (dateStr: string): string => {
-    if (!dateStr) return '';
+  const parseTitleList = (rawText: string): string[] => {
+    const lines = rawText.split('\n');
+    const titles: string[] = [];
+
+    const skipPatterns = [
+      'high-intent destination blogs',
+      'aeo / question-based titles',
+      'long-tail seo opportunities',
+      'great topics for a travel agency blog',
+      'if the objective is seo',
+      'i\'d prioritize these first',
+      'this are some for titles',
+    ];
+
+    for (const line of lines) {
+      let cleaned = line.trim();
+      if (!cleaned) continue;
+
+      cleaned = cleaned.replace(/^(\d+[\.\)]\s*|[\*\-\•]\s*)/, '').trim();
+      cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+
+      const lower = cleaned.toLowerCase();
+      if (cleaned.length < 5) continue;
+      if (skipPatterns.some(pat => lower.includes(pat))) continue;
+
+      if (!titles.includes(cleaned)) {
+        titles.push(cleaned);
+      }
+    }
+    return titles;
+  };
+
+  const handleLoadPreset = (type: 'priority' | 'all') => {
+    const titles = type === 'priority' ? UTTARAKHAND_PRIORITY_TITLES : UTTARAKHAND_ALL_TITLES;
+    const text = titles.join('\n');
+    setBulkInputText(text);
+
+    const items: BulkItem[] = titles.map(t => ({
+      id: Math.random().toString(36).substring(2, 9),
+      title: t,
+      category: bulkCategoryOverride === 'Auto-Detect' ? autoDetectCategory(t) : bulkCategoryOverride,
+      status: 'pending',
+    }));
+    setBulkQueue(items);
+    addLog('info', `📌 Loaded preset: ${titles.length} Uttarakhand titles.`);
+  };
+
+  const handleParseInputToQueue = () => {
+    if (!bulkInputText.trim()) {
+      alert('Please paste or enter blog titles first.');
+      return;
+    }
+    const parsedTitles = parseTitleList(bulkInputText);
+    if (parsedTitles.length === 0) {
+      alert('No valid blog titles found. Please check your text.');
+      return;
+    }
+
+    const items: BulkItem[] = parsedTitles.map(t => ({
+      id: Math.random().toString(36).substring(2, 9),
+      title: t,
+      category: bulkCategoryOverride === 'Auto-Detect' ? autoDetectCategory(t) : bulkCategoryOverride,
+      status: 'pending',
+    }));
+
+    setBulkQueue(items);
+    addLog('info', `📥 Loaded ${items.length} titles into generation queue.`);
+  };
+
+  const runBulkProcess = async () => {
+    if (bulkQueue.length === 0) {
+      alert('Queue is empty. Load titles first.');
+      return;
+    }
+
+    setBulkRunning(true);
+    bulkRunningRef.current = true;
+    setBulkPaused(false);
+    bulkPausedRef.current = false;
+
+    addLog('info', `🚀 Starting bulk generation for ${bulkQueue.length} articles. Cooling delay: ${bulkDelaySeconds}s between calls.`);
+
+    const db = getDbInstance();
+
+    for (let i = 0; i < bulkQueue.length; i++) {
+      if (!bulkRunningRef.current) {
+        addLog('warn', '⏹ Bulk process cancelled by user.');
+        break;
+      }
+
+      while (bulkPausedRef.current && bulkRunningRef.current) {
+        addLog('warn', '⏸ Process paused. Waiting to resume...');
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      if (!bulkRunningRef.current) break;
+
+      const item = bulkQueue[i];
+
+      if (item.status === 'success') {
+        addLog('info', `⏭️ Skipping completed item [${i + 1}/${bulkQueue.length}]: "${item.title}"`);
+        continue;
+      }
+
+      setBulkCurrentIndex(i);
+
+      setBulkQueue(prev => prev.map((it, idx) => idx === i ? { ...it, status: 'generating', error: undefined } : it));
+      addLog('info', `⚡ [${i + 1}/${bulkQueue.length}] Generating: "${item.title}"...`);
+
+      const startTime = Date.now();
+      let success = false;
+      let lastErr = '';
+      let resultData: any = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        if (!bulkRunningRef.current) break;
+        try {
+          if (attempt > 1) {
+            addLog('warn', `⚠️ Retrying attempt ${attempt}/3 for "${item.title}" (Waiting 12s rate-limit backoff)...`);
+            await new Promise(r => setTimeout(r, 12000));
+          }
+
+          const res = await fetch('/api/ai/generate-blog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic: item.title, category: item.category }),
+          });
+
+          const data = await res.json();
+          if (data.success && data.data) {
+            resultData = data;
+            success = true;
+            break;
+          } else {
+            lastErr = data.error || 'AI generation failed';
+            addLog('warn', `Attempt ${attempt} error: ${lastErr}`);
+          }
+        } catch (err: any) {
+          lastErr = err.message || 'Network error';
+          addLog('warn', `Attempt ${attempt} fetch failure: ${lastErr}`);
+        }
+      }
+
+      const timeTaken = Math.round((Date.now() - startTime) / 1000);
+
+      if (success && resultData) {
+        const d = resultData.data;
+        const richData = resultData.richData;
+        const wordCount = (d.content || '').trim().split(/\s+/).length;
+        const docId = d.slug || item.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+
+        if (db) {
+          try {
+            const now = new Date().toISOString();
+            const isPublish = bulkSaveMode === 'publish';
+
+            const blogData: any = {
+              title: d.title || item.title,
+              slug: docId,
+              excerpt: d.excerpt || '',
+              content: d.content || '',
+              coverImage: '',
+              category: d.category || item.category || 'Travel Guides',
+              tags: d.tags || [],
+              author: 'TripDM Travel Expert',
+              published: isPublish,
+              publishedAt: isPublish ? now : '',
+              updatedAt: now,
+              metaTitle: d.metaTitle || d.title,
+              metaDescription: d.metaDescription || d.excerpt,
+              readTime: `${Math.ceil(wordCount / 200)} min read`,
+              wordCount,
+            };
+
+            if (richData) {
+              blogData.focusKeyword = richData.seo?.focusKeyword || '';
+              blogData.secondaryKeywords = richData.seo?.secondaryKeywords || [];
+              blogData.ogTitle = richData.seo?.ogTitle || blogData.metaTitle;
+              blogData.ogDescription = richData.seo?.ogDescription || blogData.metaDescription;
+              blogData.canonical = richData.seo?.canonical || `https://tripdm.com/blog/${docId}`;
+              blogData.faq = richData.faq || [];
+              blogData.schema = JSON.stringify(richData.schema || {});
+              blogData.relatedTopics = richData.relatedTopics || [];
+              blogData.tableOfContents = richData.article?.tableOfContents || [];
+            }
+
+            await setDoc(doc(db, 'blogs', docId), blogData, { merge: true });
+            addLog('success', `💾 Saved to Firestore as ${isPublish ? '🚀 Published' : '📋 Draft'}: "${docId}" (${wordCount.toLocaleString()} words in ${timeTaken}s)`);
+          } catch (fsErr: any) {
+            addLog('error', `Firestore save failure: ${fsErr.message}`);
+          }
+        }
+
+        setBulkQueue(prev => prev.map((it, idx) => idx === i ? {
+          ...it,
+          status: 'success',
+          wordCount,
+          timeTaken,
+          slug: docId,
+          richData,
+          blogFormData: d,
+          published: bulkSaveMode === 'publish'
+        } : it));
+
+        fetchBlogs();
+      } else {
+        setBulkQueue(prev => prev.map((it, idx) => idx === i ? {
+          ...it,
+          status: 'failed',
+          error: lastErr,
+          timeTaken
+        } : it));
+        addLog('error', `❌ Failed to generate "${item.title}": ${lastErr}`);
+      }
+
+      if (i < bulkQueue.length - 1 && bulkRunningRef.current) {
+        addLog('info', `⏳ Rate Limit Guard: Cooling down for ${bulkDelaySeconds}s...`);
+        for (let sec = bulkDelaySeconds; sec > 0; sec--) {
+          if (!bulkRunningRef.current) break;
+          setBulkCoolingTimer(sec);
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        setBulkCoolingTimer(0);
+      }
+    }
+
+    setBulkRunning(false);
+    bulkRunningRef.current = false;
+    setBulkCurrentIndex(-1);
+    addLog('success', '🎉 Bulk process complete!');
+  };
+
+  const handlePauseBulk = () => {
+    setBulkPaused(p => !p);
+    addLog('warn', !bulkPaused ? '⏸ Pausing bulk execution...' : '▶ Resuming bulk execution...');
+  };
+
+  const handleStopBulk = () => {
+    setBulkRunning(false);
+    bulkRunningRef.current = false;
+    setBulkPaused(false);
+    bulkPausedRef.current = false;
+    setBulkCoolingTimer(0);
+    addLog('error', '⏹ Process stopped by user.');
+  };
+
+  const handleRetryFailedBulk = () => {
+    setBulkQueue(prev => prev.map(it => it.status === 'failed' ? { ...it, status: 'pending', error: undefined } : it));
+    addLog('info', '🔄 Reset failed items to pending state.');
+  };
+
+  const handleSingleItemRetry = async (index: number) => {
+    const item = bulkQueue[index];
+    if (!item) return;
+
+    setBulkQueue(prev => prev.map((it, idx) => idx === index ? { ...it, status: 'generating', error: undefined } : it));
+    addLog('info', `🔄 Retrying single item: "${item.title}"`);
+
+    const db = getDbInstance();
+    const startTime = Date.now();
     try {
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      if (diffMs < 60000) return 'Just now';
-      const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-      const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-      const diffDays = Math.floor(diffHours / 24);
-      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-      return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch {
-      return dateStr;
+      const res = await fetch('/api/ai/generate-blog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: item.title, category: item.category }),
+      });
+      const data = await res.json();
+      const timeTaken = Math.round((Date.now() - startTime) / 1000);
+
+      if (data.success && data.data) {
+        const d = data.data;
+        const richData = data.richData;
+        const wordCount = (d.content || '').trim().split(/\s+/).length;
+        const docId = d.slug || item.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+
+        if (db) {
+          const now = new Date().toISOString();
+          const isPublish = bulkSaveMode === 'publish';
+          const blogData: any = {
+            title: d.title || item.title,
+            slug: docId,
+            excerpt: d.excerpt || '',
+            content: d.content || '',
+            coverImage: '',
+            category: d.category || item.category || 'Travel Guides',
+            tags: d.tags || [],
+            author: 'TripDM Travel Expert',
+            published: isPublish,
+            publishedAt: isPublish ? now : '',
+            updatedAt: now,
+            metaTitle: d.metaTitle || d.title,
+            metaDescription: d.metaDescription || d.excerpt,
+            readTime: `${Math.ceil(wordCount / 200)} min read`,
+            wordCount,
+          };
+          await setDoc(doc(db, 'blogs', docId), blogData, { merge: true });
+        }
+
+        setBulkQueue(prev => prev.map((it, idx) => idx === index ? {
+          ...it,
+          status: 'success',
+          wordCount,
+          timeTaken,
+          slug: docId,
+          richData,
+          blogFormData: d
+        } : it));
+
+        addLog('success', `✅ Re-generated and saved "${docId}" (${wordCount} words)`);
+        fetchBlogs();
+      } else {
+        throw new Error(data.error || 'Failed generation');
+      }
+    } catch (err: any) {
+      setBulkQueue(prev => prev.map((it, idx) => idx === index ? { ...it, status: 'failed', error: err.message } : it));
+      addLog('error', `❌ Retry failed for "${item.title}": ${err.message}`);
     }
   };
 
-  const filteredBlogs = blogs.filter(b =>
-    activeTab === 'all' ? true : activeTab === 'published' ? b.published : !b.published
-  );
+  const handleRemoveItem = (index: number) => {
+    setBulkQueue(prev => prev.filter((_, idx) => idx !== index));
+  };
 
-  // ─── LOADING ───────────────────────────────────────────────────────────────
+  const handleClearAllBulk = () => {
+    if (bulkRunning) {
+      alert('Cannot clear while generator is running.');
+      return;
+    }
+    if (confirm('Clear all titles in queue?')) {
+      setBulkQueue([]);
+      setBulkInputText('');
+      setBulkLogs([]);
+    }
+  };
+
+  const exportBulkResults = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bulkQueue, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `tripdm_bulk_blogs_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const filteredQueue = bulkQueue.filter(item => {
+    const matchesStatus = bulkFilterStatus === 'all' || item.status === bulkFilterStatus;
+    const matchesSearch = !bulkSearchQuery || item.title.toLowerCase().includes(bulkSearchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  const completedCount = bulkQueue.filter(i => i.status === 'success').length;
+  const failedCount = bulkQueue.filter(i => i.status === 'failed').length;
+  const pendingCount = bulkQueue.filter(i => i.status === 'pending' || i.status === 'generating').length;
+  const progressPercent = bulkQueue.length > 0 ? Math.round((completedCount / bulkQueue.length) * 100) : 0;
+  const estimatedTimeMin = Math.ceil((pendingCount * (20 + bulkDelaySeconds)) / 60);
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  };
+
+  const getRelativeTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    return formatDate(dateStr);
+  };
+
+  const filteredBlogs = blogs.filter(blog => {
+    if (activeTab === 'published') return blog.published;
+    if (activeTab === 'draft') return !blog.published;
+    return true;
+  });
+
   if (loading) {
     return (
-      <div style={s.splash}>
-        <div style={s.splashSpinner} />
+      <div style={s.loadingContainer}>
+        <div style={s.loadSpinner} />
+        <p style={{ color: '#64748b', fontSize: 14 }}>Initializing Blog Admin...</p>
       </div>
     );
   }
 
-  // ─── NOT LOGGED IN ─────────────────────────────────────────────────────────
-  if (!user) {
+  // LOGIN VIEW
+  if (!user || !isAuthorized) {
     return (
-      <>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: 'Inter', sans-serif; }
-          .glow-btn:hover { box-shadow: 0 0 0 3px rgba(249,115,22,0.25) !important; }
-          .google-btn:hover { background: #f1f5f9 !important; border-color: rgba(0,0,0,0.15) !important; }
-          input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px #ffffff inset !important; -webkit-text-fill-color: #0f172a !important; }
-          @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
-          @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-          .login-card { animation: fadeUp .5s ease both; }
-          .orb1 { animation: pulse 6s ease-in-out infinite; }
-          .orb2 { animation: pulse 8s ease-in-out infinite 2s; }
-        `}</style>
-        <div style={s.loginBg}>
-          {/* Background orbs */}
-          <div className="orb1" style={s.orb1} />
-          <div className="orb2" style={s.orb2} />
+      <div style={s.loginWrapper}>
+        <div style={s.orb1} />
+        <div style={s.orb2} />
 
-          <div className="login-card" style={s.loginCard}>
-            {/* Header */}
-            <div style={s.loginHeader}>
-              <div style={s.loginBrand}>
-                <img src="/tripdm-logo.png" alt="TripDM Logo" style={{ height: 52, width: 'auto', objectFit: 'contain' }} />
-                <span style={s.loginBrandBadge}>Blog</span>
-              </div>
-              <h1 style={s.loginH1}>Welcome back</h1>
-              <p style={s.loginSub}>Sign in to your blog dashboard</p>
+        <div style={s.loginCard}>
+          <div style={s.loginHeader}>
+            <div style={s.loginBrand}>
+              <div style={s.loginBrandIcon}>✈</div>
+              <span style={s.loginBrandName}>TripDM</span>
+              <span style={s.loginBrandBadge}>ADMIN</span>
             </div>
-
-            {/* Google Sign In */}
-            <button
-              className="google-btn"
-              onClick={handleGoogleLogin}
-              disabled={googleLoading || loginLoading}
-              style={s.googleBtn}
-            >
-              {googleLoading ? (
-                <div style={{ ...s.btnSpinner, borderTopColor: '#0f172a' }} />
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 18 18">
-                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/>
-                  <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
-                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
-                </svg>
-              )}
-              {googleLoading ? 'Signing in...' : 'Continue with Google'}
-            </button>
-
-            {/* Divider */}
-            <div style={s.divider}>
-              <div style={s.dividerLine} />
-              <span style={s.dividerText}>or continue with email</span>
-              <div style={s.dividerLine} />
-            </div>
-
-            {/* Email/Password Form */}
-            <form onSubmit={handleLogin} style={s.loginForm}>
-              <div style={s.field}>
-                <label style={s.fieldLabel}>Email address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="tripdm26@gmail.com"
-                  style={s.fieldInput}
-                  required
-                  autoFocus
-                />
-              </div>
-              <div style={s.field}>
-                <label style={s.fieldLabel}>Password</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    style={{ ...s.fieldInput, paddingRight: 44 }}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(v => !v)}
-                    style={s.eyeBtn}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? '🙈' : '👁'}
-                  </button>
-                </div>
-              </div>
-
-              {loginError && (
-                <div style={s.errorAlert}>
-                  <span>⚠️</span> {loginError}
-                </div>
-              )}
-
-              <button
-                className="glow-btn"
-                type="submit"
-                disabled={loginLoading || googleLoading}
-                style={s.signInBtn}
-              >
-                {loginLoading ? <div style={{ ...s.btnSpinner, borderTopColor: '#fff' }} /> : null}
-                {loginLoading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-
-            <p style={s.loginFooter}>
-              🔒 Restricted to authorized blog administrators only
-            </p>
+            <h1 style={s.loginH1}>Welcome back</h1>
+            <p style={s.loginSub}>Sign in to manage your travel blog & AI content generator</p>
           </div>
-        </div>
-      </>
-    );
-  }
 
-  // ─── WRONG USER ────────────────────────────────────────────────────────────
-  if (!isAuthorized) {
-    return (
-      <div style={s.loginBg}>
-        <div style={{ ...s.loginCard, textAlign: 'center', padding: '48px 40px' }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>🚫</div>
-          <h2 style={{ color: '#ef4444', fontSize: 22, marginBottom: 8 }}>Access Denied</h2>
-          <p style={{ color: '#64748b', marginBottom: 8 }}>Logged in as</p>
-          <p style={{ color: '#0f172a', fontWeight: 600, marginBottom: 24 }}>{user.email}</p>
-          <p style={{ color: '#64748b', marginBottom: 32, fontSize: 14 }}>This dashboard is restricted to the blog administrator.</p>
-          <a href="/" style={{ ...s.signInBtn, textDecoration: 'none', display: 'inline-block', width: 'auto' }}>
-            ← Go to Home
-          </a>
+          <button
+            className="google-btn"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading || loginLoading}
+            style={s.googleBtn}
+          >
+            {googleLoading ? (
+              <div style={{ ...s.btnSpinner, borderTopColor: '#0f172a' }} />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 18 18">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/>
+                <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
+              </svg>
+            )}
+            {googleLoading ? 'Signing in...' : 'Continue with Google'}
+          </button>
+
+          <div style={s.divider}>
+            <div style={s.dividerLine} />
+            <span style={s.dividerText}>or continue with email</span>
+            <div style={s.dividerLine} />
+          </div>
+
+          <form onSubmit={handleLogin} style={s.loginForm}>
+            <div style={s.field}>
+              <label style={s.fieldLabel}>Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="tripdm26@gmail.com"
+                style={s.fieldInput}
+                required
+                autoFocus
+              />
+            </div>
+            <div style={s.field}>
+              <label style={s.fieldLabel}>Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  style={{ ...s.fieldInput, paddingRight: 44 }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={s.eyeBtn}
+                  tabIndex={-1}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
+            </div>
+
+            {loginError && (
+              <div style={s.errorAlert}>
+                <span>⚠️</span> {loginError}
+              </div>
+            )}
+
+            <button
+              className="glow-btn"
+              type="submit"
+              disabled={loginLoading || googleLoading}
+              style={{ ...s.signInBtn, opacity: (loginLoading || googleLoading) ? 0.7 : 1 }}
+            >
+              {loginLoading ? <div style={s.btnSpinner} /> : null}
+              {loginLoading ? 'Authenticating...' : 'Sign In'}
+            </button>
+          </form>
+
+          <p style={s.loginFooter}>
+            🔒 Restricted access for authorized TripDM administrators only.
+          </p>
         </div>
       </div>
     );
   }
 
-  // ─── DASHBOARD ─────────────────────────────────────────────────────────────
+  // MAIN DASHBOARD UI
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', sans-serif; background: #f8fafc; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -613,7 +1098,25 @@ export default function BlogAdminClient() {
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        .terminal-scroll { font-family: 'Fira Code', monospace; font-size: 12px; line-height: 1.6; }
+
+        /* Full Preview HTML Styling */
+        .live-preview-content { font-family: 'Merriweather', Georgia, serif; font-size: 16px; line-height: 1.85; color: #292524; }
+        .live-preview-content h1 { font-family: 'Merriweather', serif; font-size: 28px; font-weight: 900; color: #1c1917; margin: 32px 0 16px; }
+        .live-preview-content h2 { font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 800; color: #1c1917; margin: 36px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; }
+        .live-preview-content h3 { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700; color: #292524; margin: 28px 0 12px; }
+        .live-preview-content p { margin-bottom: 20px; }
+        .live-preview-content strong { font-weight: 700; color: #1c1917; }
+        .live-preview-content blockquote { border-left: 4px solid #f97316; background: #fff7ed; padding: 14px 20px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: italic; color: #44403c; }
+        .live-preview-content ul { margin: 0 0 20px 0; padding-left: 20px; }
+        .live-preview-content ul li { margin-bottom: 8px; }
+        .live-preview-content .table-wrap { overflow-x: auto; margin: 24px 0; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .live-preview-content table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 13px; }
+        .live-preview-content table tr:first-child td { background: #0f172a; color: #fff; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        .live-preview-content table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .live-preview-content table tr:nth-child(even) td { background: #f8fafc; }
       `}</style>
+
       <div style={s.dash}>
         {/* Sidebar */}
         <aside style={s.sidebar}>
@@ -635,6 +1138,13 @@ export default function BlogAdminClient() {
                 style={{ ...s.navItem, ...(view === 'create' && !editingBlogId ? s.navItemActive : {}) }}
               >
                 <span style={s.navIcon}>✦</span> New Post
+              </button>
+              <button
+                className="nav-item"
+                onClick={() => setView('bulk')}
+                style={{ ...s.navItem, ...(view === 'bulk' ? s.navItemActive : {}) }}
+              >
+                <span style={s.navIcon}>⚡</span> Bulk Generator
               </button>
               <a
                 href="/blog"
@@ -658,24 +1168,31 @@ export default function BlogAdminClient() {
           </div>
         </aside>
 
-        {/* Main */}
+        {/* Main Workspace */}
         <main className="dash-main" style={s.main}>
 
           {/* ── Dashboard View ── */}
           {view === 'dashboard' && (
             <div>
-              {/* Top bar */}
               <div style={s.topBar}>
                 <div>
                   <h1 style={s.pageTitle}>Blog Dashboard</h1>
                   <p style={s.pageSub}>Manage and publish your travel blog content</p>
                 </div>
-                <button
-                  onClick={startNewPost}
-                  style={s.newPostBtn}
-                >
-                  <span>+</span> New Post
-                </button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => setView('bulk')}
+                    style={{ ...s.newPostBtn, background: 'linear-gradient(135deg, #0f172a, #1e293b)', boxShadow: '0 4px 12px rgba(15,23,42,0.15)' }}
+                  >
+                    <span>⚡</span> Bulk AI Generator
+                  </button>
+                  <button
+                    onClick={startNewPost}
+                    style={s.newPostBtn}
+                  >
+                    <span>+</span> New Post
+                  </button>
+                </div>
               </div>
 
               {saveMsg && (
@@ -759,7 +1276,9 @@ export default function BlogAdminClient() {
                         <p style={s.postExcerpt}>{blog.excerpt?.slice(0, 110)}{blog.excerpt?.length > 110 ? '...' : ''}</p>
                       </div>
                       <div style={s.postActions}>
-                        <a href={`/blog/${blog.slug}`} target="_blank" className="action-btn" style={s.actionBtn}>View</a>
+                        <a href={`/blog/${blog.slug}${blog.published ? '' : '?preview=true'}`} target="_blank" className="action-btn" style={{ ...s.actionBtn, color: '#0284c7', borderColor: 'rgba(2,132,199,0.2)', background: 'rgba(2,132,199,0.05)' }}>
+                          👁️ View Live
+                        </a>
                         <button onClick={() => handleEdit(blog)} className="edit-btn action-btn" style={{ ...s.actionBtn, color: '#2563eb', borderColor: 'rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.05)' }}>
                           Edit
                         </button>
@@ -777,7 +1296,7 @@ export default function BlogAdminClient() {
             </div>
           )}
 
-          {/* ── Create Post View ── */}
+          {/* ── Create / Edit View ── */}
           {view === 'create' && (
             <div>
               <div style={s.topBar}>
@@ -796,56 +1315,6 @@ export default function BlogAdminClient() {
                 </div>
               </div>
 
-              {/* AI Modal */}
-              {showAiModal && (
-                <div style={s.modalOverlay}>
-                  <div style={s.modalContent}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                      <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>✨ EEAT Article Generator</h3>
-                      <button onClick={() => setShowAiModal(false)} disabled={aiGenerating} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b' }}>×</button>
-                    </div>
-
-                    <div style={{ background: 'rgba(124,58,237,0.04)', border: '1px solid rgba(124,58,237,0.12)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#6d28d9', lineHeight: 1.6 }}>
-                      🏆 Produces <strong>3000–5000 word</strong> EEAT-optimized articles with cost tables, FAQs, JSON-LD schema, and full SEO metadata — ready to compete with Lonely Planet & TripAdvisor.
-                    </div>
-                    
-                    <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Topic <span style={{ color: '#ef4444' }}>*</span></label>
-                      <input value={aiTopic} onChange={e => setAiTopic(e.target.value)} placeholder="e.g. Budget Travel Guide to Goa" style={s.fInput} />
-                    </div>
-                    
-                    <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Keywords / Specific Instructions <span style={s.optLabel}>(Optional)</span></label>
-                      <input value={aiKeywords} onChange={e => setAiKeywords(e.target.value)} placeholder="e.g. emphasize local food, backpacker tips" style={s.fInput} />
-                    </div>
-
-                    {aiError && (
-                      <div style={{ ...s.errorAlert, marginBottom: 16 }}>
-                        <span>⚠️</span> {aiError}
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }}>
-                      {aiGenerating && aiGenStep && (
-                        <div style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)', borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ ...s.btnSpinner, borderTopColor: '#7c3aed', width: 16, height: 16, flexShrink: 0 }} />
-                          <span style={{ fontSize: 13, color: '#6d28d9', fontWeight: 500 }}>{aiGenStep}</span>
-                        </div>
-                      )}
-                      <button 
-                        onClick={handleAiGenerate}
-                        disabled={aiGenerating}
-                        style={{ ...s.signInBtn, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', boxShadow: '0 4px 12px rgba(124,58,237,0.25)', opacity: aiGenerating ? 0.8 : 1 }}
-                      >
-                        {aiGenerating ? <div style={{ ...s.btnSpinner, borderTopColor: '#fff', width: 14, height: 14 }} /> : null}
-                        {aiGenerating ? ` Writing article (~25–40 seconds)...` : '🚀 Generate EEAT Article'}
-                      </button>
-                      <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', margin: 0 }}>This uses Gemini AI to write a full SEO article. Generation takes ~25–40 seconds.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {saveMsg && (
                 <div style={{ ...s.toast, background: saveMsgType === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', borderColor: saveMsgType === 'success' ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)', color: saveMsgType === 'success' ? '#059669' : '#dc2626' }}>
                   {saveMsg}
@@ -853,98 +1322,103 @@ export default function BlogAdminClient() {
               )}
 
               <div style={s.formLayout}>
-                {/* Left — Main Content */}
                 <div style={s.formMain}>
                   <div style={s.formCard}>
-                    <h2 style={s.cardTitle}>Post Content</h2>
+                    <div style={s.cardTitle}>Post Content</div>
                     <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Title <span style={{ color: '#ef4444' }}>*</span></label>
-                      <input name="title" value={form.title} onChange={handleFormChange} placeholder="e.g. 10 Best Places to Visit in Rajasthan" style={s.fInput} />
-                      <span style={s.fHint}>{form.title.length}/70 characters</span>
+                      <label style={s.fLabel}>Post Title *</label>
+                      <input
+                        type="text"
+                        name="title"
+                        value={form.title}
+                        onChange={handleFormChange}
+                        placeholder="e.g. 10 Best Places to Visit in Bali"
+                        style={s.fInput}
+                      />
                     </div>
-
                     <div style={s.fieldGroup}>
                       <label style={s.fLabel}>URL Slug</label>
                       <div style={s.slugWrap}>
-                        <span style={s.slugPrefix}>tripdm.com/blog/</span>
-                        <input name="slug" value={form.slug} onChange={handleFormChange} placeholder="best-places-rajasthan" style={{ ...s.fInput, borderRadius: '0 8px 8px 0', borderLeft: 'none', marginBottom: 0 }} />
+                        <span style={s.slugPrefix}>/blog/</span>
+                        <input
+                          type="text"
+                          name="slug"
+                          value={form.slug}
+                          onChange={handleFormChange}
+                          placeholder="10-best-places-to-visit-in-bali"
+                          style={{ ...s.fInput, borderRadius: '0 8px 8px 0' }}
+                        />
                       </div>
                     </div>
-
                     <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Excerpt / Summary <span style={{ color: '#ef4444' }}>*</span></label>
-                      <textarea name="excerpt" value={form.excerpt} onChange={handleFormChange} placeholder="A brief, compelling summary of this post (1–2 sentences)..." style={{ ...s.fTextarea, minHeight: 80 }} rows={3} />
-                      <span style={{ ...s.fHint, color: form.excerpt.length > 160 ? '#ef4444' : '#64748b' }}>
-                        {form.excerpt.length}/160 — {form.excerpt.length < 80 ? 'Too short' : form.excerpt.length <= 160 ? '✓ Good length' : '⚠ Too long'}
-                      </span>
+                      <label style={s.fLabel}>Excerpt / Brief Summary *</label>
+                      <textarea
+                        name="excerpt"
+                        value={form.excerpt}
+                        onChange={handleFormChange}
+                        rows={3}
+                        placeholder="A short hook summarizing this article..."
+                        style={s.fTextarea}
+                      />
                     </div>
-
                     <div style={s.fieldGroup}>
-                      <div style={s.contentTip}>
-                        <strong style={{ color: '#7c3aed' }}>💡 SEO Content Tips</strong>
-                        <ul style={{ marginTop: 8, paddingLeft: 18, color: '#64748b', fontSize: 12, lineHeight: 1.8 }}>
-                          <li>Use <code style={{ color: '#ea580c', background: 'rgba(249,115,22,0.1)', padding: '2px 4px', borderRadius: 4 }}>## Heading</code> to structure content</li>
-                          <li>Include your main keyword in the first 100 words</li>
-                          <li>Aim for <strong style={{ color: '#334155' }}>800–2000 words</strong> for best ranking</li>
-                          <li>Use <code style={{ color: '#ea580c', background: 'rgba(249,115,22,0.1)', padding: '2px 4px', borderRadius: 4 }}>**bold**</code> for important phrases</li>
-                          <li>Add internal links like <code style={{ color: '#ea580c', background: 'rgba(249,115,22,0.1)', padding: '2px 4px', borderRadius: 4 }}>[text](https://tripdm.com)</code></li>
-                        </ul>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <label style={s.fLabel}>Full Content (Markdown Format) *</label>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>Supports standard markdown syntax</span>
                       </div>
-                      <label style={s.fLabel}>Full Blog Content <span style={{ color: '#ef4444' }}>*</span></label>
                       <textarea
                         name="content"
                         value={form.content}
                         onChange={handleFormChange}
-                        placeholder={`## Introduction\n\nStart with an engaging hook...\n\n## Section 1: Topic\n\nDive deep into your first point...\n\n## Section 2: Topic\n\nContinue with more insights...\n\n## Conclusion\n\nEnd with a clear call to action.`}
-                        style={{ ...s.fTextarea, minHeight: 480, fontFamily: 'ui-monospace, monospace', fontSize: 13 }}
-                        rows={22}
+                        rows={18}
+                        placeholder="# Heading 1&#10;&#10;Write your article here..."
+                        style={{ ...s.fTextarea, fontFamily: 'Fira Code, monospace', fontSize: 13 }}
                       />
-                      <span style={{ ...s.fHint, color: form.content.split(/\s+/).filter(Boolean).length < 500 ? '#d97706' : '#059669' }}>
-                        {form.content.split(/\s+/).filter(Boolean).length} words
-                        {form.content.split(/\s+/).filter(Boolean).length < 500 ? ' — Aim for 800+ for best SEO' : ' — ✓ Great length!'}
-                      </span>
                     </div>
                   </div>
 
-                  {/* SEO Card */}
+                  {/* SEO Section */}
                   <div style={s.formCard}>
-                    <h2 style={s.cardTitle}>🔍 SEO Settings</h2>
-
-                    {/* Google Preview */}
+                    <div style={s.cardTitle}>Search Engine Optimization (SEO)</div>
                     <div style={s.googlePreview}>
-                      <div style={s.googlePreviewLabel}>Google Search Preview</div>
-                      <div style={s.googlePreviewUrl}>tripdm.com › blog › {form.slug || 'your-slug'}</div>
-                      <div style={s.googlePreviewTitle}>{form.metaTitle || form.title || 'Your Blog Title Here'}</div>
-                      <div style={s.googlePreviewDesc}>{form.metaDescription || form.excerpt || 'Your meta description will appear here when this page shows in Google search results...'}</div>
+                      <div style={s.googlePreviewLabel}>Google Search Result Preview</div>
+                      <div style={s.googlePreviewUrl}>https://tripdm.com › blog › {form.slug || 'url-slug'}</div>
+                      <div style={s.googlePreviewTitle}>{form.metaTitle || form.title || 'Post Title'}</div>
+                      <div style={s.googlePreviewDesc}>{form.metaDescription || form.excerpt || 'Meta description will appear here...'}</div>
                     </div>
-
                     <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Meta Title <span style={s.optLabel}>(max 60 chars)</span></label>
-                      <input name="metaTitle" value={form.metaTitle} onChange={handleFormChange} placeholder="Best Places in Rajasthan | TripDM Travel" style={s.fInput} maxLength={70} />
-                      <div style={s.seoBar}>
-                        <div style={{ ...s.seoBarFill, width: `${Math.min(100, (form.metaTitle.length / 60) * 100)}%`, background: form.metaTitle.length > 60 ? '#ef4444' : form.metaTitle.length >= 50 ? '#10b981' : '#f97316' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <label style={s.fLabel}>Meta Title</label>
+                        <span style={{ fontSize: 11, color: form.metaTitle.length > 60 ? '#ef4444' : '#64748b' }}>{form.metaTitle.length}/60 chars</span>
                       </div>
-                      <span style={{ ...s.fHint, color: form.metaTitle.length > 60 ? '#ef4444' : '#64748b' }}>
-                        {form.metaTitle.length}/60 {form.metaTitle.length > 60 ? '⚠ Too long' : form.metaTitle.length >= 50 ? '✓ Perfect' : ''}
-                      </span>
+                      <input
+                        type="text"
+                        name="metaTitle"
+                        value={form.metaTitle}
+                        onChange={handleFormChange}
+                        placeholder="Title for search engine results"
+                        style={s.fInput}
+                      />
                     </div>
-
                     <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Meta Description <span style={s.optLabel}>(max 160 chars)</span></label>
-                      <textarea name="metaDescription" value={form.metaDescription} onChange={handleFormChange} placeholder="Explore the top destinations in Rajasthan with expert tips from TripDM travel agents..." style={{ ...s.fTextarea, minHeight: 80 }} rows={3} maxLength={170} />
-                      <div style={s.seoBar}>
-                        <div style={{ ...s.seoBarFill, width: `${Math.min(100, (form.metaDescription.length / 160) * 100)}%`, background: form.metaDescription.length > 160 ? '#ef4444' : form.metaDescription.length >= 120 ? '#10b981' : '#f97316' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <label style={s.fLabel}>Meta Description</label>
+                        <span style={{ fontSize: 11, color: form.metaDescription.length > 160 ? '#ef4444' : '#64748b' }}>{form.metaDescription.length}/160 chars</span>
                       </div>
-                      <span style={{ ...s.fHint, color: form.metaDescription.length > 160 ? '#ef4444' : '#64748b' }}>
-                        {form.metaDescription.length}/160 {form.metaDescription.length > 160 ? '⚠ Too long' : form.metaDescription.length >= 120 ? '✓ Perfect' : ''}
-                      </span>
+                      <textarea
+                        name="metaDescription"
+                        value={form.metaDescription}
+                        onChange={handleFormChange}
+                        rows={3}
+                        placeholder="Description for search engine results"
+                        style={s.fTextarea}
+                      />
                     </div>
                   </div>
                 </div>
 
-                {/* Right — Sidebar Settings */}
+                {/* Sidebar controls */}
                 <div style={s.formSidebar}>
-                  {/* Publish Actions */}
                   <div style={s.formCard}>
                     <h2 style={s.cardTitle}>Publish</h2>
                     <button
@@ -975,656 +1449,771 @@ export default function BlogAdminClient() {
                     <div style={s.fieldGroup}>
                       <label style={s.fLabel}>Category</label>
                       <select name="category" value={form.category} onChange={handleFormChange} style={s.fSelect}>
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        {CATEGORIES.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
                       </select>
                     </div>
                     <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Author</label>
-                      <input name="author" value={form.author} onChange={handleFormChange} placeholder="TripDM Team" style={s.fInput} />
+                      <label style={s.fLabel}>Tags (comma-separated)</label>
+                      <input
+                        type="text"
+                        name="tags"
+                        value={form.tags}
+                        onChange={handleFormChange}
+                        placeholder="Bali, Budget, Beach, Asia"
+                        style={s.fInput}
+                      />
                     </div>
-                    <div style={s.fieldGroup}>
-                      <label style={s.fLabel}>Tags <span style={s.optLabel}>(comma-separated)</span></label>
-                      <input name="tags" value={form.tags} onChange={handleFormChange} placeholder="india, travel, tips, rajasthan" style={s.fInput} />
-                      {form.tags && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                          {form.tags.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
-                            <span key={tag} style={s.tagChip}>#{tag}</span>
-                          ))}
-                        </div>
-                      )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
+                      <button
+                        onClick={() => handleSubmit(true)}
+                        disabled={saving}
+                        style={{ ...s.publishBtn, opacity: saving ? 0.7 : 1 }}
+                      >
+                        {saving ? 'Publishing...' : '🚀 Publish Now'}
+                      </button>
+                      <button
+                        onClick={() => handleSubmit(false)}
+                        disabled={saving}
+                        style={{ ...s.draftBtn, opacity: saving ? 0.7 : 1 }}
+                      >
+                        {saving ? 'Saving...' : '💾 Save as Draft'}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Cover Image */}
                   <div style={s.formCard}>
-                    <h2 style={s.cardTitle}>Cover Image</h2>
-                    
-                    {/* Method Tabs */}
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 16, borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 8 }}>
+                    <div style={s.cardTitle}>Cover Image</div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                       <button
-                        type="button"
                         onClick={() => setImageMethod('upload')}
-                        style={{
-                          background: 'none', border: 'none', padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          color: imageMethod === 'upload' ? '#ea580c' : '#64748b',
-                          borderBottom: imageMethod === 'upload' ? '2px solid #ea580c' : '2px solid transparent',
-                          marginBottom: -9, transition: 'all 0.15s'
-                        }}
+                        style={{ ...s.tabBtn, ...(imageMethod === 'upload' ? s.tabBtnActive : {}) }}
                       >
-                        📁 Upload Image
+                        Upload
                       </button>
                       <button
-                        type="button"
                         onClick={() => setImageMethod('url')}
-                        style={{
-                          background: 'none', border: 'none', padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          color: imageMethod === 'url' ? '#ea580c' : '#64748b',
-                          borderBottom: imageMethod === 'url' ? '2px solid #ea580c' : '2px solid transparent',
-                          marginBottom: -9, transition: 'all 0.15s'
-                        }}
+                        style={{ ...s.tabBtn, ...(imageMethod === 'url' ? s.tabBtnActive : {}) }}
                       >
-                        🔗 Image URL
+                        Image URL
                       </button>
                     </div>
-
-                    {imageMethod === 'url' ? (
-                      <div style={s.fieldGroup}>
-                        <label style={s.fLabel}>Image URL</label>
-                        <input name="coverImage" value={form.coverImage} onChange={handleFormChange} placeholder="https://..." style={s.fInput} />
-                      </div>
-                    ) : (
-                      <div style={s.fieldGroup}>
-                        <div
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={handleDrop}
-                          onClick={() => document.getElementById('cover-file-input')?.click()}
-                          style={{
-                            border: isDragging ? '2px dashed #ea580c' : '2px dashed rgba(0,0,0,0.08)',
-                            background: isDragging ? 'rgba(249,115,22,0.02)' : '#fafafa',
-                            borderRadius: 10, padding: '24px 16px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s'
-                          }}
-                        >
-                          <input
-                            id="cover-file-input"
-                            type="file"
-                            accept="image/*"
-                            onChange={e => e.target.files?.[0] && handleImageFileChange(e.target.files[0])}
-                            style={{ display: 'none' }}
-                          />
+                    {imageMethod === 'upload' ? (
+                      <div
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        style={{ ...s.dropzone, borderColor: isDragging ? '#f97316' : 'rgba(0,0,0,0.15)' }}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => e.target.files && handleImageFileChange(e.target.files[0])}
+                          style={s.fileInputHidden}
+                          id="cover-upload"
+                        />
+                        <label htmlFor="cover-upload" style={{ cursor: 'pointer', textAlign: 'center', display: 'block', width: '100%' }}>
                           {uploadingImage ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                              <div style={{ ...s.btnSpinner, borderTopColor: '#ea580c', width: 24, height: 24 }} />
-                              <span style={{ fontSize: 12, color: '#ea580c', fontWeight: 500 }}>Uploading image...</span>
+                            <div>
+                              <div style={s.loadSpinner} />
+                              <p style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>Uploading & compressing...</p>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: 28, marginBottom: 6 }}>📤</span>
-                              <span style={{ fontSize: 12, color: '#0f172a', fontWeight: 600 }}>Click to upload or drag image here</span>
-                              <span style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>PNG, JPG up to 10MB</span>
+                            <div>
+                              <span style={{ fontSize: 24, display: 'block', marginBottom: 4 }}>📷</span>
+                              <p style={{ fontSize: 12, color: '#0f172a', fontWeight: 600 }}>Click or drag image here</p>
+                              <span style={{ fontSize: 11, color: '#64748b' }}>PNG, JPG, WebP up to 5MB</span>
                             </div>
                           )}
-                        </div>
-                      </div>
-                    )}
-
-                    {form.coverImage ? (
-                      <div style={{ position: 'relative', marginTop: 12 }}>
-                        <img src={form.coverImage} alt="Cover preview" style={s.coverPreview} />
-                        <button
-                          type="button"
-                          onClick={() => setForm(f => ({ ...f, coverImage: '' }))}
-                          style={{
-                            position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', border: 'none',
-                            color: '#fff', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: 14, fontWeight: 700
-                          }}
-                          title="Remove image"
-                        >
-                          ×
-                        </button>
+                        </label>
                       </div>
                     ) : (
-                      <div style={s.coverPlaceholder}>
-                        <span style={{ fontSize: 32 }}>🖼️</span>
-                        <span style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>Cover image preview</span>
+                      <div style={s.fieldGroup}>
+                        <input
+                          type="text"
+                          name="coverImage"
+                          value={form.coverImage}
+                          onChange={handleFormChange}
+                          placeholder="https://images.unsplash.com/..."
+                          style={s.fInput}
+                        />
                       </div>
                     )}
-                  </div>
-
-                  {/* SEO Checklist */}
-                  <div style={s.formCard}>
-                    <h2 style={s.cardTitle}>SEO Checklist</h2>
-                    {[
-                      { label: 'Title added', ok: form.title.length > 0 },
-                      { label: 'Slug defined', ok: form.slug.length > 0 },
-                      { label: 'Excerpt written', ok: form.excerpt.length >= 80 },
-                      { label: 'Content 800+ words', ok: form.content.split(/\s+/).filter(Boolean).length >= 800 },
-                      { label: 'Cover image set', ok: form.coverImage.length > 0 },
-                      { label: 'Meta title set', ok: form.metaTitle.length > 0 && form.metaTitle.length <= 60 },
-                      { label: 'Meta description set', ok: form.metaDescription.length >= 120 && form.metaDescription.length <= 160 },
-                      { label: 'Tags added', ok: form.tags.length > 0 },
-                    ].map(item => (
-                      <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                        <span style={{ fontSize: 14, color: item.ok ? '#10b981' : '#94a3b8' }}>{item.ok ? '✓' : '○'}</span>
-                        <span style={{ fontSize: 13, color: item.ok ? '#059669' : '#64748b' }}>{item.label}</span>
-                      </div>
-                    ))}
-                    <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(16,185,129,0.1)', borderRadius: 6, fontSize: 12, color: '#059669' }}>
-                      {[
-                        form.title.length > 0, form.slug.length > 0, form.excerpt.length >= 80,
-                        form.content.split(/\s+/).filter(Boolean).length >= 800,
-                        form.coverImage.length > 0, form.metaTitle.length > 0 && form.metaTitle.length <= 60,
-                        form.metaDescription.length >= 120 && form.metaDescription.length <= 160,
-                        form.tags.length > 0
-                      ].filter(Boolean).length} / 8 SEO criteria met
-                    </div>
+                    {form.coverImage && (
+                      <img src={form.coverImage} alt="Preview" style={s.coverPreview} />
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           )}
+
+          {/* ── Bulk Generator View ── */}
+          {view === 'bulk' && (
+            <div>
+              {/* Header */}
+              <div style={s.topBar}>
+                <div>
+                  <h1 style={{ ...s.pageTitle, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span>⚡ EEAT Bulk Article Generator</span>
+                    <span style={s.activeBadge}>Gemini 2.0 / Flash Engine</span>
+                  </h1>
+                  <p style={s.pageSub}>
+                    Paste multiple blog titles to generate 1500–2500 word EEAT travel guides with automated rate limit protection & live tracking
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => exportBulkResults()} disabled={bulkQueue.length === 0} style={{ ...s.backBtn, opacity: bulkQueue.length === 0 ? 0.5 : 1 }}>
+                    📥 Export JSON ({bulkQueue.filter(i => i.status === 'success').length})
+                  </button>
+                  <button onClick={() => setView('dashboard')} style={s.backBtn}>
+                    ← Back to Dashboard
+                  </button>
+                </div>
+              </div>
+
+              {/* Stat Cards */}
+              <div style={s.statsRow}>
+                <div style={s.statCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ ...s.statVal, color: '#0f172a' }}>{bulkQueue.length}</div>
+                      <div style={s.statLabel}>Total Queue Titles</div>
+                    </div>
+                    <span style={{ fontSize: 24 }}>📋</span>
+                  </div>
+                </div>
+                <div style={s.statCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ ...s.statVal, color: '#059669' }}>{completedCount}</div>
+                      <div style={s.statLabel}>Completed ({progressPercent}%)</div>
+                    </div>
+                    <span style={{ fontSize: 24 }}>✅</span>
+                  </div>
+                </div>
+                <div style={s.statCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ ...s.statVal, color: '#d97706' }}>{pendingCount}</div>
+                      <div style={s.statLabel}>Pending Generation</div>
+                    </div>
+                    <span style={{ fontSize: 24 }}>⏳</span>
+                  </div>
+                </div>
+                <div style={s.statCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ ...s.statVal, color: '#dc2626' }}>{failedCount}</div>
+                      <div style={s.statLabel}>Failed Items</div>
+                    </div>
+                    <span style={{ fontSize: 24 }}>⚠️</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Configuration & Input Section */}
+              <div style={s.bulkCard}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={s.cardTitle}>1. Upload / Paste Blog Titles</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => handleLoadPreset('priority')} style={s.presetBtn}>
+                      📌 Load Uttarakhand Priority Top 10
+                    </button>
+                    <button onClick={() => handleLoadPreset('all')} style={s.presetBtn}>
+                      🏔️ Load All 35+ Uttarakhand Titles
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  value={bulkInputText}
+                  onChange={e => setBulkInputText(e.target.value)}
+                  rows={6}
+                  placeholder="Paste titles here (one title per line). Headers and bullet numbers like '1.' will be cleaned automatically."
+                  style={s.fTextarea}
+                  disabled={bulkRunning}
+                />
+
+                <div style={s.settingsGrid}>
+                  <div style={s.settingBox}>
+                    <label style={s.settingLabel}>⏱️ Rate Limit Protection Delay</label>
+                    <select
+                      value={bulkDelaySeconds}
+                      onChange={e => setBulkDelaySeconds(Number(e.target.value))}
+                      disabled={bulkRunning}
+                      style={s.fSelect}
+                    >
+                      <option value={5}>5 Seconds (Fast - Paid Tier)</option>
+                      <option value={8}>8 Seconds (Recommended Safe Tier)</option>
+                      <option value={12}>12 Seconds (Extra Safe Tier)</option>
+                      <option value={15}>15 Seconds (Strict Rate Limit Guard)</option>
+                    </select>
+                  </div>
+
+                  <div style={s.settingBox}>
+                    <label style={s.settingLabel}>💾 Auto-Save Destination</label>
+                    <select
+                      value={bulkSaveMode}
+                      onChange={e => setBulkSaveMode(e.target.value as any)}
+                      disabled={bulkRunning}
+                      style={s.fSelect}
+                    >
+                      <option value="draft">Save as Drafts in Firestore (Review first)</option>
+                      <option value="publish">Publish Immediately to Live Blog</option>
+                    </select>
+                  </div>
+
+                  <div style={s.settingBox}>
+                    <label style={s.settingLabel}>🏷️ Category Assignment</label>
+                    <select
+                      value={bulkCategoryOverride}
+                      onChange={e => setBulkCategoryOverride(e.target.value)}
+                      disabled={bulkRunning}
+                      style={s.fSelect}
+                    >
+                      <option value="Auto-Detect">Auto-Detect Category from Keywords</option>
+                      {CATEGORIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                  <button
+                    onClick={handleParseInputToQueue}
+                    disabled={bulkRunning}
+                    style={s.parseBtn}
+                  >
+                    📥 Parse & Load into Queue
+                  </button>
+                  {bulkQueue.length > 0 && (
+                    <button
+                      onClick={handleClearAllBulk}
+                      disabled={bulkRunning}
+                      style={s.clearBtn}
+                    >
+                      🗑️ Clear Queue
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress & Live Monitor Container */}
+              {bulkQueue.length > 0 && (
+                <div style={s.bulkCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div>
+                      <div style={s.cardTitle}>2. Live Processing Dashboard</div>
+                      <div style={{ fontSize: 13, color: '#64748b' }}>
+                        Progress: {completedCount} / {bulkQueue.length} done ({progressPercent}%) · ~{estimatedTimeMin} mins remaining
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {!bulkRunning ? (
+                        <button onClick={runBulkProcess} style={s.startBulkBtn}>
+                          ▶ Start Generation Queue
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={handlePauseBulk} style={s.pauseBulkBtn}>
+                            {bulkPaused ? '▶ Resume' : '⏸ Pause'}
+                          </button>
+                          <button onClick={handleStopBulk} style={s.stopBulkBtn}>
+                            ⏹ Stop Process
+                          </button>
+                        </>
+                      )}
+                      {failedCount > 0 && !bulkRunning && (
+                        <button onClick={handleRetryFailedBulk} style={s.retryAllBtn}>
+                          🔄 Retry Failed ({failedCount})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div style={s.progressBarTrack}>
+                    <div style={{ ...s.progressBarFill, width: `${progressPercent}%` }} />
+                  </div>
+
+                  {/* Active Task Card & Cooling Timer */}
+                  {bulkCurrentIndex >= 0 && bulkQueue[bulkCurrentIndex] && (
+                    <div style={s.activeTaskCard}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={s.activeSpinner} />
+                        <div>
+                          <div style={{ fontSize: 11, color: '#ea580c', fontWeight: 700, textTransform: 'uppercase' }}>
+                            Currently Processing Item [{bulkCurrentIndex + 1}/{bulkQueue.length}]
+                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                            {bulkQueue[bulkCurrentIndex].title}
+                          </div>
+                        </div>
+                      </div>
+                      {bulkCoolingTimer > 0 && (
+                        <div style={s.coolingTimerBadge}>
+                          ⏳ Cooling down for API rate-limit: <strong>{bulkCoolingTimer}s</strong> remaining
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Terminal Console Logs */}
+                  <div style={s.terminalContainer}>
+                    <div style={s.terminalHeader}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} />
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b' }} />
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981' }} />
+                        <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 8, fontWeight: 600 }}>TripDM AI Console Stream</span>
+                      </div>
+                      <button onClick={() => setBulkLogs([])} style={s.clearLogBtn}>Clear Log</button>
+                    </div>
+                    <div className="terminal-scroll" style={s.terminalLogs}>
+                      {bulkLogs.length === 0 ? (
+                        <div style={{ color: '#64748b' }}>Console output will stream here when generation starts...</div>
+                      ) : (
+                        bulkLogs.map(log => (
+                          <div key={log.id} style={{
+                            color: log.type === 'success' ? '#34d399' : log.type === 'error' ? '#f87171' : log.type === 'warn' ? '#fbbf24' : '#cbd5e1',
+                            marginBottom: 3
+                          }}>
+                            <span style={{ color: '#64748b', marginRight: 8 }}>[{log.timestamp}]</span>
+                            {log.message}
+                          </div>
+                        ))
+                      )}
+                      <div ref={terminalLogsEndRef} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Queue Items Table */}
+              {bulkQueue.length > 0 && (
+                <div style={s.bulkCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+                    <div style={s.cardTitle}>3. Queue & Generation Status ({filteredQueue.length})</div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder="Search queue titles..."
+                        value={bulkSearchQuery}
+                        onChange={e => setBulkSearchQuery(e.target.value)}
+                        style={{ ...s.fInput, width: 200, padding: '6px 10px', fontSize: 12 }}
+                      />
+                      <select
+                        value={bulkFilterStatus}
+                        onChange={e => setBulkFilterStatus(e.target.value as any)}
+                        style={{ ...s.fSelect, width: 130, padding: '6px 10px', fontSize: 12 }}
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="success">Success</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={s.table}>
+                      <thead>
+                        <tr>
+                          <th style={s.th}>#</th>
+                          <th style={s.th}>Article Title</th>
+                          <th style={s.th}>Category</th>
+                          <th style={s.th}>Status</th>
+                          <th style={s.th}>Word Count</th>
+                          <th style={s.th}>Time</th>
+                          <th style={s.th}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredQueue.map((item, idx) => (
+                          <tr key={item.id} style={{ ...s.tr, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ ...s.td, color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
+                            <td style={s.td}>
+                              <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.title}</div>
+                              {item.slug && <div style={{ fontSize: 11, color: '#166534' }}>/blog/{item.slug}</div>}
+                              {item.error && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>⚠️ {item.error}</div>}
+                            </td>
+                            <td style={s.td}>
+                              <span style={s.categoryChip}>{item.category}</span>
+                            </td>
+                            <td style={s.td}>
+                              {item.status === 'pending' && <span style={s.badgePending}>⏳ Pending</span>}
+                              {item.status === 'generating' && <span style={s.badgeGenerating}><div style={s.miniSpinner} /> Generating...</span>}
+                              {item.status === 'success' && <span style={s.badgeSuccess}>✅ Success</span>}
+                              {item.status === 'failed' && <span style={s.badgeFailed}>❌ Failed</span>}
+                            </td>
+                            <td style={s.td}>
+                              {item.wordCount ? `${item.wordCount.toLocaleString()} words` : '-'}
+                            </td>
+                            <td style={s.td}>
+                              {item.timeTaken ? `${item.timeTaken}s` : '-'}
+                            </td>
+                            <td style={s.td}>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                {item.status === 'success' && (
+                                  <button onClick={() => { setPreviewModalItem(item); setPreviewTab('render'); }} style={{ ...s.miniActionBtn, color: '#ea580c', borderColor: 'rgba(249,115,22,0.3)', background: 'rgba(249,115,22,0.06)' }}>
+                                    👁️ Preview Page
+                                  </button>
+                                )}
+                                {item.status === 'failed' && !bulkRunning && (
+                                  <button onClick={() => handleSingleItemRetry(idx)} style={{ ...s.miniActionBtn, color: '#ea580c' }}>
+                                    🔄 Retry
+                                  </button>
+                                )}
+                                <button onClick={() => handleRemoveItem(idx)} disabled={bulkRunning} style={{ ...s.miniActionBtn, color: '#94a3b8' }}>
+                                  🗑️
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
         </main>
       </div>
+
+      {/* ── PREVIEW ARTICLE MODAL (PROPER LIVE WEB PAGE VIEW) ── */}
+      {previewModalItem && (
+        <div style={s.modalOverlay} onClick={() => setPreviewModalItem(null)}>
+          <div style={{ ...s.modalContent, maxWidth: 960, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>{previewModalItem.title}</span>
+                  <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.1)', color: '#059669', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+                    {previewModalItem.wordCount ? `${previewModalItem.wordCount.toLocaleString()} words` : 'Generated Article'}
+                  </span>
+                </h3>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Live format preview of your EEAT article</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <a
+                  href={`/blog/${previewModalItem.slug || previewModalItem.id}?preview=true`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, boxShadow: '0 2px 8px rgba(249,115,22,0.25)' }}
+                >
+                  ↗ Open Full Page Preview
+                </a>
+                <button onClick={() => setPreviewModalItem(null)} style={s.closeModalBtn}>✕</button>
+              </div>
+            </div>
+
+            {/* Modal Tab Switcher */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <button onClick={() => setPreviewTab('render')} style={{ ...s.tabBtn, ...(previewTab === 'render' ? s.tabBtnActive : {}) }}>🌐 Live HTML Page View</button>
+              <button onClick={() => setPreviewTab('seo')} style={{ ...s.tabBtn, ...(previewTab === 'seo' ? s.tabBtnActive : {}) }}>🔍 SEO & Schema Metadata</button>
+              <button onClick={() => setPreviewTab('faq')} style={{ ...s.tabBtn, ...(previewTab === 'faq' ? s.tabBtnActive : {}) }}>❓ FAQs ({previewModalItem.richData?.faq?.length || 0})</button>
+              <button onClick={() => setPreviewTab('markdown')} style={{ ...s.tabBtn, ...(previewTab === 'markdown' ? s.tabBtnActive : {}) }}>📄 Raw Markdown</button>
+            </div>
+
+            {/* Tab Contents */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 20, background: '#ffffff', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.02)' }}>
+              
+              {/* Tab 1: Live HTML Rendered Page */}
+              {previewTab === 'render' && (
+                <div style={{ maxWidth: 800, margin: '0 auto' }}>
+                  {/* Article Hero Preview Header */}
+                  <div style={{ background: 'linear-gradient(135deg, #1c1917, #292524)', padding: '24px 28px', borderRadius: 12, color: '#fff', marginBottom: 24, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+                    <span style={{ background: '#f97316', color: '#fff', fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', padding: '3px 10px', borderRadius: 4, display: 'inline-block', marginBottom: 10 }}>
+                      {previewModalItem.category || 'Travel Guides'}
+                    </span>
+                    <h1 style={{ fontFamily: 'Merriweather, Georgia, serif', fontSize: 24, fontWeight: 900, lineHeight: 1.3, marginBottom: 14 }}>
+                      {previewModalItem.title}
+                    </h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 11 }}>T</div>
+                        <span style={{ fontWeight: 600, color: '#fff' }}>TripDM Travel Expert</span>
+                      </div>
+                      <span>•</span>
+                      <span>⏱️ {Math.ceil((previewModalItem.wordCount || 1500) / 200)} min read</span>
+                      <span>•</span>
+                      <span>📅 {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                  </div>
+
+                  {/* Excerpt Box */}
+                  {previewModalItem.blogFormData?.excerpt && (
+                    <div style={{ fontFamily: 'Merriweather, Georgia, serif', fontSize: 16, lineHeight: 1.7, color: '#44403c', borderLeft: '4px solid #f97316', padding: '14px 20px', background: '#fff7ed', borderRadius: '0 8px 8px 0', marginBottom: 24, fontStyle: 'italic' }}>
+                      {previewModalItem.blogFormData.excerpt}
+                    </div>
+                  )}
+
+                  {/* Rendered HTML Article Body */}
+                  <div
+                    className="live-preview-content"
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdownToHtml(previewModalItem.blogFormData?.content || '')
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Tab 2: SEO & Schema Metadata */}
+              {previewTab === 'seo' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={s.googlePreview}>
+                    <div style={s.googlePreviewLabel}>Google Search Result Preview</div>
+                    <div style={s.googlePreviewUrl}>https://tripdm.com › blog › {previewModalItem.slug || 'url-slug'}</div>
+                    <div style={s.googlePreviewTitle}>{previewModalItem.richData?.seo?.title || previewModalItem.title}</div>
+                    <div style={s.googlePreviewDesc}>{previewModalItem.richData?.seo?.metaDescription || previewModalItem.blogFormData?.excerpt}</div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Targeting SEO Metadata</div>
+                    <div style={{ fontSize: 13, color: '#334155', marginBottom: 6 }}>
+                      <strong>Primary Keyword:</strong> <span style={{ color: '#ea580c', fontWeight: 600 }}>{previewModalItem.richData?.seo?.focusKeyword || 'Uttarakhand Travel'}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#334155', marginBottom: 6 }}>
+                      <strong>Secondary Keywords:</strong> {previewModalItem.richData?.seo?.secondaryKeywords?.join(', ') || 'N/A'}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#334155' }}>
+                      <strong>Canonical URL:</strong> <a href={previewModalItem.richData?.seo?.canonical || `#`} target="_blank" style={{ color: '#0284c7' }}>{previewModalItem.richData?.seo?.canonical || `https://tripdm.com/blog/${previewModalItem.slug}`}</a>
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>JSON-LD Schema Payload</div>
+                    <pre style={{ fontFamily: 'Fira Code, monospace', fontSize: 11, background: '#0f172a', color: '#34d399', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
+                      {JSON.stringify(previewModalItem.richData?.schema || {}, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: FAQ Accordions */}
+              {previewTab === 'faq' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                    Frequently Asked Questions ({previewModalItem.richData?.faq?.length || 0})
+                  </div>
+                  {(!previewModalItem.richData?.faq || previewModalItem.richData.faq.length === 0) ? (
+                    <div style={{ color: '#64748b', fontSize: 13 }}>No separate FAQs generated for this item.</div>
+                  ) : (
+                    previewModalItem.richData.faq.map((faq: any, i: number) => (
+                      <div key={i} style={{ padding: 14, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 6 }}>❓ {faq.question}</div>
+                        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{faq.answer}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* Tab 4: Raw Markdown Code */}
+              {previewTab === 'markdown' && (
+                <pre style={{ fontFamily: 'Fira Code, monospace', fontSize: 12, whiteSpace: 'pre-wrap', color: '#334155', lineHeight: 1.6 }}>
+                  {previewModalItem.blogFormData?.content || previewModalItem.richData?.article?.contentMarkdown}
+                </pre>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SINGLE POST AI MODAL ── */}
+      {showAiModal && (
+        <div style={s.modalOverlay} onClick={() => setShowAiModal(false)}>
+          <div style={s.modalContent} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>✨ Generate Single Article with AI</h3>
+              <button onClick={() => setShowAiModal(false)} style={s.closeModalBtn}>✕</button>
+            </div>
+            <div style={s.fieldGroup}>
+              <label style={s.fLabel}>Blog Topic or Title *</label>
+              <input
+                type="text"
+                value={aiTopic}
+                onChange={e => setAiTopic(e.target.value)}
+                placeholder="e.g. Kedarnath Travel Guide 2026"
+                style={s.fInput}
+              />
+            </div>
+            <div style={s.fieldGroup}>
+              <label style={s.fLabel}>Focus Keywords (optional)</label>
+              <input
+                type="text"
+                value={aiKeywords}
+                onChange={e => setAiKeywords(e.target.value)}
+                placeholder="e.g. kedarnath trek, budget, itinerary"
+                style={s.fInput}
+              />
+            </div>
+            {aiError && (
+              <div style={{ ...s.errorAlert, marginBottom: 12 }}>⚠️ {aiError}</div>
+            )}
+            {aiGenStep && (
+              <div style={{ fontSize: 13, color: '#7c3aed', marginBottom: 12, fontWeight: 600 }}>
+                {aiGenStep}
+              </div>
+            )}
+            <button
+              onClick={handleAiGenerate}
+              disabled={aiGenerating}
+              style={{ ...s.publishBtn, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', opacity: aiGenerating ? 0.7 : 1 }}
+            >
+              {aiGenerating ? 'Generating EEAT Article...' : '✨ Generate Article'}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const s: Record<string, React.CSSProperties> = {
-  splash: { minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  splashSpinner: { width: 36, height: 36, border: '2px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
-
-  // Login
-  loginBg: {
-    minHeight: '100vh',
-    background: '#f8fafc',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  orb1: {
-    position: 'absolute',
-    top: '-10%',
-    right: '-5%',
-    width: 500,
-    height: 500,
-    borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(249,115,22,0.08) 0%, transparent 70%)',
-    pointerEvents: 'none',
-  },
-  orb2: {
-    position: 'absolute',
-    bottom: '-10%',
-    left: '-5%',
-    width: 400,
-    height: 400,
-    borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%)',
-    pointerEvents: 'none',
-  },
-  loginCard: {
-    background: 'rgba(255,255,255,0.95)',
-    backdropFilter: 'blur(24px)',
-    border: '1px solid rgba(0,0,0,0.06)',
-    borderRadius: 20,
-    padding: '40px 36px',
-    width: '100%',
-    maxWidth: 420,
-    position: 'relative',
-    zIndex: 2,
-    boxShadow: '0 24px 64px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,1) inset',
-  },
+const s: { [key: string]: React.CSSProperties } = {
+  loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' },
+  loadSpinner: { width: 32, height: 32, border: '3px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
+  loginWrapper: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', position: 'relative', overflow: 'hidden', padding: 24 },
+  orb1: { position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)', pointerEvents: 'none' },
+  orb2: { position: 'absolute', bottom: '-10%', left: '-5%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', pointerEvents: 'none' },
+  loginCard: { background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, padding: '40px 36px', width: '100%', maxWidth: 420, position: 'relative', zIndex: 2, boxShadow: '0 24px 64px rgba(0,0,0,0.3)' },
   loginHeader: { textAlign: 'center', marginBottom: 32 },
   loginBrand: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 24 },
-  loginBrandIcon: {
-    width: 36, height: 36,
-    background: 'linear-gradient(135deg, #f97316, #ea580c)',
-    borderRadius: 10,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 16, color: '#fff', fontWeight: 700,
-  },
+  loginBrandIcon: { width: 36, height: 36, background: 'linear-gradient(135deg, #f97316, #ea580c)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff', fontWeight: 700 },
   loginBrandName: { fontSize: 18, fontWeight: 800, color: '#0f172a' },
-  loginBrandBadge: {
-    background: 'rgba(249,115,22,0.1)',
-    border: '1px solid rgba(249,115,22,0.2)',
-    color: '#ea580c',
-    fontSize: 11,
-    fontWeight: 700,
-    padding: '2px 8px',
-    borderRadius: 20,
-    letterSpacing: 0.5,
-  },
+  loginBrandBadge: { background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: '#ea580c', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, letterSpacing: 0.5 },
   loginH1: { fontSize: 26, fontWeight: 800, color: '#0f172a', marginBottom: 6 },
   loginSub: { color: '#64748b', fontSize: 14 },
-  googleBtn: {
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.1)',
-    borderRadius: 10,
-    padding: '11px 16px',
-    color: '#334155',
-    fontSize: 14,
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    fontFamily: 'inherit',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-  },
+  googleBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#ffffff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10, padding: '11px 16px', color: '#334155', fontSize: 14, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' },
   divider: { display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' },
   dividerLine: { flex: 1, height: 1, background: 'rgba(0,0,0,0.08)' },
   dividerText: { color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' },
   loginForm: { display: 'flex', flexDirection: 'column', gap: 16 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
   fieldLabel: { color: '#475569', fontSize: 13, fontWeight: 500 },
-  fieldInput: {
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.1)',
-    borderRadius: 10,
-    padding: '11px 14px',
-    color: '#0f172a',
-    fontSize: 14,
-    outline: 'none',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    fontFamily: 'inherit',
-    width: '100%',
-  },
-  eyeBtn: {
-    position: 'absolute',
-    right: 12,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: 16,
-    color: '#94a3b8',
-    padding: 4,
-  },
-  errorAlert: {
-    background: 'rgba(239,68,68,0.1)',
-    border: '1px solid rgba(239,68,68,0.2)',
-    borderRadius: 8,
-    padding: '10px 14px',
-    color: '#dc2626',
-    fontSize: 13,
-    display: 'flex',
-    gap: 8,
-    alignItems: 'flex-start',
-  },
-  signInBtn: {
-    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-    border: 'none',
-    borderRadius: 10,
-    padding: '12px 20px',
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    transition: 'box-shadow 0.2s',
-    fontFamily: 'inherit',
-    width: '100%',
-    boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
-  },
-  btnSpinner: {
-    width: 16,
-    height: 16,
-    border: '2px solid rgba(0,0,0,0.1)',
-    borderTopColor: '#0f172a',
-    borderRadius: '50%',
-    animation: 'spin 0.7s linear infinite',
-    display: 'inline-block',
-  },
+  fieldInput: { background: '#ffffff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10, padding: '11px 14px', color: '#0f172a', fontSize: 14, outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s', fontFamily: 'inherit', width: '100%' },
+  eyeBtn: { position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#94a3b8', padding: 4 },
+  errorAlert: { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px', color: '#dc2626', fontSize: 13, display: 'flex', gap: 8, alignItems: 'flex-start' },
+  signInBtn: { background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', border: 'none', borderRadius: 10, padding: '12px 20px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'box-shadow 0.2s', fontFamily: 'inherit', width: '100%', boxShadow: '0 4px 12px rgba(249,115,22,0.2)' },
+  btnSpinner: { width: 16, height: 16, border: '2px solid rgba(0,0,0,0.1)', borderTopColor: '#0f172a', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' },
   loginFooter: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 20 },
 
-  // Dashboard
   dash: { display: 'flex', minHeight: '100vh', background: '#f8fafc', color: '#334155' },
-  sidebar: {
-    width: 220,
-    background: '#ffffff',
-    borderRight: '1px solid rgba(0,0,0,0.08)',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    flexShrink: 0,
-    position: 'sticky' as const,
-    top: 0,
-    height: '100vh',
-  },
-  sidebarTop: { padding: '20px 0' },
-  sidebarBrand: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: '0 16px 20px',
-    borderBottom: '1px solid rgba(0,0,0,0.06)',
-    marginBottom: 12,
-  },
-  sidebarBrandIcon: {
-    width: 32, height: 32,
-    background: 'linear-gradient(135deg, #f97316, #ea580c)',
-    borderRadius: 8,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 14, color: '#fff', fontWeight: 700, flexShrink: 0,
-  },
-  sidebarBrandName: { fontSize: 14, fontWeight: 700, color: '#0f172a' },
-  sidebarBrandSub: { fontSize: 10, color: '#64748b', letterSpacing: 0.5, textTransform: 'uppercase' as const },
-  nav: { padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 2 },
-  navItem: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 10px',
-    borderRadius: 8,
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: 500,
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-    textAlign: 'left',
-    fontFamily: 'inherit',
-    width: '100%',
-  },
+  sidebar: { width: 220, background: '#ffffff', borderRight: '1px solid rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 10 },
+  sidebarTop: { padding: '20px 16px' },
+  sidebarBrand: { display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid rgba(0,0,0,0.06)' },
+  nav: { display: 'flex', flexDirection: 'column', gap: 4 },
+  navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: 'none', background: 'transparent', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%' },
   navItemActive: { background: 'rgba(249,115,22,0.1)', color: '#ea580c' },
-  navIcon: { fontSize: 14, width: 18, textAlign: 'center' as const },
-  sidebarBottom: {
-    borderTop: '1px solid rgba(0,0,0,0.06)',
-    padding: '16px',
-  },
+  navIcon: { fontSize: 16 },
+  sidebarBottom: { padding: 16, borderTop: '1px solid rgba(0,0,0,0.06)' },
   sidebarUser: { display: 'flex', alignItems: 'center', gap: 10 },
-  userAvatar: {
-    width: 30, height: 30,
-    background: 'linear-gradient(135deg, #f97316, #ea580c)',
-    borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
-  },
+  userAvatar: { width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   userInfo: { overflow: 'hidden' },
-  userName: { fontSize: 12, fontWeight: 600, color: '#0f172a' },
-  userEmail: { fontSize: 10, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
+  userName: { fontSize: 13, fontWeight: 600, color: '#0f172a' },
+  userEmail: { fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 
-  main: { flex: 1, padding: '32px 36px', overflowY: 'auto', minWidth: 0 },
-  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 },
-  pageTitle: { fontSize: 22, fontWeight: 800, color: '#0f172a', marginBottom: 4 },
-  pageSub: { fontSize: 13, color: '#64748b' },
-  newPostBtn: {
-    background: 'linear-gradient(135deg, #f97316, #ea580c)',
-    border: 'none',
-    borderRadius: 8,
-    padding: '9px 18px',
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    fontFamily: 'inherit',
-    boxShadow: '0 4px 16px rgba(249,115,22,0.2)',
-    flexShrink: 0,
-  },
-  backBtn: {
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.1)',
-    borderRadius: 8,
-    padding: '8px 14px',
-    color: '#475569',
-    fontSize: 13,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    flexShrink: 0,
-  },
-  toast: {
-    borderRadius: 10,
-    border: '1px solid',
-    padding: '12px 16px',
-    fontSize: 14,
-    marginBottom: 20,
-    fontWeight: 500,
-  },
-  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 },
-  statCard: {
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.08)',
-    borderRadius: 12,
-    padding: '18px 20px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-  },
-  statVal: { fontSize: 30, fontWeight: 800, lineHeight: 1, marginBottom: 4 },
-  statLabel: { fontSize: 12, color: '#64748b' },
-  tabs: { display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid rgba(0,0,0,0.08)', paddingBottom: 0 },
-  tab: {
-    background: 'none',
-    border: 'none',
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: 'pointer',
-    padding: '8px 12px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    borderBottomWidth: 2,
-    borderBottomStyle: 'solid',
-    borderBottomColor: 'transparent',
-    marginBottom: -1,
-    fontFamily: 'inherit',
-    transition: 'color 0.15s',
-  },
-  tabActive: { color: '#ea580c', borderBottomColor: '#ea580c' },
-  tabCount: { borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 600 },
-  empty: {
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.08)',
-    borderRadius: 14,
-    padding: '60px 40px',
-    textAlign: 'center',
-  },
-  loadSpinner: { width: 32, height: 32, border: '2px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' },
-  postList: { display: 'flex', flexDirection: 'column', gap: 8 },
-  postRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    padding: '14px 16px',
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.08)',
-    borderRadius: 12,
-    transition: 'border-color 0.2s, background 0.2s',
-    cursor: 'default',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.01)',
-  },
+  main: { marginLeft: 220, flex: 1, padding: 32, maxWidth: 1400 },
+  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+  pageTitle: { fontSize: 24, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' },
+  pageSub: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  activeBadge: { fontSize: 11, fontWeight: 600, color: '#ea580c', background: 'rgba(249,115,22,0.1)', padding: '2px 8px', borderRadius: 12 },
+  newPostBtn: { background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)', display: 'flex', alignItems: 'center', gap: 6 },
+  backBtn: { background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, color: '#334155', cursor: 'pointer' },
+  toast: { padding: '12px 16px', borderRadius: 8, border: '1px solid', marginBottom: 20, fontSize: 13, fontWeight: 500 },
+
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 },
+  statCard: { background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 18, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
+  statVal: { fontSize: 28, fontWeight: 800, marginBottom: 2 },
+  statLabel: { fontSize: 12, color: '#64748b', fontWeight: 500 },
+
+  tabs: { display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid rgba(0,0,0,0.08)', paddingBottom: 8 },
+  tab: { background: 'none', border: 'none', padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 6 },
+  tabActive: { background: '#ffffff', color: '#ea580c', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' },
+  tabCount: { fontSize: 11, padding: '1px 6px', borderRadius: 10 },
+
+  postList: { display: 'flex', flexDirection: 'column', gap: 10 },
+  postRow: { background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', gap: 16, transition: 'all 0.2s' },
   postThumb: { width: 72, height: 52, objectFit: 'cover', borderRadius: 8, flexShrink: 0 },
   postInfo: { flex: 1, minWidth: 0 },
-  postMeta: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' as const },
-  postBadge: {
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    fontSize: 11, fontWeight: 600,
-    padding: '2px 8px', borderRadius: 10,
-  },
+  postMeta: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' },
+  postBadge: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 },
   publishedBadge: { background: 'rgba(16,185,129,0.1)', color: '#059669' },
   draftBadge: { background: 'rgba(245,158,11,0.1)', color: '#d97706' },
   categoryChip: { fontSize: 11, color: '#475569', background: 'rgba(0,0,0,0.04)', padding: '2px 8px', borderRadius: 10 },
   postDate: { fontSize: 11, color: '#64748b' },
-  postTitle: { fontSize: 14, fontWeight: 600, color: '#0f172a', lineHeight: 1.4, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
-  postExcerpt: { fontSize: 12, color: '#64748b', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
-  postActions: { display: 'flex', gap: 4, flexShrink: 0 },
-  actionBtn: {
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.1)',
-    borderRadius: 6,
-    padding: '5px 10px',
-    fontSize: 12,
-    color: '#475569',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    textDecoration: 'none',
-    display: 'inline-block',
-    transition: 'all 0.15s',
-  },
+  postTitle: { fontSize: 14, fontWeight: 600, color: '#0f172a', lineHeight: 1.4, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  postExcerpt: { fontSize: 12, color: '#64748b', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  postActions: { display: 'flex', gap: 6, flexShrink: 0 },
+  actionBtn: { background: '#ffffff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 6, padding: '5px 10px', fontSize: 12, color: '#475569', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block' },
+  empty: { background: '#ffffff', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: 12, padding: 48, textAlign: 'center' },
 
-  // Form
-  formLayout: { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16, alignItems: 'start' },
-  formMain: { display: 'flex', flexDirection: 'column', gap: 16 },
-  formSidebar: { display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky' as const, top: 16 },
-  formCard: {
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.08)',
-    borderRadius: 12,
-    padding: '20px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-  },
-  cardTitle: { fontSize: 13, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: 0.7, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' },
+  formLayout: { display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' },
+  formMain: { display: 'flex', flexDirection: 'column', gap: 20 },
+  formSidebar: { display: 'flex', flexDirection: 'column', gap: 20, position: 'sticky', top: 20 },
+  formCard: { background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 20, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
+  cardTitle: { fontSize: 13, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid rgba(0,0,0,0.06)' },
   fieldGroup: { marginBottom: 16 },
   fLabel: { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 },
-  fHint: { display: 'block', fontSize: 11, color: '#64748b', marginTop: 4 },
-  optLabel: { color: '#94a3b8', fontWeight: 400 },
-  fInput: {
-    width: '100%',
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.15)',
-    borderRadius: 8,
-    padding: '9px 12px',
-    color: '#0f172a',
-    fontSize: 13,
-    outline: 'none',
-    fontFamily: 'inherit',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    marginBottom: 0,
-    boxSizing: 'border-box' as const,
-  },
-  fTextarea: {
-    width: '100%',
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.15)',
-    borderRadius: 8,
-    padding: '9px 12px',
-    color: '#0f172a',
-    fontSize: 13,
-    outline: 'none',
-    fontFamily: 'inherit',
-    resize: 'vertical',
-    lineHeight: 1.65,
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    boxSizing: 'border-box' as const,
-  },
-  fSelect: {
-    width: '100%',
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.15)',
-    borderRadius: 8,
-    padding: '9px 12px',
-    color: '#0f172a',
-    fontSize: 13,
-    outline: 'none',
-    fontFamily: 'inherit',
-    cursor: 'pointer',
-  },
+  fInput: { width: '100%', background: '#ffffff', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 8, padding: '9px 12px', color: '#0f172a', fontSize: 13, outline: 'none', fontFamily: 'inherit' },
+  fTextarea: { width: '100%', background: '#ffffff', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 8, padding: '9px 12px', color: '#0f172a', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 },
+  fSelect: { width: '100%', background: '#ffffff', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 8, padding: '9px 12px', color: '#0f172a', fontSize: 13, outline: 'none', fontFamily: 'inherit', cursor: 'pointer' },
   slugWrap: { display: 'flex' },
-  slugPrefix: {
-    background: '#f1f5f9',
-    border: '1px solid rgba(0,0,0,0.15)',
-    borderRight: 'none',
-    borderRadius: '8px 0 0 8px',
-    padding: '9px 10px',
-    fontSize: 12,
-    color: '#64748b',
-    whiteSpace: 'nowrap',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  contentTip: {
-    background: 'rgba(124,58,237,0.05)',
-    border: '1px solid rgba(124,58,237,0.15)',
-    borderRadius: 8,
-    padding: '12px 14px',
-    marginBottom: 12,
-    fontSize: 13,
-  },
-  googlePreview: {
-    background: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 10,
-    padding: '16px',
-    marginBottom: 16,
-    boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-  },
-  googlePreviewLabel: { fontSize: 10, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8, fontFamily: 'Inter, sans-serif' },
-  googlePreviewUrl: { fontSize: 12, color: '#166534', marginBottom: 3, fontFamily: 'Inter, sans-serif' },
-  googlePreviewTitle: { fontSize: 17, color: '#1a0dab', marginBottom: 4, lineHeight: 1.3, fontFamily: 'Inter, sans-serif' },
-  googlePreviewDesc: { fontSize: 12, color: '#475569', lineHeight: 1.5, fontFamily: 'Inter, sans-serif' },
-  seoBar: { height: 3, background: 'rgba(0,0,0,0.06)', borderRadius: 2, marginTop: 6, overflow: 'hidden' },
-  seoBarFill: { height: '100%', borderRadius: 2, transition: 'width 0.3s, background 0.3s' },
-  tagChip: { background: 'rgba(249,115,22,0.1)', color: '#ea580c', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 500 },
-  publishBtn: {
-    width: '100%',
-    background: 'linear-gradient(135deg, #f97316, #ea580c)',
-    border: 'none',
-    borderRadius: 8,
-    padding: '11px 0',
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    marginBottom: 8,
-    boxShadow: '0 4px 14px rgba(249,115,22,0.25)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'opacity 0.2s',
-  },
-  draftBtn: {
-    width: '100%',
-    background: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.15)',
-    borderRadius: 8,
-    padding: '10px 0',
-    color: '#475569',
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'opacity 0.2s',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-  },
-  coverPreview: { width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginTop: 4, border: '1px solid rgba(0,0,0,0.08)' },
-  coverPlaceholder: {
-    width: '100%', height: 100,
-    background: '#f8fafc',
-    border: '1px dashed rgba(0,0,0,0.15)',
-    borderRadius: 8,
-    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    marginTop: 4,
-  },
-  modalOverlay: {
-    position: 'fixed' as const,
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(15, 23, 42, 0.5)',
-    backdropFilter: 'blur(4px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  modalContent: {
-    background: '#ffffff',
-    borderRadius: 16,
-    padding: 32,
-    width: '100%',
-    maxWidth: 480,
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-  },
+  slugPrefix: { background: '#f1f5f9', border: '1px solid rgba(0,0,0,0.15)', borderRight: 'none', borderRadius: '8px 0 0 8px', padding: '9px 10px', fontSize: 12, color: '#64748b' },
+  googlePreview: { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 },
+  googlePreviewLabel: { fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  googlePreviewUrl: { fontSize: 12, color: '#166534', marginBottom: 2 },
+  googlePreviewTitle: { fontSize: 16, color: '#1a0dab', marginBottom: 4, lineHeight: 1.3 },
+  googlePreviewDesc: { fontSize: 12, color: '#475569', lineHeight: 1.4 },
+  tabBtn: { flex: 1, padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.1)', background: '#f8fafc', fontSize: 12, fontWeight: 600, color: '#64748b', cursor: 'pointer' },
+  tabBtnActive: { background: '#ffffff', borderColor: '#ea580c', color: '#ea580c' },
+  dropzone: { border: '2px dashed rgba(0,0,0,0.15)', borderRadius: 8, padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' },
+  fileInputHidden: { display: 'none' },
+  coverPreview: { width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginTop: 10 },
+  publishBtn: { width: '100%', background: 'linear-gradient(135deg, #f97316, #ea580c)', border: 'none', borderRadius: 8, padding: '11px 0', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 14px rgba(249,115,22,0.25)' },
+  draftBtn: { width: '100%', background: '#ffffff', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 8, padding: '10px 0', color: '#475569', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
+
+  bulkCard: { background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
+  presetBtn: { background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', color: '#ea580c', borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  settingsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginTop: 16 },
+  settingBox: { background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' },
+  settingLabel: { display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 },
+  parseBtn: { background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)' },
+  clearBtn: { background: '#fff', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 8, padding: '10px 16px', fontSize: 13, color: '#64748b', cursor: 'pointer' },
+  startBulkBtn: { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' },
+  pauseBulkBtn: { background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  stopBulkBtn: { background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  retryAllBtn: { background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  progressBarTrack: { height: 8, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden', marginBottom: 16 },
+  progressBarFill: { height: '100%', background: 'linear-gradient(90deg, #f97316, #10b981)', transition: 'width 0.4s ease' },
+  activeTaskCard: { background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  activeSpinner: { width: 22, height: 22, border: '3px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
+  coolingTimerBadge: { background: '#fff', border: '1px solid rgba(245,158,11,0.3)', color: '#d97706', padding: '4px 10px', borderRadius: 20, fontSize: 12 },
+
+  terminalContainer: { background: '#0f172a', borderRadius: 10, overflow: 'hidden', border: '1px solid #1e293b' },
+  terminalHeader: { background: '#1e293b', padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  terminalLogs: { padding: 14, height: 180, overflowY: 'auto' },
+  clearLogBtn: { background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer' },
+
+  table: { width: '100%', borderCollapse: 'collapse' },
+  th: { textAlign: 'left', padding: '10px 12px', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid rgba(0,0,0,0.08)' },
+  tr: { borderBottom: '1px solid rgba(0,0,0,0.04)', transition: 'background 0.15s' },
+  td: { padding: '10px 12px', fontSize: 13, color: '#334155' },
+  badgePending: { background: '#f1f5f9', color: '#64748b', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 },
+  badgeGenerating: { background: 'rgba(249,115,22,0.1)', color: '#ea580c', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 4 },
+  miniSpinner: { width: 10, height: 10, border: '2px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.6s linear infinite' },
+  badgeSuccess: { background: 'rgba(16,185,129,0.1)', color: '#059669', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 },
+  badgeFailed: { background: 'rgba(239,68,68,0.1)', color: '#dc2626', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 },
+  miniActionBtn: { background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 4, padding: '3px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 },
+
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalContent: { background: '#ffffff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' },
+  closeModalBtn: { background: 'none', border: 'none', fontSize: 18, color: '#64748b', cursor: 'pointer' },
 };
