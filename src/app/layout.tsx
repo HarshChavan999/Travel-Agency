@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Inter, Playfair_Display, DM_Sans, Plus_Jakarta_Sans, Outfit } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ComparisonProvider } from "@/contexts/ComparisonContext";
@@ -57,6 +58,8 @@ export default function RootLayout({
   // Inject image loading styles
   injectImageStyles();
 
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+
   return (
     <html lang="en">
       <body
@@ -68,6 +71,7 @@ export default function RootLayout({
           </ComparisonProvider>
         </AuthProvider>
       </body>
+      {gaId && <GoogleAnalytics gaId={gaId} />}
     </html>
   );
 }

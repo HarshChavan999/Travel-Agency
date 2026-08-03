@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from './ui/badge';
@@ -124,6 +124,11 @@ export default function ListingCard({
   const [imageError, setImageError] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // Title hover scroll states
+  const [isTitleHovered, setIsTitleHovered] = useState(false);
+  const [scrollDistance, setScrollDistance] = useState(0);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
   const handleImageLoad = () => {
     setImageLoaded(true);
   };
@@ -196,7 +201,7 @@ export default function ListingCard({
   };
 
   const cardContent = (
-    <div className="pictorial-card bg-slate-900 rounded-md shadow-[0_4px_25px_rgba(0,0,0,0.12)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.35)] transition-all duration-300 relative overflow-hidden group flex flex-col w-full max-w-[420px] h-[400px] sm:h-[430px] border border-white/10 select-none cursor-pointer">
+    <div className="pictorial-card bg-slate-900 rounded-md shadow-[0_4px_25px_rgba(0,0,0,0.12)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.35)] transition-all duration-300 relative overflow-hidden group flex flex-col w-full max-w-[420px] h-[400px] sm:h-[430px] select-none cursor-pointer">
       {/* Compare Toast */}
       {showCompareToast && (
         <div className="absolute top-4 right-4 z-40 animate-in fade-in duration-200">
@@ -386,9 +391,32 @@ export default function ListingCard({
         </div>
 
         {/* Title */}
-        <h3 className="font-heading font-extrabold text-xl sm:text-2xl text-white tracking-tight leading-snug line-clamp-1 drop-shadow-sm group-hover:text-orange-400 transition-colors">
-          {cardTitle}
-        </h3>
+        <div 
+          className="overflow-hidden w-full relative py-0.5"
+          onMouseEnter={() => {
+            if (titleRef.current) {
+              const diff = titleRef.current.scrollWidth - titleRef.current.clientWidth;
+              setScrollDistance(diff > 0 ? diff : 0);
+            }
+            setIsTitleHovered(true);
+          }}
+          onMouseLeave={() => {
+            setIsTitleHovered(false);
+          }}
+        >
+          <h3 
+            ref={titleRef}
+            className="font-heading font-extrabold text-xl sm:text-2xl text-white tracking-tight leading-snug whitespace-nowrap inline-block drop-shadow-sm group-hover:text-orange-400 transition-colors"
+            style={{
+              transform: isTitleHovered && scrollDistance > 0 ? `translateX(-${scrollDistance}px)` : 'translateX(0px)',
+              transition: isTitleHovered && scrollDistance > 0 
+                ? `transform ${Math.max(2500, scrollDistance * 30)}ms linear` 
+                : 'transform 300ms ease-out'
+            }}
+          >
+            {cardTitle}
+          </h3>
+        </div>
 
         {/* Places covered snippet */}
         {placesText && (

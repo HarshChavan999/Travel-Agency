@@ -53,7 +53,8 @@ async function getPublishedBlogs(): Promise<Blog[]> {
             value: { booleanValue: true },
           },
         },
-        limit: 50,
+        orderBy: [{ field: { fieldPath: 'publishedAt' }, direction: 'DESCENDING' }],
+        limit: 500,
       },
     };
     const res = await fetch(url, {

@@ -636,7 +636,7 @@ export default function PackageDetailView({
     <div className="min-h-screen" style={{ background: '#ffffff', fontFamily: "var(--font-inter, 'Inter', sans-serif)" }}>
 
       {/* ─── HERO IMAGE SECTION ─────────────────────────────────── */}
-      <div className="relative w-full" style={{ height: '480px' }}>
+      <div className="relative w-full" style={{ height: '520px' }}>
         {allImages.length > 0 ? (
           <div className="absolute inset-0 overflow-hidden">
             {allImages.length === 1 ? (
@@ -671,10 +671,10 @@ export default function PackageDetailView({
                 ))}
               </div>
             )}
-            {/* Dark gradient overlay */}
+            {/* Gradient overlay with top white shadow gradient without black top shadow */}
             <div
               className="absolute inset-0 z-10 pointer-events-none"
-              style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.65) 100%)' }}
+              style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 20%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.65) 100%)' }}
             />
           </div>
         ) : (
@@ -684,7 +684,7 @@ export default function PackageDetailView({
         )}
 
         {/* Hero content overlay */}
-        <div className="relative z-20 h-full flex flex-col justify-between px-6 py-5 max-w-7xl mx-auto">
+        <div className="relative z-20 h-full flex flex-col justify-between px-6 pt-20 pb-5 max-w-7xl mx-auto">
           {/* Top row: breadcrumb + action buttons */}
           <div className="flex items-center justify-between">
             {/* Breadcrumb */}

@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 
-export const dynamic = 'force-static';
+export const revalidate = 3600; // Revalidate sitemap every hour
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
@@ -52,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           },
         },
         orderBy: [{ field: { fieldPath: 'publishedAt' }, direction: 'DESCENDING' }],
-        limit: 200,
+        limit: 1000,
       },
     };
 

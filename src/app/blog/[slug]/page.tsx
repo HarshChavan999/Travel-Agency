@@ -1,25 +1,16 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
+import { initializeFirebase } from '@/lib/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export async function generateStaticParams() {
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/blogs?pageSize=1000`;
-    const res = await fetch(url);
-    if (!res.ok) return [{ slug: 'default' }];
-    const data = await res.json();
-    if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
-      return [{ slug: 'default' }];
-    }
-    const paths = data.documents
-      .map((doc: any) => {
-        const fields = doc.fields || {};
-        const slug = fields.slug?.stringValue;
-        return slug ? { slug } : null;
-      })
-      .filter(Boolean);
+    initializeFirebase();
+    const db = getFirestore();
+    const snap = await db.collection('blogs').limit(1000).get();
+    if (snap.empty) return [{ slug: 'default' }];
+    const paths = snap.docs.map(d => ({ slug: d.data().slug || d.id }));
     return paths.length > 0 ? paths : [{ slug: 'default' }];
   } catch {
     return [{ slug: 'default' }];
@@ -44,89 +35,96 @@ interface Blog {
   readTime: string;
 }
 
-function parseBlogDoc(doc: any): Blog {
-  const nameParts = doc.name ? doc.name.split('/') : [];
-  const id = nameParts.length ? nameParts[nameParts.length - 1] : '';
-  const fields = doc.fields || {};
+function parseBlogAdminData(id: string, data: any): Blog {
+  if (!data) {
+    return {
+      id, title: '', slug: id, excerpt: '', content: '', coverImage: '',
+      category: 'Travel Guides', tags: [], author: 'TripDM Team',
+      published: false, publishedAt: '', updatedAt: '', metaTitle: '', metaDescription: '', readTime: '5 min read'
+    };
+  }
   return {
     id,
-    title: fields.title?.stringValue || '',
-    slug: fields.slug?.stringValue || id,
-    excerpt: fields.excerpt?.stringValue || '',
-    content: fields.content?.stringValue || '',
-    coverImage: fields.coverImage?.stringValue || '',
-    category: fields.category?.stringValue || '',
-    tags: fields.tags?.arrayValue?.values?.map((v: any) => v.stringValue) || [],
-    author: fields.author?.stringValue || 'TripDM Team',
-    published: fields.published?.booleanValue || false,
-    publishedAt: fields.publishedAt?.stringValue || '',
-    updatedAt: fields.updatedAt?.stringValue || '',
-    metaTitle: fields.metaTitle?.stringValue || '',
-    metaDescription: fields.metaDescription?.stringValue || '',
-    readTime: fields.readTime?.stringValue || '5 min read',
+    title: data.title || '',
+    slug: data.slug || id,
+    excerpt: data.excerpt || '',
+    content: data.content || '',
+    coverImage: data.coverImage || '',
+    category: data.category || 'Travel Guides',
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    author: data.author || 'TripDM Team',
+    published: Boolean(data.published),
+    publishedAt: data.publishedAt || '',
+    updatedAt: data.updatedAt || '',
+    metaTitle: data.metaTitle || data.title || '',
+    metaDescription: data.metaDescription || data.excerpt || '',
+    readTime: data.readTime || '5 min read',
   };
 }
 
-async function getBlogBySlug(slug: string): Promise<Blog | null> {
+async function getBlogBySlug(slugInput: string): Promise<Blog | null> {
+  const slug = decodeURIComponent(slugInput).replace(/\/+$/, '').trim().toLowerCase();
+  if (!slug) return null;
+
   try {
-    const directUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/blogs/${slug}`;
-    const directRes = await fetch(directUrl, { cache: 'no-store' });
-    if (directRes.ok) {
-      const doc = await directRes.json();
-      if (doc && doc.fields) return parseBlogDoc(doc);
+    initializeFirebase();
+    const db = getFirestore();
+
+    // 1. Direct doc ID lookup
+    const docRef = db.collection('blogs').doc(slug);
+    const docSnap = await docRef.get();
+    if (docSnap.exists) {
+      return parseBlogAdminData(docSnap.id, docSnap.data());
     }
-    const queryUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
-    const query = {
-      structuredQuery: {
-        from: [{ collectionId: 'blogs' }],
-        where: { fieldFilter: { field: { fieldPath: 'slug' }, op: 'EQUAL', value: { stringValue: slug } } },
-        limit: 1,
-      },
-    };
-    const res = await fetch(queryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query), cache: 'no-store' });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const item = data.find((d: any) => d.document);
-    if (!item) return null;
-    return parseBlogDoc(item.document);
-  } catch { return null; }
+
+    // 2. Query by 'slug' field
+    const qSnap = await db.collection('blogs').where('slug', '==', slug).limit(1).get();
+    if (!qSnap.empty) {
+      const doc = qSnap.docs[0];
+      return parseBlogAdminData(doc.id, doc.data());
+    }
+
+    // 3. Resilient fallback matching ID/slug prefix or substring
+    const allSnap = await db.collection('blogs').limit(300).get();
+    if (!allSnap.empty) {
+      const allBlogs = allSnap.docs.map(d => parseBlogAdminData(d.id, d.data()));
+      const match = allBlogs.find((b: Blog) =>
+        b.slug.toLowerCase() === slug ||
+        b.id.toLowerCase() === slug ||
+        b.slug.toLowerCase().startsWith(slug) ||
+        slug.startsWith(b.slug.toLowerCase()) ||
+        b.id.toLowerCase().includes(slug) ||
+        slug.includes(b.id.toLowerCase())
+      );
+      if (match) return match;
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Error in getBlogBySlug with firebase-admin:', err);
+    return null;
+  }
 }
 
 async function getRelatedBlogs(category: string, currentSlug: string): Promise<Blog[]> {
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
-    const query = {
-      structuredQuery: {
-        from: [{ collectionId: 'blogs' }],
-        where: {
-          compositeFilter: {
-            op: 'AND',
-            filters: [
-              { fieldFilter: { field: { fieldPath: 'published' }, op: 'EQUAL', value: { booleanValue: true } } },
-              { fieldFilter: { field: { fieldPath: 'category' }, op: 'EQUAL', value: { stringValue: category } } },
-            ],
-          },
-        },
-        limit: 4,
-      },
-    };
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query), cache: 'no-store' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.filter((item: any) => item.document).map((item: any) => {
-      const doc = item.document;
-      const nameParts = doc.name.split('/');
-      const id = nameParts[nameParts.length - 1];
-      const fields = doc.fields || {};
-      return {
-        id, title: fields.title?.stringValue || '', slug: fields.slug?.stringValue || '',
-        excerpt: fields.excerpt?.stringValue || '', content: '', coverImage: fields.coverImage?.stringValue || '',
-        category: fields.category?.stringValue || '', tags: [], author: fields.author?.stringValue || 'TripDM Team',
-        published: true, publishedAt: fields.publishedAt?.stringValue || '', updatedAt: '',
-        metaTitle: '', metaDescription: '', readTime: fields.readTime?.stringValue || '5 min read',
-      };
-    }).filter((b: Blog) => b.slug !== currentSlug).slice(0, 3);
-  } catch { return []; }
+    initializeFirebase();
+    const db = getFirestore();
+    const snap = await db.collection('blogs')
+      .where('published', '==', true)
+      .where('category', '==', category)
+      .limit(5)
+      .get();
+
+    if (snap.empty) return [];
+
+    return snap.docs
+      .map(d => parseBlogAdminData(d.id, d.data()))
+      .filter((b: Blog) => b.slug !== currentSlug && b.id !== currentSlug)
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -223,10 +221,20 @@ function getRelativeTime(dateStr: string): string {
   }
 }
 
-export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function BlogPostPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ preview?: string }>;
+}) {
   const { slug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const isPreview = resolvedSearchParams.preview === 'true';
+
   const blog = await getBlogBySlug(slug);
-  if (!blog || !blog.published) notFound();
+  if (!blog) notFound();
+  if (!blog.published && !isPreview) notFound();
 
   const relatedBlogs = await getRelatedBlogs(blog.category, blog.slug);
   const contentHtml = renderContent(blog.content);

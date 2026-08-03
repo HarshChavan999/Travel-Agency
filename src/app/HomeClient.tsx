@@ -3830,8 +3830,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-          {/* Top Navigation Bar (Transparent Background) */}
-          <header className="header-transition z-[100] sticky top-0 bg-transparent backdrop-blur-md text-white border-b border-white/15 h-16 flex items-center">
+          {/* Top Navigation Bar (Transparent Background Overlay) */}
+          <header className={`header-transition z-[100] ${viewingListing ? 'absolute top-0 left-0 right-0 bg-gradient-to-b from-white/25 via-white/5 to-transparent border-b border-white/20 shadow-[0_6px_25px_rgba(255,255,255,0.12)]' : 'sticky top-0 bg-transparent backdrop-blur-md border-b border-white/15'} text-white h-16 flex items-center`}>
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
               {/* Logo & Search */}
               <div className="flex items-center gap-4 flex-1 w-full h-full">
@@ -4057,7 +4057,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {/* Category Navigation Strip (Transparent Background) */}
-                  <div id="category-nav-strip" className="w-full bg-transparent border-b border-white/15 p-2 mb-8 flex items-center justify-between gap-4 py-2 sticky top-16 z-[90] backdrop-blur-md relative text-white">
+                  <div id="category-nav-strip" className="w-full bg-transparent p-2 mb-8 flex items-center justify-between gap-4 py-2 sticky top-16 z-[90] backdrop-blur-md relative text-white">
                     <div className="flex gap-2 sm:gap-3.5 w-full justify-start items-center min-w-max px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
@@ -4176,7 +4176,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           className="flex flex-col gap-4 py-2 relative group/rail"
                         >
                           {/* Containerless Rail Header */}
-                          <div className="flex items-center justify-between border-b border-white/15 pb-3">
+                          <div className="flex items-center justify-between pb-3">
                             <div>
                               <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-400">Category Collection</span>
                               <h3 className="text-xl sm:text-2xl font-heading font-black text-white tracking-tight drop-shadow-md">
@@ -4233,7 +4233,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               return (
                                 <div
                                   key={sub}
-                                  className="category-rail-item w-[260px] sm:w-[300px] shrink-0 h-[220px] rounded-md relative overflow-hidden group/item cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-white/15"
+                                  className="category-rail-item w-[260px] sm:w-[300px] shrink-0 h-[220px] rounded-md relative overflow-hidden group/item cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
                                   onClick={() => setSelectedCategoryFilter({
                                     category: category.id,
                                     subcategory: sub,
@@ -4253,7 +4253,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                                   {/* Top Badge */}
                                   <div className="absolute top-3 left-3 z-10">
-                                    <span className="bg-black/50 backdrop-blur-md text-white px-2.5 py-0.5 rounded-sm text-[10px] font-semibold border border-white/20">
+                                    <span className="bg-black/50 backdrop-blur-md text-white px-2.5 py-0.5 rounded-sm text-[10px] font-semibold">
                                       {matched.length} {matched.length === 1 ? 'Package' : 'Packages'}
                                     </span>
                                   </div>
