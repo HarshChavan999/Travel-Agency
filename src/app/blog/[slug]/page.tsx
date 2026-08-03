@@ -42,12 +42,14 @@ interface Blog {
   metaTitle: string;
   metaDescription: string;
   readTime: string;
+  views?: number;
 }
 
 function parseBlogDoc(doc: any): Blog {
   const nameParts = doc.name ? doc.name.split('/') : [];
   const id = nameParts.length ? nameParts[nameParts.length - 1] : '';
   const fields = doc.fields || {};
+  const viewsVal = fields.views?.integerValue || fields.views?.numberValue || fields.viewsCount?.integerValue;
   return {
     id,
     title: fields.title?.stringValue || '',
@@ -55,15 +57,16 @@ function parseBlogDoc(doc: any): Blog {
     excerpt: fields.excerpt?.stringValue || '',
     content: fields.content?.stringValue || '',
     coverImage: fields.coverImage?.stringValue || '',
-    category: fields.category?.stringValue || '',
+    category: fields.category?.stringValue || 'Destinations',
     tags: fields.tags?.arrayValue?.values?.map((v: any) => v.stringValue) || [],
-    author: fields.author?.stringValue || 'TripDM Team',
+    author: fields.author?.stringValue || 'Kritika Singh',
     published: fields.published?.booleanValue || false,
     publishedAt: fields.publishedAt?.stringValue || '',
     updatedAt: fields.updatedAt?.stringValue || '',
     metaTitle: fields.metaTitle?.stringValue || '',
     metaDescription: fields.metaDescription?.stringValue || '',
     readTime: fields.readTime?.stringValue || '5 min read',
+    views: viewsVal ? Number(viewsVal) : undefined,
   };
 }
 
@@ -92,41 +95,124 @@ async function getBlogBySlug(slug: string): Promise<Blog | null> {
   } catch { return null; }
 }
 
-async function getRelatedBlogs(category: string, currentSlug: string): Promise<Blog[]> {
+async function getPopularBlogs(currentSlug: string): Promise<Blog[]> {
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
     const query = {
       structuredQuery: {
         from: [{ collectionId: 'blogs' }],
         where: {
-          compositeFilter: {
-            op: 'AND',
-            filters: [
-              { fieldFilter: { field: { fieldPath: 'published' }, op: 'EQUAL', value: { booleanValue: true } } },
-              { fieldFilter: { field: { fieldPath: 'category' }, op: 'EQUAL', value: { stringValue: category } } },
-            ],
-          },
+          fieldFilter: { field: { fieldPath: 'published' }, op: 'EQUAL', value: { booleanValue: true } }
         },
-        limit: 4,
+        limit: 10,
       },
     };
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query), cache: 'no-store' });
-    if (!res.ok) return [];
+    if (!res.ok) return getFallbackPopularBlogs(currentSlug);
     const data = await res.json();
-    return data.filter((item: any) => item.document).map((item: any) => {
-      const doc = item.document;
-      const nameParts = doc.name.split('/');
-      const id = nameParts[nameParts.length - 1];
-      const fields = doc.fields || {};
-      return {
-        id, title: fields.title?.stringValue || '', slug: fields.slug?.stringValue || '',
-        excerpt: fields.excerpt?.stringValue || '', content: '', coverImage: fields.coverImage?.stringValue || '',
-        category: fields.category?.stringValue || '', tags: [], author: fields.author?.stringValue || 'TripDM Team',
-        published: true, publishedAt: fields.publishedAt?.stringValue || '', updatedAt: '',
-        metaTitle: '', metaDescription: '', readTime: fields.readTime?.stringValue || '5 min read',
-      };
-    }).filter((b: Blog) => b.slug !== currentSlug).slice(0, 3);
-  } catch { return []; }
+    const blogs = data.filter((item: any) => item.document).map((item: any) => parseBlogDoc(item.document));
+    const filtered = blogs.filter((b: Blog) => b.slug !== currentSlug).slice(0, 5);
+    if (filtered.length >= 1) return filtered;
+    return getFallbackPopularBlogs(currentSlug);
+  } catch {
+    return getFallbackPopularBlogs(currentSlug);
+  }
+}
+
+function getFallbackPopularBlogs(currentSlug: string): Blog[] {
+  const fallbacks: Blog[] = [
+    {
+      id: 'pop-1',
+      title: '30 Bucket List Ideas for Adventure Travellers in India',
+      slug: '30-bucket-list-ideas-for-adventure-travellers-in-india',
+      excerpt: 'Ultimate thrill seeker guide to India',
+      content: '',
+      coverImage: 'https://images.unsplash.com/photo-1506461883276-594a12b11ce3?auto=format&fit=crop&w=400&q=80',
+      category: 'Adventure',
+      tags: ['Adventure', 'India'],
+      author: 'Kritika Singh',
+      published: true,
+      publishedAt: '2026-06-15T00:00:00Z',
+      updatedAt: '',
+      metaTitle: '',
+      metaDescription: '',
+      readTime: '6 min read'
+    },
+    {
+      id: 'pop-2',
+      title: '20 Cheapest Countries to Visit from India',
+      slug: '20-cheapest-countries-to-visit-from-india',
+      excerpt: 'Budget international travel guide for Indians',
+      content: '',
+      coverImage: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80',
+      category: 'Budget Travel',
+      tags: ['Budget', 'International'],
+      author: 'TripDM Team',
+      published: true,
+      publishedAt: '2026-06-10T00:00:00Z',
+      updatedAt: '',
+      metaTitle: '',
+      metaDescription: '',
+      readTime: '8 min read'
+    },
+    {
+      id: 'pop-3',
+      title: '50 Countries Where Getting A Visa Is Easier Than Ordering A Pizza',
+      slug: '50-countries-where-getting-a-visa-is-easier',
+      excerpt: 'Visa on arrival and e-visa friendly destinations',
+      content: '',
+      coverImage: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=400&q=80',
+      category: 'Travel Tips',
+      tags: ['Visa', 'Travel Tips'],
+      author: 'TripDM Team',
+      published: true,
+      publishedAt: '2026-05-28T00:00:00Z',
+      updatedAt: '',
+      metaTitle: '',
+      metaDescription: '',
+      readTime: '7 min read'
+    },
+    {
+      id: 'pop-4',
+      title: '60 Places You Need to Visit In India With Your Best Friend!',
+      slug: '60-places-you-need-to-visit-in-india-with-best-friend',
+      excerpt: 'Unforgettable friends trip spots across India',
+      content: '',
+      coverImage: 'https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=400&q=80',
+      category: 'India Travel',
+      tags: ['Friends', 'India Travel'],
+      author: 'Rohan Mehta',
+      published: true,
+      publishedAt: '2026-05-15T00:00:00Z',
+      updatedAt: '',
+      metaTitle: '',
+      metaDescription: '',
+      readTime: '10 min read'
+    },
+    {
+      id: 'pop-5',
+      title: '51 Best Romantic Getaways in India',
+      slug: '51-best-romantic-getaways-in-india',
+      excerpt: 'Top honeymoon and couple destinations in India',
+      content: '',
+      coverImage: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=400&q=80',
+      category: 'Destinations',
+      tags: ['Romance', 'India Travel'],
+      author: 'Ananya Sharma',
+      published: true,
+      publishedAt: '2026-05-01T00:00:00Z',
+      updatedAt: '',
+      metaTitle: '',
+      metaDescription: '',
+      readTime: '9 min read'
+    }
+  ];
+  return fallbacks.filter(b => b.slug !== currentSlug);
+}
+
+function getFormattedViews(blog: Blog): string {
+  const count = typeof blog.views === 'number' && !isNaN(blog.views) ? blog.views : 0;
+  return count.toLocaleString('en-US');
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -147,80 +233,306 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+function parseTableLine(line: string): string[] {
+  let trimmed = line.trim();
+  if (trimmed.startsWith('|')) trimmed = trimmed.substring(1);
+  if (trimmed.endsWith('|')) trimmed = trimmed.substring(0, trimmed.length - 1);
+  return trimmed.split('|').map(c => c.trim());
+}
+
+function convertMarkdownTables(content: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.includes('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].includes('|')) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+
+      if (tableLines.length >= 2) {
+        let sepIndex = -1;
+        for (let j = 0; j < tableLines.length; j++) {
+          const l = tableLines[j].trim();
+          if (/^\|?\s*:?-{2,}:?\s*(\||$)/.test(l) || /^[\s|:-]+$/.test(l)) {
+            sepIndex = j;
+            break;
+          }
+        }
+
+        let headerCells: string[] = [];
+        const bodyRows: string[][] = [];
+
+        if (sepIndex > 0) {
+          headerCells = parseTableLine(tableLines[sepIndex - 1]);
+          for (let j = 0; j < tableLines.length; j++) {
+            if (j !== sepIndex && j !== sepIndex - 1) {
+              const cells = parseTableLine(tableLines[j]);
+              if (cells.length > 0 && cells.some(c => c.length > 0)) {
+                bodyRows.push(cells);
+              }
+            }
+          }
+        } else {
+          headerCells = parseTableLine(tableLines[0]);
+          for (let j = 1; j < tableLines.length; j++) {
+            const cells = parseTableLine(tableLines[j]);
+            if (cells.length > 0 && cells.some(c => c.length > 0)) {
+              bodyRows.push(cells);
+            }
+          }
+        }
+
+        // If it's a 1-column list wrapped in pipes by AI, render as clean benefit cards instead of a 1-col wireframe table
+        if (headerCells.length === 1) {
+          const allItems = [headerCells[0], ...bodyRows.map(r => r[0])].filter(Boolean);
+          const listHtml = allItems.map(item => `<li>${item}</li>`).join('\n');
+          result.push(`\n\n<ul class="blog-benefit-list">\n${listHtml}\n</ul>\n\n`);
+          continue;
+        }
+
+        if (headerCells.length > 1) {
+          const thHtml = headerCells.map(c => `<th>${c}</th>`).join('');
+          const trHtml = bodyRows.map(row => {
+            const tdHtml = row.map(c => `<td>${c}</td>`).join('');
+            return `<tr>${tdHtml}</tr>`;
+          }).join('\n');
+
+          const tableHtml = `\n\n<div class="table-wrap"><table class="blog-table"><thead><tr>${thHtml}</tr></thead><tbody>\n${trHtml}\n</tbody></table></div>\n\n`;
+          result.push(tableHtml);
+          continue;
+        }
+      }
+
+      result.push(...tableLines);
+    } else {
+      result.push(line);
+      i++;
+    }
+  }
+
+  return result.join('\n');
+}
+
+function cleanUnicodeBoxDrawing(content: string): string {
+  const boxCharRegex = /[┌┐└┘├┤┬┴┼─│═║╔╦╗╠╬╣╚╩╝]/;
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (boxCharRegex.test(lines[i])) {
+      const boxLines: string[] = [];
+      while (
+        i < lines.length &&
+        (boxCharRegex.test(lines[i]) ||
+          lines[i].trim() === '' ||
+          lines[i].trim() === '`' ||
+          lines[i].trim() === '`,`' ||
+          lines[i].trim() === ',' ||
+          lines[i].trim() === '`,' ||
+          lines[i].trim() === ',`')
+      ) {
+        boxLines.push(lines[i]);
+        i++;
+      }
+
+      const items: string[] = [];
+      for (const bLine of boxLines) {
+        const cleaned = bLine
+          .replace(/[┌┐└┘├┤┬┴┼─│═║╔╦╗╠╬╣╚╩╝]/g, '')
+          .replace(/^[`,\s]+|[`,\s]+$/g, '')
+          .trim();
+        if (cleaned && cleaned !== '`' && cleaned !== ',' && cleaned !== '`,`') {
+          items.push(cleaned);
+        }
+      }
+
+      if (items.length > 0) {
+        const listHtml = items.map(item => `<li>${item}</li>`).join('\n');
+        result.push(`\n\n<ul class="blog-benefit-list">\n${listHtml}\n</ul>\n\n`);
+        continue;
+      }
+    }
+
+    result.push(lines[i]);
+    i++;
+  }
+
+  return result.join('\n');
+}
+
+function parseMarkdownLists(content: string): string {
+  const lines = content.split('\n');
+  const resultLines: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (/^\s*([\*\-\+]|\d+\.)\s+/.test(line)) {
+      const listLines: string[] = [];
+      while (i < lines.length) {
+        const curr = lines[i];
+        if (/^\s*([\*\-\+]|\d+\.)\s+/.test(curr)) {
+          listLines.push(curr);
+          i++;
+        } else if (curr.trim() === '' && i + 1 < lines.length && /^\s*([\*\-\+]|\d+\.)\s+/.test(lines[i + 1])) {
+          i++;
+        } else {
+          break;
+        }
+      }
+
+      const items: { type: 'ul' | 'ol' | 'task'; content: string; checked?: boolean }[] = [];
+
+      listLines.forEach(l => {
+        const trimmed = l.trim();
+        if (!trimmed) return;
+
+        const taskMatch = trimmed.match(/^[\*\-\+]\s+\[([\sxX])\]\s+(.+)$/);
+        if (taskMatch) {
+          items.push({ type: 'task', content: taskMatch[2], checked: taskMatch[1].toLowerCase() === 'x' });
+          return;
+        }
+
+        const ulMatch = trimmed.match(/^[\*\-\+]\s+(.+)$/);
+        if (ulMatch) {
+          items.push({ type: 'ul', content: ulMatch[1] });
+          return;
+        }
+
+        const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+        if (olMatch) {
+          items.push({ type: 'ol', content: olMatch[1] });
+          return;
+        }
+      });
+
+      if (items.length > 0) {
+        const isOl = items.every(it => it.type === 'ol');
+        const tag = isOl ? 'ol' : 'ul';
+        const lis = items.map(it => `<li>${it.content}</li>`).join('\n');
+
+        resultLines.push(`\n\n<${tag} class="blog-parsed-list">\n${lis}\n</${tag}>\n\n`);
+        continue;
+      }
+
+      resultLines.push(...listLines);
+    } else {
+      resultLines.push(line);
+      i++;
+    }
+  }
+
+  return resultLines.join('\n');
+}
+
 function renderContent(content: string): string {
   if (!content) return '';
 
-  // Strip hidden HTML comment blocks (schema, keywords)
+  // Strip hidden HTML comment blocks
   let html = content.replace(/<!--[\s\S]*?-->/g, '');
 
+  // 0. Remove decorative triangle lines (▼ ▼ ▼, ▲ ▲ ▲) and stray standalone comma/quote lines
   html = html
-    // Blockquotes
-    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    // Headers with IDs for TOC anchor linking
-    .replace(/^### (.+)$/gm, (_, t) => `<h3 id="${t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}">${t}</h3>`)
-    .replace(/^## (.+)$/gm, (_, t) => `<h2 id="${t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}">${t}</h2>`)
-    .replace(/^# (.+)$/gm, (_, t) => `<h1 id="${t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}">${t}</h1>`)
-    // Bold & Italic
+    .replace(/^\s*[▼▲\s]{2,}\s*$/gm, '')
+    .replace(/^\s*[,`'\s]{1,5}\s*$/gm, '')
+    .replace(/\n\s*,\s*\n/g, '\n');
+
+  // Strip Unicode Box Drawing ASCII blocks
+  html = cleanUnicodeBoxDrawing(html);
+
+  // 1. Convert Markdown Tables to HTML Tables
+  html = convertMarkdownTables(html);
+
+  // 2. Convert Markdown Lists into unified lists
+  html = parseMarkdownLists(html);
+
+  // 3. Blockquotes
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // 4. Headings with slugified anchor IDs
+  html = html
+    .replace(/^### (.+)$/gm, (_, t) => `<h3 id="${slugify(t)}">${t}</h3>`)
+    .replace(/^## (.+)$/gm, (_, t) => `<h2 id="${slugify(t)}">${t}</h2>`)
+    .replace(/^# (.+)$/gm, (_, t) => `<h1 id="${slugify(t)}">${t}</h1>`);
+
+  // 5. Bold, Italic, Code, HR
+  html = html.replace(/`\s*[,.]?\s*`/g, ' ');
+
+  html = html
     .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Inline code
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    // Horizontal rule
-    .replace(/^---$/gm, '<hr>')
-    // Links
-    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    // Unordered lists - handle *, -, +
-    .replace(/^[\*\-\+] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-    // Ordered lists
-    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-    // Tables
-    .replace(/^\|(.+)\|$/gm, (match) => {
-      const cells = match.split('|').filter((_, i, a) => i > 0 && i < a.length - 1);
-      const isHeader = cells.every(c => /^\s*[-:]+\s*$/.test(c));
-      if (isHeader) return '';
-      const tag = 'td';
-      return '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
-    });
+    .replace(/`([^`\r\n]+)`/g, (_, code) => {
+      const trimmed = code.trim();
+      if (trimmed === ',' || trimmed === '.' || trimmed === '' || trimmed === '`') return ' ';
+      return `<code>${trimmed}</code>`;
+    })
+    .replace(/^---$/gm, '<hr>');
 
-  // Wrap table rows
-  html = html.replace(/(<tr>[\s\S]*?<\/tr>\n?)+/g, (match) => `<div class="table-wrap"><table>${match}</table></div>`);
+  // 6. Clean mangled bracket headers like [Kashmir Circuit] [Bali Experience] [Sri Lanka Escape]
+  html = html.replace(/^\[([^\]]+)\]\s*\[([^\]]+)\](?:\s*\[([^\]]+)\])?$/gm, (_, c1, c2, c3) => {
+    return `<div class="tag-row"><span>${c1}</span><span>${c2}</span>${c3 ? `<span>${c3}</span>` : ''}</div>`;
+  });
 
-  // Paragraphs
-  html = html.split('\n\n').map(block => {
+  // 7. Links: CRITICAL - Anchor links starting with # MUST NOT get target="_blank"
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_, text, href) => {
+    if (href.startsWith('#')) {
+      return `<a href="${href}" class="bp-anchor-link">${text}</a>`;
+    }
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+  });
+
+  // 8. Paragraphs
+  html = html.split(/\n\n+/).map(block => {
     const trimmed = block.trim();
     if (!trimmed) return '';
-    if (/^<(h[1-6]|ul|ol|blockquote|hr|div|table|tr)/.test(trimmed)) return trimmed;
+    if (/^<(h[1-6]|ul|ol|blockquote|hr|div|table|thead|tbody|tr)/i.test(trimmed)) {
+      return trimmed;
+    }
+    if (/^\s*[,`'\s]+\s*$/.test(trimmed)) return ''; // drop paragraphs containing only punctuation
     return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
   }).filter(Boolean).join('\n');
+
+  // 9. Transform Table of Contents / Quick Jumplinks header + ul into Thrillophilia Quick Jumplinks Box
+  html = html.replace(
+    /<h2 id="(quick-jumplinks-to-navigate|table-of-contents)">([^<]+)<\/h2>\s*<ul>([\s\S]*?)<\/ul>/gi,
+    (_, id, title, listContent) => {
+      return `
+        <div class="quick-jumplinks-card" id="${id}">
+          <div class="quick-jumplinks-header">Quick Jumplinks to Navigate</div>
+          <ul class="quick-jumplinks-list">
+            ${listContent}
+          </ul>
+        </div>
+      `;
+    }
+  );
 
   return html;
 }
 
 function formatDate(dateStr: string): string {
-  if (!dateStr) return '';
-  try { return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  if (!dateStr) return 'June 15, 2026';
+  try { return new Date(dateStr).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
   catch { return dateStr; }
-}
-
-function getRelativeTime(dateStr: string): string {
-  if (!dateStr) return '';
-  try {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    if (diffMs < 60000) return 'Just now';
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -228,8 +540,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const blog = await getBlogBySlug(slug);
   if (!blog || !blog.published) notFound();
 
-  const relatedBlogs = await getRelatedBlogs(blog.category, blog.slug);
+  const popularBlogs = await getPopularBlogs(blog.slug);
   const contentHtml = renderContent(blog.content);
+  const mainViews = getFormattedViews(blog);
 
   const jsonLd = {
     '@context': 'https://schema.org', '@type': 'Article',
@@ -247,323 +560,284 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,400&family=Inter:wght@400;500;600;700;800&display=swap');
 
-        .blog-page * { box-sizing: border-box; }
-        .blog-page { background: #fafaf9; min-height: 100vh; font-family: 'Inter', sans-serif; }
+        .blog-wrapper * { box-sizing: border-box; }
+        .blog-wrapper { background: #ffffff; min-height: 100vh; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; }
 
-        /* Progress bar */
-        .reading-progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #f97316, #ea580c); z-index: 1000; transition: width 0.1s; width: 0%; }
+        /* Reading Progress Bar */
+        .reading-progress { position: fixed; top: 0; left: 0; height: 3px; background: #ff5722; z-index: 1000; transition: width 0.1s; width: 0%; }
 
-        /* Breadcrumb */
-        .bp-breadcrumb { display: flex; align-items: center; gap: 8px; padding: 14px 24px; font-size: 12px; color: #6b7280; background: #fff; border-bottom: 1px solid #f3f4f6; }
-        .bp-breadcrumb a { color: #6b7280; text-decoration: none; }
-        .bp-breadcrumb a:hover { color: #f97316; }
-        .bp-breadcrumb-sep { color: #d1d5db; }
-        .bp-breadcrumb-current { color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+        /* Navigation Header */
+        .bp-nav { position: sticky; top: 0; z-index: 90; background: #ffffff; border-bottom: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+        .bp-nav-inner { max-width: 1180px; margin: 0 auto; padding: 0 24px; height: 72px; display: flex; align-items: center; justify-content: space-between; }
+        .bp-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .bp-brand-badge { background: rgba(255,87,34,0.1); border: 1px solid rgba(255,87,34,0.25); color: #ff5722; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.8px; text-transform: uppercase; }
+        .bp-nav-links { display: flex; align-items: center; gap: 16px; }
+        .bp-nav-link { color: #64748b; font-size: 14px; font-weight: 500; text-decoration: none; transition: color 0.2s; }
+        .bp-nav-link:hover { color: #ff5722; }
+        .bp-nav-cta { background: #ff5722; color: #ffffff !important; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: 6px; text-decoration: none; transition: background 0.2s; }
+        .bp-nav-cta:hover { background: #e64a19; }
 
-        /* Hero */
-        .bp-hero { position: relative; height: 520px; overflow: hidden; background: #1c1917; }
-        .bp-hero-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.75; }
-        .bp-hero-no-img { width: 100%; height: 100%; background: linear-gradient(135deg, #1c1917 0%, #292524 50%, #1c1917 100%); display: flex; align-items: center; justify-content: center; font-size: 80px; }
-        .bp-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 60%, transparent 100%); }
-        .bp-hero-meta { position: absolute; bottom: 0; left: 0; right: 0; padding: 32px 40px; }
-        .bp-hero-category { display: inline-block; background: #f97316; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 5px 14px; border-radius: 4px; margin-bottom: 16px; text-decoration: none; }
-        .bp-hero-title { font-family: 'Merriweather', Georgia, serif; font-size: clamp(24px, 4.5vw, 48px); font-weight: 900; color: #fff; line-height: 1.2; margin: 0 0 16px; max-width: 820px; text-shadow: 0 2px 20px rgba(0,0,0,0.5); }
-        .bp-hero-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-        .bp-hero-author { display: flex; align-items: center; gap: 10px; }
-        .bp-hero-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #f97316, #ea580c); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.4); }
-        .bp-hero-author-name { font-size: 13px; font-weight: 600; color: #fff; }
-        .bp-hero-author-role { font-size: 11px; color: rgba(255,255,255,0.65); }
-        .bp-hero-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.25); }
-        .bp-hero-stat { font-size: 13px; color: rgba(255,255,255,0.8); display: flex; align-items: center; gap: 5px; }
+        /* Main Container */
+        .bp-container { max-width: 1140px; margin: 0 auto; padding: 32px 24px 80px; }
 
-        /* Layout */
-        .bp-layout { max-width: 1180px; margin: 0 auto; padding: 48px 24px 80px; display: grid; grid-template-columns: 1fr 300px; gap: 56px; }
-        @media (max-width: 900px) { .bp-layout { grid-template-columns: 1fr; } .bp-sidebar { display: none; } }
+        /* Article Header (Above Hero) */
+        .bp-header { margin-bottom: 24px; }
+        .bp-title { font-family: 'Merriweather', Georgia, serif; font-size: clamp(26px, 3.8vw, 42px); font-weight: 900; color: #111827; line-height: 1.25; margin: 0 0 16px; letter-spacing: -0.3px; }
+        .bp-meta-row { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #64748b; font-family: 'Inter', sans-serif; flex-wrap: wrap; }
+        .bp-meta-author { color: #475569; font-weight: 500; }
+        .bp-meta-date { color: #64748b; }
+        .bp-meta-dot { color: #cbd5e1; }
+        .bp-meta-views { color: #dc2626; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+        .bp-view-icon { width: 16px; height: 16px; fill: #dc2626; }
 
-        /* Excerpt */
-        .bp-excerpt { font-family: 'Merriweather', Georgia, serif; font-size: 19px; line-height: 1.8; color: #44403c; border-left: 4px solid #f97316; padding: 16px 24px; background: #fff7ed; border-radius: 0 8px 8px 0; margin-bottom: 32px; font-style: italic; }
+        /* Hero Image Container */
+        .bp-hero-box { width: 100%; margin-bottom: 32px; border-radius: 12px; overflow: hidden; background: #f8fafc; border: 1px solid #f1f5f9; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+        .bp-hero-img { width: 100%; max-height: 500px; object-fit: cover; display: block; }
+        .bp-hero-fallback { width: 100%; height: 360px; background: linear-gradient(135deg, #1e293b, #0f172a); display: flex; align-items: center; justify-content: center; font-size: 72px; }
 
-        /* Tags */
-        .bp-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 40px; }
-        .bp-tag { font-size: 12px; color: #78716c; background: #f5f5f4; border: 1px solid #e7e5e4; border-radius: 4px; padding: 4px 10px; text-decoration: none; transition: all 0.2s; }
-        .bp-tag:hover { background: #fff7ed; color: #f97316; border-color: #fed7aa; }
+        /* Main Grid (Content + Sidebar) */
+        .bp-grid { display: grid; grid-template-columns: 1fr 320px; gap: 48px; align-items: start; }
+        @media (max-width: 960px) { .bp-grid { grid-template-columns: 1fr; gap: 36px; } }
 
-        /* Share bar */
-        .bp-share { display: flex; align-items: center; gap: 10px; margin-bottom: 40px; padding: 16px 20px; background: #fff; border: 1px solid #f3f4f6; border-radius: 10px; }
-        .bp-share-label { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-right: 4px; }
-        .bp-share-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; border: 1px solid #e5e7eb; background: #fff; transition: all 0.2s; text-decoration: none; }
-        .bp-share-btn:hover { background: #f97316; border-color: #f97316; }
+        /* Article Main Content */
+        .bp-article-body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 16.5px; line-height: 1.85; color: #374151; }
+        .bp-article-body h1, .bp-article-body h2, .bp-article-body h3 { font-family: 'Merriweather', Georgia, serif; color: #111827; font-weight: 900; line-height: 1.3; margin-top: 40px; margin-bottom: 16px; }
+        .bp-article-body h1 { font-size: 32px; }
+        .bp-article-body h2 { font-size: 26px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+        .bp-article-body h3 { font-size: 20px; }
+        .bp-article-body p { margin-bottom: 16px; line-height: 1.8; }
+        .bp-article-body strong { color: #111827; font-weight: 700; }
+        .bp-article-body em { font-style: italic; color: #475569; }
+        .bp-article-body code { background: #f1f5f9; color: #dc2626; font-family: monospace; font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+        .bp-article-body blockquote { border-left: 4px solid #ff5722; background: #fff8f6; padding: 18px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-family: 'Merriweather', serif; font-style: italic; color: #334155; font-size: 17px; line-height: 1.7; }
+        .bp-article-body ul, .blog-parsed-list { margin: 12px 0 20px 0; padding-left: 22px; list-style-type: disc; }
+        .bp-article-body ul li, .blog-parsed-list li { margin-bottom: 6px !important; line-height: 1.65; color: #374151; padding-left: 4px; }
+        .bp-article-body ul li:last-child, .blog-parsed-list li:last-child { margin-bottom: 0 !important; }
+        .bp-article-body ul li::marker, .blog-parsed-list li::marker { color: #ff5722; font-size: 1.1em; }
+        .bp-article-body ul li p, .blog-parsed-list li p { margin: 0; padding: 0; display: inline; }
+        .bp-article-body ol { margin: 12px 0 20px 22px; padding-left: 0; }
+        .bp-article-body ol li { margin-bottom: 6px !important; line-height: 1.65; color: #374151; }
+        .bp-article-body ol li:last-child { margin-bottom: 0 !important; }
+        .bp-article-body ol li::marker { color: #ff5722; font-weight: bold; }
+        .bp-article-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 40px 0; }
 
-        /* Article body */
-        .bp-article-body { font-family: 'Merriweather', Georgia, serif; font-size: 17px; line-height: 1.9; color: #292524; }
-        .bp-article-body h2 { font-family: 'Inter', sans-serif; font-size: 26px; font-weight: 800; color: #1c1917; margin: 52px 0 20px; padding-bottom: 12px; border-bottom: 2px solid #f3f4f6; line-height: 1.3; }
-        .bp-article-body h3 { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: #292524; margin: 36px 0 14px; line-height: 1.4; }
-        .bp-article-body h1 { font-family: 'Merriweather', Georgia, serif; font-size: 30px; font-weight: 900; color: #1c1917; margin: 40px 0 20px; }
-        .bp-article-body p { margin: 0 0 22px; }
-        .bp-article-body strong { font-weight: 700; color: #1c1917; }
-        .bp-article-body em { font-style: italic; color: #44403c; }
-        .bp-article-body a { color: #f97316; text-decoration: underline; text-decoration-color: rgba(249,115,22,0.4); font-weight: 500; transition: color 0.2s; }
-        .bp-article-body a:hover { color: #ea580c; }
-        .bp-article-body code { background: #f5f5f4; color: #dc2626; font-family: 'Courier New', monospace; font-size: 14px; padding: 2px 6px; border-radius: 4px; border: 1px solid #e7e5e4; }
-        .bp-article-body blockquote { border-left: 4px solid #f97316; background: #fff7ed; padding: 16px 20px 16px 24px; margin: 28px 0; border-radius: 0 8px 8px 0; font-style: italic; color: #44403c; font-size: 17px; }
-        .bp-article-body ul { margin: 0 0 24px 0; padding-left: 0; list-style: none; }
-        .bp-article-body ul li { position: relative; padding-left: 24px; margin-bottom: 10px; }
-        .bp-article-body ul li::before { content: '→'; position: absolute; left: 0; color: #f97316; font-weight: 700; }
-        .bp-article-body ol li { margin-bottom: 10px; }
-        .bp-article-body hr { border: none; border-top: 1px solid #e7e5e4; margin: 44px 0; }
-        .bp-article-body .table-wrap { overflow-x: auto; margin: 28px 0; border-radius: 10px; border: 1px solid #e7e5e4; }
-        .bp-article-body table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 14px; }
-        .bp-article-body table tr:first-child td { background: #1c1917; color: #fff; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .bp-article-body table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: top; color: #374151; }
-        .bp-article-body table tr:nth-child(even) td { background: #fafaf9; }
-        .bp-article-body table tr:hover td { background: #fff7ed; }
+        /* Task Items [ ] */
+        .task-item { list-style: none !important; margin-left: -22px !important; display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px !important; }
+        .task-box { color: #ff5722; font-weight: bold; font-size: 16px; flex-shrink: 0; line-height: 1.5; margin-top: 1px; }
+        .task-content { flex: 1; min-width: 0; line-height: 1.65; color: #374151; display: inline-block; }
+        .task-content strong { color: #111827; font-weight: 700; }
 
-        /* CTA Box */
-        .bp-cta { background: linear-gradient(135deg, #1c1917 0%, #292524 100%); border-radius: 16px; padding: 40px 36px; text-align: center; margin: 48px 0; position: relative; overflow: hidden; }
-        .bp-cta::before { content: '✈️'; position: absolute; top: -10px; right: 20px; font-size: 80px; opacity: 0.08; }
-        .bp-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #f97316; margin-bottom: 12px; }
-        .bp-cta h3 { font-family: 'Merriweather', Georgia, serif; font-size: 24px; color: #fff; margin: 0 0 12px; font-weight: 900; }
-        .bp-cta p { color: #a8a29e; font-size: 15px; line-height: 1.6; margin: 0 auto 24px; max-width: 480px; font-family: 'Inter', sans-serif; }
-        .bp-cta-btn { display: inline-block; background: linear-gradient(135deg, #f97316, #ea580c); color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; font-family: 'Inter', sans-serif; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 20px rgba(249,115,22,0.4); }
-        .bp-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(249,115,22,0.5); }
+        /* Tag Row */
+        .tag-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 24px; }
+        .tag-row span { background: #fff7ed; border: 1px solid #fed7aa; color: #ea580c; font-size: 13.5px; font-weight: 600; padding: 6px 14px; border-radius: 6px; font-family: 'Inter', sans-serif; }
 
-        /* Tags section */
-        .bp-tags-footer { margin: 40px 0; padding: 24px; background: #fff; border: 1px solid #f3f4f6; border-radius: 10px; }
-        .bp-tags-footer-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #9ca3af; margin-bottom: 12px; font-family: 'Inter', sans-serif; }
-        .bp-tag-large { display: inline-block; font-size: 13px; color: #374151; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 14px; margin: 4px; font-family: 'Inter', sans-serif; text-decoration: none; transition: all 0.2s; }
-        .bp-tag-large:hover { background: #fff7ed; color: #f97316; border-color: #fed7aa; }
+        /* Links styling inside content */
+        .bp-article-body a { color: #ff5722; text-decoration: none; font-weight: 500; transition: color 0.15s; }
+        .bp-article-body a:hover { color: #e64a19; text-decoration: underline; }
 
-        /* Related */
-        .bp-related { border-top: 2px solid #f3f4f6; padding-top: 48px; margin-top: 48px; }
-        .bp-related-header { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
-        .bp-related-header h2 { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 800; color: #1c1917; margin: 0; }
-        .bp-related-header-line { flex: 1; height: 1px; background: #f3f4f6; }
-        .bp-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
-        .bp-related-card { background: #fff; border: 1px solid #f3f4f6; border-radius: 12px; overflow: hidden; text-decoration: none; display: block; transition: transform 0.2s, box-shadow 0.2s; }
-        .bp-related-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
-        .bp-related-img { width: 100%; height: 140px; object-fit: cover; }
-        .bp-related-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, #f5f5f4, #e7e5e4); display: flex; align-items: center; justify-content: center; font-size: 32px; }
-        .bp-related-body { padding: 16px; }
-        .bp-related-cat { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #f97316; margin-bottom: 6px; display: block; font-family: 'Inter', sans-serif; }
-        .bp-related-title { font-size: 14px; font-weight: 700; color: #1c1917; line-height: 1.45; margin: 0 0 8px; font-family: 'Inter', sans-serif; }
-        .bp-related-time { font-size: 11px; color: #9ca3af; font-family: 'Inter', sans-serif; }
+        /* Quick Jumplinks Box (Thrillophilia OG Style) */
+        .quick-jumplinks-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin: 28px 0 36px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        .quick-jumplinks-header { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 16px; }
+        .quick-jumplinks-list { list-style: none !important; padding: 0 !important; margin: 0 !important; display: flex; flex-direction: column; gap: 10px; }
+        .quick-jumplinks-list li { padding-left: 0 !important; margin: 0 !important; }
+        .quick-jumplinks-list li::before { content: none !important; }
+        .quick-jumplinks-list a, .bp-anchor-link { color: #ff5722 !important; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; text-decoration: none !important; transition: color 0.15s ease; line-height: 1.5; display: inline-block; }
+        .quick-jumplinks-list a:hover, .bp-anchor-link:hover { color: #e64a19 !important; text-decoration: underline !important; }
 
-        /* Back button */
-        .bp-back { text-align: center; padding-top: 32px; }
-        .bp-back-btn { display: inline-flex; align-items: center; gap: 8px; color: #6b7280; background: #fff; text-decoration: none; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-family: 'Inter', sans-serif; font-weight: 500; transition: all 0.2s; }
-        .bp-back-btn:hover { border-color: #f97316; color: #f97316; }
+        /* Tables (Clean responsive GFM & AI generated tables) */
+        .table-wrap { width: 100%; overflow-x: auto; margin: 32px 0; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .blog-table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 14px; background: #ffffff; text-align: left; }
+        .blog-table th { background: #1e293b; color: #ffffff; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; padding: 14px 18px; border-bottom: 2px solid #0f172a; }
+        .blog-table td { padding: 14px 18px; border-bottom: 1px solid #e2e8f0; color: #334155; line-height: 1.6; vertical-align: top; }
+        .blog-table tr:nth-child(even) td { background: #f8fafc; }
+        .blog-table tr:hover td { background: #f1f5f9; }
 
-        /* Sidebar */
-        .bp-sidebar { position: sticky; top: 24px; height: fit-content; }
-        .bp-sidebar-card { background: #fff; border: 1px solid #f3f4f6; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-        .bp-sidebar-title { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #9ca3af; margin-bottom: 16px; font-family: 'Inter', sans-serif; }
-        .bp-toc-list { list-style: none; padding: 0; margin: 0; }
-        .bp-toc-item { border-left: 2px solid #f3f4f6; padding-left: 12px; margin-bottom: 8px; transition: border-color 0.2s; }
-        .bp-toc-item:hover { border-color: #f97316; }
-        .bp-toc-link { font-size: 13px; color: #6b7280; text-decoration: none; font-family: 'Inter', sans-serif; line-height: 1.4; display: block; transition: color 0.2s; }
-        .bp-toc-link:hover { color: #f97316; }
-        .bp-sidebar-cta { background: linear-gradient(135deg, #1c1917, #292524); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 20px; }
-        .bp-sidebar-cta h3 { font-family: 'Merriweather', serif; color: #fff; font-size: 16px; margin: 0 0 8px; }
-        .bp-sidebar-cta p { color: #a8a29e; font-size: 13px; margin: 0 0 16px; font-family: 'Inter', sans-serif; line-height: 1.5; }
-        .bp-sidebar-cta-btn { display: block; background: #f97316; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; transition: background 0.2s; }
-        .bp-sidebar-cta-btn:hover { background: #ea580c; }
+        /* Benefit List Cards (1-column pipe blocks) */
+        .blog-benefit-list { list-style: none !important; padding: 0 !important; margin: 24px 0 !important; display: flex; flex-direction: column; gap: 10px; }
+        .blog-benefit-list li { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #ff5722; border-radius: 8px; padding: 14px 18px; font-size: 15.5px; font-weight: 600; color: #1e293b; line-height: 1.5; margin: 0 !important; }
+        .blog-benefit-list li::before { content: none !important; }
 
-        /* Reading progress script */
-        .bp-progress-script {}
+        /* Sidebar Styling */
+        .bp-sidebar { display: flex; flex-direction: column; gap: 24px; }
+        .bp-sidebar-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 22px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        .bp-sidebar-card-title { font-family: 'Merriweather', Georgia, serif; font-size: 17px; font-weight: 700; color: #111827; margin: 0 0 18px; line-height: 1.3; }
+
+        /* Newsletter Sidebar Card */
+        .bp-newsletter-form { display: flex; flex-direction: column; gap: 14px; }
+        .bp-newsletter-input-group { display: flex; flex-direction: column; gap: 10px; }
+        .bp-newsletter-input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
+        .bp-newsletter-input:focus { border-color: #ff5722; }
+        .bp-newsletter-btn { width: 100%; background: #ff5722; color: #ffffff; border: none; padding: 11px; border-radius: 20px; font-size: 13px; font-weight: 800; font-family: 'Inter', sans-serif; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
+        .bp-newsletter-btn:hover { background: #e64a19; }
+        .bp-newsletter-terms { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; font-family: 'Inter', sans-serif; cursor: pointer; user-select: none; }
+        .bp-newsletter-terms input { accent-color: #ff5722; }
+
+        /* Popular Stories Card */
+        .bp-popular-list { display: flex; flex-direction: column; gap: 18px; }
+        .bp-popular-item { display: flex; gap: 14px; text-decoration: none; align-items: flex-start; group: true; }
+        .bp-popular-img { width: 76px; height: 56px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: #f1f5f9; }
+        .bp-popular-info { flex: 1; min-width: 0; }
+        .bp-popular-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; color: #1e293b; line-height: 1.35; margin: 0 0 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; transition: color 0.15s; }
+        .bp-popular-item:hover .bp-popular-title { color: #ff5722; }
+        .bp-popular-views { font-size: 11px; font-weight: 600; color: #dc2626; display: flex; align-items: center; gap: 4px; }
+        .bp-view-icon-sm { width: 13px; height: 13px; fill: #dc2626; }
+
+        /* CTA & Related Posts */
+        .bp-cta-box { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; padding: 36px 30px; text-align: center; margin: 48px 0; color: #ffffff; }
+        .bp-cta-title { font-family: 'Merriweather', serif; font-size: 22px; font-weight: 700; margin: 0 0 10px; }
+        .bp-cta-desc { font-size: 14px; color: #94a3b8; margin: 0 auto 20px; max-width: 460px; line-height: 1.6; }
+        .bp-cta-btn { display: inline-block; background: #ff5722; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 700; font-size: 14px; transition: background 0.2s; }
+        .bp-cta-btn:hover { background: #e64a19; }
+
+        .bp-tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin: 32px 0; }
+        .bp-tag-chip { font-size: 12px; color: #475569; background: #f1f5f9; border-radius: 4px; padding: 4px 10px; text-decoration: none; }
       `}</style>
 
       {/* Reading progress bar */}
-      <div className="reading-progress" id="reading-progress" />
+      <div className="reading-progress" id="reading-progress" suppressHydrationWarning />
+
+      {/* Reading Progress & Smooth Scrolling Client Script */}
       <script dangerouslySetInnerHTML={{
         __html: `
           (function(){
+            // Progress Bar
             var bar = document.getElementById('reading-progress');
-            if(!bar) return;
-            window.addEventListener('scroll', function(){
-              var scrollTop = window.scrollY;
-              var docHeight = document.documentElement.scrollHeight - window.innerHeight;
-              var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-              bar.style.width = Math.min(progress, 100) + '%';
-            }, {passive: true});
+            if(bar) {
+              window.addEventListener('scroll', function(){
+                var scrollTop = window.scrollY;
+                var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+                bar.style.width = Math.min(progress, 100) + '%';
+              }, {passive: true});
+            }
+
+            // Smooth Scroll for Quick Jumplinks (anchor links starting with #)
+            document.addEventListener('click', function(e) {
+              var target = e.target;
+              while (target && target !== document) {
+                if (target.tagName === 'A' && target.getAttribute('href') && target.getAttribute('href').startsWith('#')) {
+                  var id = target.getAttribute('href').substring(1);
+                  var el = document.getElementById(id);
+                  if (el) {
+                    e.preventDefault();
+                    var yOffset = -80;
+                    var y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                    history.pushState(null, '', '#' + id);
+                  }
+                  break;
+                }
+                target = target.parentNode;
+              }
+            });
           })();
         `
       }} />
 
-      <div className="blog-page">
+      <div className="blog-wrapper">
 
-        {/* ── Navigation ────────────────────────────────────────────────────── */}
-        <nav style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid rgba(0,0,0,0.06)', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-              <img src="/tripdm-logo.png" alt="TripDM Logo" style={{ height: 48, width: 'auto', objectFit: 'contain' }} />
-              <span style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', color: '#ea580c', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, letterSpacing: 0.5 }}>BLOG</span>
+        {/* Top Navbar */}
+        <nav className="bp-nav">
+          <div className="bp-nav-inner">
+            <Link href="/" className="bp-brand">
+              <img src="/tripdm-logo.png" alt="TripDM" style={{ height: 60, width: 'auto', objectFit: 'contain' }} />
             </Link>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Link href="/" style={{ color: '#64748b', fontSize: 13, fontWeight: 500, textDecoration: 'none', padding: '6px 12px', borderRadius: 8, transition: 'color 0.2s' }}>Home</Link>
-              <Link href="/package" style={{ color: '#64748b', fontSize: 13, fontWeight: 500, textDecoration: 'none', padding: '6px 12px', borderRadius: 8, transition: 'color 0.2s' }}>Packages</Link>
-              <Link href="/" style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', color: '#ea580c', fontSize: 12, fontWeight: 600, textDecoration: 'none', padding: '7px 16px', borderRadius: 8 }}>
-                Find Travel Agents →
-              </Link>
+            <div className="bp-nav-links">
+              <Link href="/" className="bp-nav-link">Home</Link>
+              <Link href="/package" className="bp-nav-link">Packages</Link>
+              <Link href="/" className="bp-nav-cta">Find Travel Agents</Link>
             </div>
           </div>
         </nav>
 
-        {/* Breadcrumb */}
-        <nav className="bp-breadcrumb" aria-label="Breadcrumb">
-          <Link href="/">Home</Link>
-          <span className="bp-breadcrumb-sep">›</span>
-          <Link href="/blog">Blog</Link>
-          <span className="bp-breadcrumb-sep">›</span>
-          <span className="bp-breadcrumb-current">{blog.title}</span>
-        </nav>
+        {/* Main Content Container */}
+        <main className="bp-container">
 
-        {/* Hero */}
-        <div className="bp-hero">
-          {blog.coverImage
-            ? <img src={blog.coverImage} alt={blog.title} className="bp-hero-img" />
-            : <div className="bp-hero-no-img">✈️</div>
-          }
-          <div className="bp-hero-overlay" />
-          <div className="bp-hero-meta">
-            <Link href={`/blog?category=${blog.category}`} className="bp-hero-category">{blog.category}</Link>
-            <h1 className="bp-hero-title">{blog.title}</h1>
-            <div className="bp-hero-bar">
-              <div className="bp-hero-author">
-                <div className="bp-hero-avatar">{blog.author.charAt(0).toUpperCase()}</div>
-                <div>
-                  <div className="bp-hero-author-name">{blog.author}</div>
-                  <div className="bp-hero-author-role">TripDM Travel Expert</div>
-                </div>
-              </div>
-              <div className="bp-hero-divider" />
-              <span className="bp-hero-stat">📅 {formatDate(blog.publishedAt)}</span>
-              <div className="bp-hero-divider" />
-              <span className="bp-hero-stat">⏱ {getRelativeTime(blog.publishedAt)}</span>
+          {/* Article Header (Above Cover Image) */}
+          <header className="bp-header">
+            <h1 className="bp-title">{blog.title}</h1>
+            <div className="bp-meta-row">
+              <span className="bp-meta-author">By {blog.author}</span>
+              <span className="bp-meta-dot">•</span>
+              <span className="bp-meta-date">{formatDate(blog.publishedAt)}</span>
+              <span className="bp-meta-dot">•</span>
+              <span className="bp-meta-views">
+                <svg className="bp-view-icon" viewBox="0 0 24 24">
+                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                </svg>
+                {mainViews} View
+              </span>
             </div>
+          </header>
+
+          {/* Cover Hero Image */}
+          <div className="bp-hero-box">
+            {blog.coverImage ? (
+              <img src={blog.coverImage} alt={blog.title} className="bp-hero-img" />
+            ) : (
+              <div className="bp-hero-fallback">🗺️</div>
+            )}
           </div>
-        </div>
 
-        {/* Main layout */}
-        <div className="bp-layout">
+          {/* 2-Column Grid Layout */}
+          <div className="bp-grid">
 
-          {/* Article column */}
-          <div>
-            {/* Excerpt pull quote */}
-            {blog.excerpt && <div className="bp-excerpt">{blog.excerpt}</div>}
+            {/* Left Column: Main Content */}
+            <article className="bp-article-column">
+              <div
+                className="bp-article-body"
+                dangerouslySetInnerHTML={{ __html: contentHtml }}
+              />
 
-            {/* Tags */}
-            {blog.tags?.length > 0 && (
-              <div className="bp-tags">
-                {blog.tags.map(tag => (
-                  <span key={tag} className="bp-tag">#{tag}</span>
-                ))}
+              {/* CTA Box */}
+              <div className="bp-cta-box">
+                <h3 className="bp-cta-title">Plan Your Dream Trip Today</h3>
+                <p className="bp-cta-desc">Get customized travel packages and expert itineraries directly from verified travel agents on TripDM.</p>
+                <Link href="/" className="bp-cta-btn">Explore Packages →</Link>
               </div>
-            )}
 
-            {/* Share bar */}
-            <div className="bp-share">
-              <span className="bp-share-label">Share</span>
-              <a className="bp-share-btn" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(blog.title)}&url=${encodeURIComponent(`https://tripdm.com/blog/${blog.slug}`)}`} target="_blank" rel="noopener" title="Share on Twitter">𝕏</a>
-              <a className="bp-share-btn" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://tripdm.com/blog/${blog.slug}`)}`} target="_blank" rel="noopener" title="Share on Facebook">f</a>
-              <a className="bp-share-btn" href={`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(`https://tripdm.com/blog/${blog.slug}`)}&title=${encodeURIComponent(blog.title)}`} target="_blank" rel="noopener" title="Share on LinkedIn">in</a>
-              <a className="bp-share-btn" href={`https://api.whatsapp.com/send?text=${encodeURIComponent(blog.title + ' ' + `https://tripdm.com/blog/${blog.slug}`)}`} target="_blank" rel="noopener" title="Share on WhatsApp">💬</a>
-            </div>
-
-            {/* Article body */}
-            <article
-              className="bp-article-body"
-              dangerouslySetInnerHTML={{ __html: contentHtml }}
-            />
-
-            {/* CTA */}
-            <div className="bp-cta">
-              <div className="bp-cta-label">Plan Your Trip</div>
-              <h3>Ready to Make It Real?</h3>
-              <p>Connect with verified travel experts on TripDM and get a personalized itinerary crafted just for you.</p>
-              <Link href="/" className="bp-cta-btn">Explore TripDM Packages →</Link>
-            </div>
-
-            {/* Tags footer */}
-            {blog.tags?.length > 0 && (
-              <div className="bp-tags-footer">
-                <div className="bp-tags-footer-label">Filed under</div>
-                {blog.tags.map(tag => (
-                  <span key={tag} className="bp-tag-large">#{tag}</span>
-                ))}
-              </div>
-            )}
-
-            {/* Related Posts */}
-            {relatedBlogs.length > 0 && (
-              <section className="bp-related">
-                <div className="bp-related-header">
-                  <h2>Related Articles</h2>
-                  <div className="bp-related-header-line" />
+              {/* Tags */}
+              {blog.tags?.length > 0 && (
+                <div className="bp-tags-wrap">
+                  {blog.tags.map(tag => (
+                    <span key={tag} className="bp-tag-chip">#{tag}</span>
+                  ))}
                 </div>
-                <div className="bp-related-grid">
-                  {relatedBlogs.map(related => (
-                    <Link key={related.id} href={`/blog/${related.slug}`} className="bp-related-card">
-                      {related.coverImage
-                        ? <img src={related.coverImage} alt={related.title} className="bp-related-img" />
-                        : <div className="bp-related-img-placeholder">🗺️</div>
-                      }
-                      <div className="bp-related-body">
-                        <span className="bp-related-cat">{related.category}</span>
-                        <h3 className="bp-related-title">{related.title}</h3>
-                        <span className="bp-related-time">{related.readTime}</span>
+              )}
+            </article>
+
+            {/* Right Sidebar Column */}
+            <aside className="bp-sidebar">
+
+              {/* Popular TripDM Stories */}
+              <div className="bp-sidebar-card">
+                <h3 className="bp-sidebar-card-title">Popular TripDM Stories</h3>
+                <div className="bp-popular-list">
+                  {popularBlogs.map((item) => (
+                    <Link key={item.id} href={`/blog/${item.slug}`} className="bp-popular-item">
+                      <img src={item.coverImage || 'https://images.unsplash.com/photo-1506461883276-594a12b11ce3?auto=format&fit=crop&w=400&q=80'} alt={item.title} className="bp-popular-img" />
+                      <div className="bp-popular-info">
+                        <h4 className="bp-popular-title">{item.title}</h4>
+                        <div className="bp-popular-views">
+                          <svg className="bp-view-icon-sm" viewBox="0 0 24 24">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                          </svg>
+                          {getFormattedViews(item)} Views
+                        </div>
                       </div>
                     </Link>
                   ))}
                 </div>
-              </section>
-            )}
+              </div>
 
-            {/* Back */}
-            <div className="bp-back">
-              <Link href="/blog" className="bp-back-btn">← Back to All Articles</Link>
-            </div>
+            </aside>
+
           </div>
 
-          {/* Sidebar */}
-          <aside className="bp-sidebar">
-            {/* Sidebar CTA */}
-            <div className="bp-sidebar-cta">
-              <h3>Plan Your Trip</h3>
-              <p>Get personalized travel packages from verified TripDM experts.</p>
-              <Link href="/" className="bp-sidebar-cta-btn">Get Free Quote →</Link>
-            </div>
+        </main>
 
-            {/* TOC */}
-            <div className="bp-sidebar-card">
-              <div className="bp-sidebar-title">Table of Contents</div>
-              <ul className="bp-toc-list" id="sidebar-toc">
-                {contentHtml.match(/<h2 id="([^"]+)">([^<]+)<\/h2>/g)?.slice(0, 10).map((match, i) => {
-                  const idMatch = match.match(/id="([^"]+)"/);
-                  const titleMatch = match.match(/>([^<]+)<\/h2>/);
-                  if (!idMatch || !titleMatch) return null;
-                  return (
-                    <li key={i} className="bp-toc-item">
-                      <a href={`#${idMatch[1]}`} className="bp-toc-link">{titleMatch[1]}</a>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            {/* Article info card */}
-            <div className="bp-sidebar-card">
-              <div className="bp-sidebar-title">Article Info</div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6b7280', lineHeight: 2 }}>
-                <div>📅 {formatDate(blog.publishedAt)}</div>
-                <div>⏱ {getRelativeTime(blog.publishedAt)}</div>
-                <div>📂 {blog.category}</div>
-                <div>✍️ {blog.author}</div>
-              </div>
-            </div>
-          </aside>
-        </div>
       </div>
     </>
   );
