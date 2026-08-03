@@ -571,23 +571,7 @@ export default function BlogAdminClient() {
     }
   };
 
-  const handleEdit = (blog: Blog) => {
-    setForm({
-      title: blog.title,
-      slug: blog.slug,
-      excerpt: blog.excerpt,
-      content: blog.content,
-      coverImage: blog.coverImage,
-      category: blog.category,
-      tags: blog.tags.join(', '),
-      author: blog.author,
-      metaTitle: blog.metaTitle,
-      metaDescription: blog.metaDescription,
-      published: blog.published,
-    });
-    setAiRichData(null);
-    setView('create');
-  };
+
 
   // BULK GENERATOR LOGIC
   const autoDetectCategory = (title: string): string => {
