@@ -10,6 +10,7 @@ import { optimizeImageUrl, preloadImage } from '@/lib/imageOptimization';
 import { getDbInstance } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
+import { event } from '@/lib/gtag';
 import {
   Star,
   Share2,
@@ -276,6 +277,16 @@ export default function PackageDetailView({
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // Sticky bar observer: trigger as soon as "Offered By" section scrolls out of view
+  useEffect(() => {
+    if (listing?.id) {
+      event({
+        action: 'package_view',
+        category: 'package',
+        label: listing.title || listing.stateName || listing.countryName || listing.id,
+      });
+    }
+  }, [listing?.id]);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -1486,7 +1497,14 @@ export default function PackageDetailView({
           }`}
         >
           <button
-            onClick={() => onChat(listing)}
+            onClick={() => {
+              event({
+                action: 'chat_agent_click',
+                category: 'chat',
+                label: listing.agencyName || listing.title || listing.id,
+              });
+              onChat(listing);
+            }}
             className="group flex items-center gap-3 text-white p-2 pr-5 border border-amber-300/50 shadow-[0_10px_30px_rgba(234,88,12,0.45)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
             style={{
               background: 'linear-gradient(135deg, #fb923c 0%, #ea580c 50%, #9a3412 100%)',

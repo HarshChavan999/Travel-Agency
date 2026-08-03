@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ListingCard from '@/components/ListingCard';
+import { event } from '@/lib/gtag';
 import {
   PackageListing,
   getCategoryCollections,

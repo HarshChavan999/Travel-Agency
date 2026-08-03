@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Poppins, Inter, Playfair_Display, DM_Sans, Plus_Jakarta_Sans, Outfit } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ComparisonProvider } from "@/contexts/ComparisonContext";
 import { injectImageStyles } from '@/lib/imageStyles';
+import { GA_MEASUREMENT_ID } from "@/lib/gtag";
 
 const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
@@ -59,6 +61,30 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        {GA_MEASUREMENT_ID && (
+          <>
+            <Script
+              strategy="afterInteractive"
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+            />
+            <Script
+              id="google-analytics"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${GA_MEASUREMENT_ID}', {
+                    page_path: window.location.pathname,
+                  });
+                `,
+              }}
+            />
+          </>
+        )}
+      </head>
       <body
         className={`${poppins.variable} ${inter.variable} ${playfair.variable} ${dmSans.variable} ${jakarta.variable} ${outfit.variable} font-sans antialiased`}
       >

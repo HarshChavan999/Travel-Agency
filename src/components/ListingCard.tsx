@@ -7,6 +7,7 @@ import { Star, MapPin, Calendar, DollarSign, Users, Eye, Edit, Trash2, Heart, Sc
 import { optimizeImageUrl, generateBlurPlaceholder, preloadImage } from '@/lib/imageOptimization';
 import { injectImageStyles } from '@/lib/imageStyles';
 import Link from 'next/link';
+import { event } from '@/lib/gtag';
 interface ListingCardProps {
   listing: any;
   onView?: (listing: any) => void;
@@ -464,7 +465,17 @@ export default function ListingCard({
             <div className="flex gap-2 w-full max-w-[280px]">
               {variant === 'user' ? (
                 <>
-                  <Link href={`/package/${listing.id}`} className="block flex-1">
+                  <Link 
+                    href={`/package/${listing.id}`} 
+                    className="block flex-1"
+                    onClick={() => {
+                      event({
+                        action: 'package_view_click',
+                        category: 'package',
+                        label: cardTitle || listing.title || listing.id,
+                      });
+                    }}
+                  >
                     <Button className="w-full h-[48px] bg-orange-400 hover:bg-orange-600 text-white font-medium text-[14px] rounded-xl shadow-sm transition-colors">
                       View Details
                     </Button>
@@ -475,6 +486,11 @@ export default function ListingCard({
                     className="w-[124px] h-[48px] bg-[#D84315] hover:bg-[#BF360C] text-white font-medium text-[12px] rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5 px-2"
                     onClick={(e) => {
                       e.stopPropagation();
+                      event({
+                        action: 'chat_agent_click',
+                        category: 'chat',
+                        label: listing.agencyName || cardTitle || listing.id,
+                      });
                       onChat?.(listing);
                     }}
                   >
