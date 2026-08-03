@@ -1,4 +1,6 @@
 import { MetadataRoute } from 'next';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeFirebase } from '@/lib/auth';
 
 // Revalidate sitemap every hour so new packages and blogs automatically appear
 export const revalidate = 3600;
@@ -7,39 +9,27 @@ const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FI
 
 async function fetchAllListings(baseUrl: string): Promise<MetadataRoute.Sitemap> {
   const packageUrls: MetadataRoute.Sitemap = [];
-  let pageToken = '';
 
   try {
-    do {
-      let url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/listings?pageSize=1000`;
-      if (pageToken) {
-        url += `&pageToken=${pageToken}`;
-      }
+    initializeFirebase();
+    const db = getFirestore();
 
-      const res = await fetch(url, { next: { revalidate: 3600 } });
-      if (!res.ok) {
-        console.error("Failed to fetch listings for sitemap:", res.status, res.statusText);
-        break;
-      }
+    const snapshot = await db.collection('listings').get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
 
-      const data = await res.json();
-      if (data.documents && Array.isArray(data.documents)) {
-        for (const doc of data.documents) {
-          const nameParts = doc.name.split('/');
-          const id = nameParts[nameParts.length - 1];
-          const updateTime = doc.updateTime;
+      // Only include public (approved) packages
+      if (data.approved === false) continue;
 
-          packageUrls.push({
-            url: `${baseUrl}/package/${id}`,
-            lastModified: updateTime ? new Date(updateTime) : new Date(),
-            changeFrequency: 'weekly',
-            priority: 0.8,
-          });
-        }
-      }
+      const updateTime = data.updatedAt || data.createdAt || doc.updateTime;
 
-      pageToken = data.nextPageToken || '';
-    } while (pageToken);
+      packageUrls.push({
+        url: `${baseUrl}/package/${doc.id}`,
+        lastModified: updateTime ? new Date(updateTime.seconds ? updateTime.seconds * 1000 : updateTime) : new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.8,
+      });
+    }
   } catch (error) {
     console.error("Error fetching listings for sitemap:", error);
   }
@@ -48,101 +38,33 @@ async function fetchAllListings(baseUrl: string): Promise<MetadataRoute.Sitemap>
 }
 
 async function fetchAllBlogs(baseUrl: string): Promise<MetadataRoute.Sitemap> {
-  let blogUrls: MetadataRoute.Sitemap = [];
-  let pageToken = '';
+  const blogUrls: MetadataRoute.Sitemap = [];
 
   try {
-    do {
-      let url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/blogs?pageSize=1000`;
-      if (pageToken) {
-        url += `&pageToken=${pageToken}`;
-      }
+    initializeFirebase();
+    const db = getFirestore();
 
-      const res = await fetch(url, { next: { revalidate: 3600 } });
-      if (!res.ok) {
-        console.error("Failed to fetch blogs collection for sitemap:", res.status, res.statusText);
-        break;
-      }
+    const snapshot = await db.collection('blogs').get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
 
-      const data = await res.json();
-      if (data.documents && Array.isArray(data.documents)) {
-        for (const doc of data.documents) {
-          const fields = doc.fields || {};
-          // Check published field (if undefined, include by default or check booleanValue)
-          const publishedVal = fields.published?.booleanValue;
-          const isPublished = publishedVal !== undefined ? publishedVal : true;
-          const slug = fields.slug?.stringValue;
-          
-          const nameParts = doc.name.split('/');
-          const docId = nameParts[nameParts.length - 1];
-          const blogSlug = slug || docId;
+      // Only include published blogs
+      if (data.published === false) continue;
 
-          if (isPublished && blogSlug && blogSlug !== 'undefined') {
-            const updatedAt = fields.updatedAt?.stringValue || fields.publishedAt?.stringValue || doc.updateTime || '';
-            blogUrls.push({
-              url: `${baseUrl}/blog/${blogSlug}`,
-              lastModified: updatedAt ? new Date(updatedAt) : new Date(),
-              changeFrequency: 'weekly',
-              priority: 0.7,
-            });
-          }
-        }
-      }
+      const slug = data.slug || doc.id;
+      if (!slug || slug === 'undefined') continue;
 
-      pageToken = data.nextPageToken || '';
-    } while (pageToken);
+      const updatedAt = data.updatedAt || data.publishedAt || doc.updateTime;
+
+      blogUrls.push({
+        url: `${baseUrl}/blog/${slug}`,
+        lastModified: updatedAt ? new Date(updatedAt) : new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      });
+    }
   } catch (error) {
     console.error("Error fetching blogs for sitemap:", error);
-  }
-
-  // Fallback: Use runQuery without orderBy if direct list returned nothing
-  if (blogUrls.length === 0) {
-    try {
-      const blogQueryUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
-      const blogQuery = {
-        structuredQuery: {
-          from: [{ collectionId: 'blogs' }],
-          limit: 10000,
-        },
-      };
-
-      const blogRes = await fetch(blogQueryUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(blogQuery),
-        next: { revalidate: 3600 },
-      });
-
-      if (blogRes.ok) {
-        const blogData = await blogRes.json();
-        const queried = blogData
-          .filter((item: any) => item.document)
-          .map((item: any) => {
-            const fields = item.document.fields || {};
-            const publishedVal = fields.published?.booleanValue;
-            const isPublished = publishedVal !== undefined ? publishedVal : true;
-            const slug = fields.slug?.stringValue;
-            const nameParts = item.document.name.split('/');
-            const docId = nameParts[nameParts.length - 1];
-            const blogSlug = slug || docId;
-            const updatedAt = fields.updatedAt?.stringValue || fields.publishedAt?.stringValue || item.document.updateTime || '';
-
-            if (!isPublished || !blogSlug) return null;
-
-            return {
-              url: `${baseUrl}/blog/${blogSlug}`,
-              lastModified: updatedAt ? new Date(updatedAt) : new Date(),
-              changeFrequency: 'weekly' as const,
-              priority: 0.7,
-            };
-          })
-          .filter((item: any): item is MetadataRoute.Sitemap[number] => item !== null);
-
-        blogUrls = queried;
-      }
-    } catch (err) {
-      console.error("Fallback query for blogs failed:", err);
-    }
   }
 
   return blogUrls;
