@@ -3,7 +3,7 @@ import { MetadataRoute } from 'next';
 // Revalidate sitemap every hour so new packages and blogs automatically appear
 export const revalidate = 3600;
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
 async function fetchAllListings(baseUrl: string): Promise<MetadataRoute.Sitemap> {
   const packageUrls: MetadataRoute.Sitemap = [];
