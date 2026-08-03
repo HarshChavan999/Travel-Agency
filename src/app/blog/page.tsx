@@ -53,7 +53,7 @@ async function getPublishedBlogs(): Promise<Blog[]> {
             value: { booleanValue: true },
           },
         },
-        limit: 50,
+        limit: 10000,
       },
     };
     const res = await fetch(url, {

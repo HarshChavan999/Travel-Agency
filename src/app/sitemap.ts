@@ -11,7 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Fetch listing URLs for sitemap
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/listings?pageSize=1000`;
+    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/listings?pageSize=10000`;
     const res = await fetch(url, { next: { revalidate: 3600 } });
     
     if (res.ok) {
@@ -52,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           },
         },
         orderBy: [{ field: { fieldPath: 'publishedAt' }, direction: 'DESCENDING' }],
-        limit: 200,
+        limit: 10000,
       },
     };
 
