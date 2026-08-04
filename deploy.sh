@@ -44,6 +44,11 @@ FIREBASE_AUTH_URI=https://accounts.google.com/o/oauth2/auth,\
 FIREBASE_TOKEN_URI=https://oauth2.googleapis.com/token,\
 FIREBASE_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs,\
 FIREBASE_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40travel-agent-management-29c27.iam.gserviceaccount.com,\
+R2_ACCOUNT_ID=25254d18b4d4d8443dba762481b12ebb,\
+R2_ACCESS_KEY_ID=c7046612f63141c3db768593d205c858,\
+R2_SECRET_ACCESS_KEY=811666076732b8fd865380f8864ddb2661bc148412db5cd964ad13afc1aec1a2,\
+R2_BUCKET_NAME=tripdm-images,\
+R2_PUBLIC_URL=https://pub-72f938952ddd47cc95bd3efcf3b9419c.r2.dev,\
 NODE_ENV=production"
 
 echo "✅ Cloud Run deployment completed successfully"
