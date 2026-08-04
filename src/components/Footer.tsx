@@ -42,9 +42,9 @@ export default function Footer({ onNavigate }: FooterProps = {}) {
           <div>
             <h3 className="text-base font-bold mb-4">Earn with us</h3>
             <ul className="space-y-2.5 text-sm text-gray-300">
-              <li><Link href="#" className="hover:text-white transition-colors">Join as Travel Agent</Link></li>
+              {/* <li><Link href="#" className="hover:text-white transition-colors">Join as Travel Agent</Link></li> */}
               <li><Link href="#" className="hover:text-white transition-colors">Become an Affiliate</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Join as an Influencer</Link></li>
+              {/* <li><Link href="#" className="hover:text-white transition-colors">Join as an Influencer</Link></li> */}
             </ul>
           </div>
 

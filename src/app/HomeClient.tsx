@@ -6190,6 +6190,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             };
                             fetchAgencyListings();
                           }}
+                          onCancel={() => {
+                            setShowListingForm(false);
+                            setEditingListing(null);
+                            setViewingListing(null);
+                          }}
                           initialData={editingListing || undefined}
                         />
                       )}

@@ -54,6 +54,7 @@ interface FormData {
 interface AgencyListingFormProps {
   agencyId: string;
   onSuccess: () => void;
+  onCancel?: () => void;
   initialData?: FormData & { id?: string };
 }
 
@@ -177,7 +178,7 @@ const countries = [
   'Yemen', 'Zambia', 'Zimbabwe'
 ];
 
-export default function AgencyListingForm({ agencyId, onSuccess, initialData }: AgencyListingFormProps) {
+export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initialData }: AgencyListingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
 
@@ -1565,7 +1566,13 @@ export default function AgencyListingForm({ agencyId, onSuccess, initialData }: 
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => window.history.back()}
+                  onClick={() => {
+                    if (onCancel) {
+                      onCancel();
+                    } else {
+                      window.history.back();
+                    }
+                  }}
                 >
                   Cancel
                 </Button>
