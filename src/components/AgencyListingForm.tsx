@@ -970,7 +970,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               </div>
             </div>
 
-            {/* 3. Package Photos */}
+            {/* 3. Package Photos (Commented out - preserved)
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
@@ -980,7 +980,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
   </div>
               
               <div className="space-y-4">
-                {/* Upload Button */}
+                Upload Button
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 cursor-pointer relative transition-all hover:border-orange-400">
                   <input
                     id="package-photos-upload"
@@ -999,10 +999,10 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                   <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 5MB</p>
                 </div>
 
-                {/* Previews and Existing Photos */}
+                Previews and Existing Photos
                 {((placesCovered[0]?.imageUrls?.length || 0) + (placesCovered[0]?.images?.length || 0)) > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4 border p-4 rounded-xl bg-gray-50/50">
-                    {/* Existing uploaded images */}
+                    Existing uploaded images
                     {placesCovered[0]?.imageUrls?.map((url, idx) => (
                       <div key={`existing-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border bg-white group shadow-sm">
                         <img src={url} alt={`Package photo ${idx + 1}`} className="w-full h-full object-cover" />
@@ -1022,7 +1022,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                       </div>
                     ))}
 
-                    {/* Newly selected image files */}
+                    Newly selected image files
                     {placesCovered[0]?.images?.map((file, idx) => {
                       const previewUrl = URL.createObjectURL(file);
                       return (
@@ -1051,12 +1051,13 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                 )}
               </div>
             </div>
+            */}
 
             {/* 4. Tour Category */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      4
+      3
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Tour Category</h3>
   </div>
@@ -1093,7 +1094,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      5
+      4
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Hotel Type</h3>
   </div>
@@ -1128,7 +1129,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      6
+      5
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Meal Plan</h3>
   </div>
@@ -1166,7 +1167,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      7
+      6
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Itinerary Builder</h3>
   </div>
@@ -1293,7 +1294,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      8
+      7
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Duration</h3>
   </div>
@@ -1319,7 +1320,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      9
+      8
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Starting Price</h3>
   </div>
@@ -1351,7 +1352,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      10
+      9
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Experience Type</h3>
   </div>
@@ -1430,7 +1431,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      11
+      10
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Seasonal Escapes</h3>
   </div>
@@ -1457,7 +1458,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      12
+      11
     </div>
     <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Festive & Event Specials</h3>
   </div>
@@ -1485,7 +1486,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               {/* Inclusions */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <h3 className="text-lg font-semibold">13. Inclusions</h3>
+                  <h3 className="text-lg font-semibold">12. Inclusions</h3>
                   <Button type="button" size="sm" onClick={addInclusion} className="flex items-center gap-1">
                     <Plus className="h-3 w-3" /> Add Item
                   </Button>
@@ -1517,7 +1518,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               {/* Exclusions */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <h3 className="text-lg font-semibold">14. Exclusions</h3>
+                  <h3 className="text-lg font-semibold">13. Exclusions</h3>
                   <Button type="button" size="sm" onClick={addExclusion} className="flex items-center gap-1">
                     <Plus className="h-3 w-3" /> Add Item
                   </Button>
