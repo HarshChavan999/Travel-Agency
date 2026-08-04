@@ -73,8 +73,25 @@ export const getImageDimensions = (file: File): Promise<{ width: number; height:
 
 // Validate file type
 export const isValidImageFile = (file: File): boolean => {
-  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  return validTypes.includes(file.type);
+  const validTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+    'image/heic',
+    'image/heif',
+    'image/svg+xml',
+    'image/bmp',
+    'image/tiff',
+  ];
+  const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif', 'svg', 'bmp', 'tiff'];
+
+  const fileType = file.type ? file.type.toLowerCase() : '';
+  const fileExt = file.name ? file.name.split('.').pop()?.toLowerCase() : '';
+
+  return validTypes.includes(fileType) || (!!fileExt && validExtensions.includes(fileExt));
 };
 
 // Validate file size (before compression)

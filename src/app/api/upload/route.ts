@@ -17,10 +17,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/avif',
+      'image/heic',
+      'image/heif',
+      'image/svg+xml',
+      'image/bmp',
+      'image/tiff',
+      'application/pdf',
+    ];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif', 'svg', 'bmp', 'tiff', 'pdf'];
+
+    const fileType = file.type ? file.type.toLowerCase() : '';
+    const fileExt = file.name ? file.name.split('.').pop()?.toLowerCase() : '';
+
+    const isAllowed = allowedTypes.includes(fileType) || (!!fileExt && allowedExtensions.includes(fileExt));
+
+    if (!isAllowed) {
       return NextResponse.json(
-        { error: `Unsupported file type: ${file.type}. Allowed: JPEG, PNG, WebP, GIF, PDF` },
+        { error: `Unsupported file type: ${file.type || fileExt}. Allowed: JPEG, PNG, WebP, GIF, AVIF, HEIC, PDF` },
         { status: 400 }
       );
     }
