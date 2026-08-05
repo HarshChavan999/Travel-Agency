@@ -134,33 +134,31 @@ export default async function BlogPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Lato:wght@300;400;700&family=Nunito:wght@600;700;800&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', sans-serif; background: #f8fafc; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes shimmer { 0%,100%{opacity:0.4} 50%{opacity:1} }
-        .blog-card { transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
-        .blog-card:hover { transform: translateY(-4px); border-color: rgba(249,115,22,0.25) !important; box-shadow: 0 20px 48px rgba(0,0,0,0.08) !important; }
-        .featured-card { transition: box-shadow 0.3s ease; }
-        .featured-card:hover { box-shadow: 0 30px 70px rgba(0,0,0,0.1) !important; }
+        .blog-card { transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease; }
+        .blog-card:hover { transform: translateY(-3px); border-color: rgba(249,115,22,0.22) !important; box-shadow: 0 16px 40px rgba(0,0,0,0.08) !important; }
+        .featured-card { transition: box-shadow 0.25s ease; }
+        .featured-card:hover { box-shadow: 0 24px 60px rgba(0,0,0,0.09) !important; }
         .nav-link:hover { color: #0f172a !important; }
-        .tag-chip:hover { background: rgba(249,115,22,0.15) !important; color: #f97316 !important; }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        .search-bar-wrap:focus-within { border-color: rgba(234,88,12,0.45) !important; box-shadow: 0 0 0 3px rgba(234,88,12,0.08) !important; }
+        /* Hide scrollbar on category row */
+        .cat-scroll::-webkit-scrollbar { display: none; }
+        .cat-scroll { scrollbar-width: none; }
+        ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
       `}</style>
 
       <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#334155', fontFamily: 'Inter, sans-serif' }}>
 
         {/* ── Navigation ────────────────────────────────────────────────────── */}
-        <nav style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid rgba(0,0,0,0.06)', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-              <img src="/tripdm-logo.png" alt="TripDM Logo" style={{ height: 48, width: 'auto', objectFit: 'contain' }} />
-              <span style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', color: '#ea580c', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, letterSpacing: 0.5 }}>BLOG</span>
+        <nav style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid rgba(0,0,0,0.06)', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 32px', height: 80, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+              <img src="/tripdm-logo.png" alt="TripDM Logo" style={{ height: 64, width: 'auto', objectFit: 'contain' }} />
             </Link>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Link href="/" className="nav-link" style={{ color: '#64748b', fontSize: 13, fontWeight: 500, textDecoration: 'none', padding: '6px 12px', borderRadius: 8, transition: 'color 0.2s' }}>Home</Link>
-              <Link href="/package" className="nav-link" style={{ color: '#64748b', fontSize: 13, fontWeight: 500, textDecoration: 'none', padding: '6px 12px', borderRadius: 8, transition: 'color 0.2s' }}>Packages</Link>
-              <Link href="/" style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', color: '#ea580c', fontSize: 12, fontWeight: 600, textDecoration: 'none', padding: '7px 16px', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Link href="/" className="nav-link" style={{ color: '#64748b', fontSize: 14, fontWeight: 500, textDecoration: 'none', transition: 'color 0.2s' }}>
                 Find Travel Agents →
               </Link>
             </div>
@@ -169,47 +167,95 @@ export default async function BlogPage() {
 
         {/* ── Hero ──────────────────────────────────────────────────────────── */}
         <section style={{ padding: '72px 24px 56px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-          {/* Background grid */}
-          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(249,115,22,0.15) 1px, transparent 1px)', backgroundSize: '32px 32px', pointerEvents: 'none' }} />
-          {/* Glow */}
-          <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 600, height: 300, background: 'radial-gradient(ellipse, rgba(249,115,22,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          {/* Subtle background dot grid */}
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(249,115,22,0.12) 1px, transparent 1px)', backgroundSize: '28px 28px', pointerEvents: 'none' }} />
+          {/* Soft glow */}
+          <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 700, height: 280, background: 'radial-gradient(ellipse, rgba(249,115,22,0.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 20, padding: '5px 14px', marginBottom: 24, fontSize: 12, color: '#ea580c', fontWeight: 600, letterSpacing: 0.5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ea580c', animation: 'shimmer 2s infinite' }} />
-              TRIPDM TRAVEL BLOG
+            {/* BLOG label — Nunito font, plain text */}
+            <div style={{ marginBottom: 18 }}>
+              <span style={{
+                fontFamily: "'Nunito', sans-serif",
+                fontSize: 13,
+                fontWeight: 800,
+                letterSpacing: 6,
+                textTransform: 'uppercase',
+                color: '#ea580c',
+              }}>
+                Blog
+              </span>
             </div>
 
-            <h1 style={{ fontSize: 'clamp(36px,6vw,64px)', fontWeight: 900, color: '#0f172a', lineHeight: 1.1, marginBottom: 20, letterSpacing: '-1.5px' }}>
-              Travel Smarter,{' '}
-              <span style={{ background: 'linear-gradient(135deg,#f97316,#fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                Explore More
+            {/* Main heading — Playfair Display (editorial serif) */}
+            <h1 style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: 'clamp(36px, 6vw, 68px)',
+              fontWeight: 900,
+              color: '#0f172a',
+              lineHeight: 1.1,
+              marginBottom: 20,
+              letterSpacing: '-0.5px',
+            }}>
+              Travel Stories
+              <span style={{
+                display: 'block',
+                fontStyle: 'italic',
+                background: 'linear-gradient(135deg,#f97316,#fbbf24)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}>
+                &amp; Guides
               </span>
             </h1>
-            <p style={{ fontSize: 17, color: '#64748b', maxWidth: 560, margin: '0 auto 32px', lineHeight: 1.7 }}>
-              Expert destination guides, budget tips, and travel inspiration curated by TripDM's team of travel specialists.
+
+            {/* Subtitle — Lato light */}
+            <p style={{
+              fontFamily: "'Lato', sans-serif",
+              fontSize: 17,
+              fontWeight: 300,
+              color: '#64748b',
+              maxWidth: 500,
+              margin: '0 auto 28px',
+              lineHeight: 1.8,
+              letterSpacing: '0.2px',
+            }}>
+              Destination guides, travel tips, and trip ideas —{' '}
+              <span style={{ fontWeight: 700, color: '#475569' }}>curated for every kind of traveler.</span>
             </p>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, fontSize: 13, color: '#475569' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: '#ea580c' }}>✦</span> {blogs.length} Articles
-              </span>
-              <span style={{ width: 1, height: 14, background: 'rgba(0,0,0,0.1)' }} />
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: '#ea580c' }}>✦</span> Expert Writers
-              </span>
-              <span style={{ width: 1, height: 14, background: 'rgba(0,0,0,0.1)' }} />
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: '#ea580c' }}>✦</span> SEO Optimized
-              </span>
-            </div>
+            {/* Article count pill — Nunito */}
+            {blogs.length > 0 && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: 'rgba(249,115,22,0.08)',
+                border: '1px solid rgba(249,115,22,0.18)',
+                borderRadius: 20,
+                padding: '6px 16px',
+                fontFamily: "'Nunito', sans-serif",
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#ea580c',
+              }}>
+                {blogs.length} articles published
+              </div>
+            )}
           </div>
         </section>
 
         {blogs.length === 0 ? (
           <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 80px' }}>
             <div style={{ textAlign: 'center', padding: '80px 40px', background: '#ffffff', borderRadius: 20, border: '1px solid rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize: 56, marginBottom: 16 }}>🌏</div>
+              <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="2" y1="12" x2="22" y2="12"/>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+              </div>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Coming Soon</h2>
               <p style={{ color: '#64748b', marginBottom: 28 }}>Our travel blog is launching soon. Check back for expert travel guides!</p>
               <Link href="/" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#f97316,#ea580c)', color: '#fff', textDecoration: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 600, fontSize: 14 }}>
@@ -224,7 +270,7 @@ export default async function BlogPage() {
         {/* ── Footer ──────────────────────────────────────────────────────── */}
         <footer style={{ borderTop: '1px solid rgba(0,0,0,0.06)', padding: '24px', textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-            <div style={{ width: 24, height: 24, background: 'linear-gradient(135deg,#f97316,#ea580c)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', fontWeight: 800 }}>✈</div>
+            <img src="/tripdm-logo.png" alt="TripDM" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
             <span style={{ fontSize: 14, fontWeight: 700, color: '#64748b' }}>TripDM Blog</span>
           </div>
           <p style={{ color: '#94a3b8', fontSize: 12 }}>© {new Date().getFullYear()} TripDM. All rights reserved. Expert travel content for the modern traveler.</p>
