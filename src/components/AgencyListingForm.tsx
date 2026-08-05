@@ -1136,28 +1136,65 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                 <Controller
                   name="mealPlan"
                   control={control}
-                  render={({ field }) => (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {mealPlans.map((plan) => (
-                        <label key={plan.value} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={(field.value || []).includes(plan.value)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              const currentPlans = field.value || [];
-                              const newPlans = checked
-                                ? [...currentPlans, plan.value]
-                                : currentPlans.filter((p: string) => p !== plan.value);
-                              field.onChange(newPlans);
-                            }}
-                            className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
-                          />
-                          <span>{plan.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                  render={({ field }) => {
+                    const currentPlans: string[] = field.value || [];
+                    const isNoMealSelected = currentPlans.includes('no-meal');
+                    const isAllMealsSelected = currentPlans.includes('all-meals');
+
+                    const visiblePlans = mealPlans.filter((plan) => {
+                      if (isNoMealSelected) {
+                        return plan.value === 'no-meal';
+                      }
+                      if (isAllMealsSelected) {
+                        return plan.value === 'all-meals';
+                      }
+                      return true;
+                    });
+
+                    return (
+                      <div className="space-y-3">
+                        {/* {(isNoMealSelected || isAllMealsSelected) && (
+                          <div className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center justify-between">
+                            <span>
+                              {isNoMealSelected ? '"No Meal"' : '"All Meals"'} is selected. Other meal plans are hidden. Uncheck to view all meal options.
+                            </span>
+                          </div>
+                        )} */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {visiblePlans.map((plan) => (
+                            <label key={plan.value} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={currentPlans.includes(plan.value)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  let newPlans: string[] = [];
+
+                                  if (checked) {
+                                    if (plan.value === 'no-meal') {
+                                      newPlans = ['no-meal'];
+                                    } else if (plan.value === 'all-meals') {
+                                      newPlans = ['all-meals'];
+                                    } else {
+                                      const filtered = currentPlans.filter(
+                                        (p) => p !== 'no-meal' && p !== 'all-meals'
+                                      );
+                                      newPlans = [...filtered, plan.value];
+                                    }
+                                  } else {
+                                    newPlans = currentPlans.filter((p) => p !== plan.value);
+                                  }
+                                  field.onChange(newPlans);
+                                }}
+                                className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
+                              />
+                              <span>{plan.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }}
                 />
               </div>
             </div>

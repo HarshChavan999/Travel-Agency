@@ -2,10 +2,10 @@ import React from 'react';
 
 export default function ConditionsOfUse() {
   return (
-    <div className="prose prose-sm md:prose-base max-w-none text-gray-700">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">TripDM Conditions of Use & Sale</h1>
-      <p className="text-sm text-gray-500 mb-8 pb-8 border-b">
-        Last Updated: 17 July 2026
+    <div className="prose prose-sm md:prose-base max-w-none text-slate-700 font-sans">
+      <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight uppercase mb-1">TERMS AND CONDITIONS</h1>
+      <p className="text-xs sm:text-sm text-slate-500 font-semibold mb-8">
+        Last updated: July 17, 2026
       </p>
 
       <div className="space-y-8">
@@ -118,10 +118,9 @@ export default function ConditionsOfUse() {
           </ul>
         </section>
 
-        <section className="bg-gray-50 border-t-4 border-orange-500 rounded-b-lg p-6 mt-12">
-          <h3 className="font-bold text-gray-900 mb-2">Final Acknowledgement</h3>
-          <p className="text-sm">
-            By accessing or using TripDM, you acknowledge that you have read, understood, and agree to be bound by these Conditions of Use & Sale.
+        <section className="mt-10 pt-6 border-t border-slate-100">
+          <p className="text-sm sm:text-[14.5px] text-slate-600 font-medium leading-relaxed">
+            By accessing or using TripDM, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.
           </p>
         </section>
       </div>

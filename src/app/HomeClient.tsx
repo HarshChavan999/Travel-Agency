@@ -3879,7 +3879,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   if (routeMode === 'user' || (user && userData?.role === 'user')) {
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
-        <div className={`flex flex-col bg-gray-100 ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+        <div className={`flex flex-col bg-white ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
           {/* Top Navigation Bar */}
           <header className="header-transition text-gray-900 z-[100] sticky top-0 bg-white shadow-sm border-b border-gray-200 h-16 flex items-center">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
@@ -4096,13 +4096,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     <div className="flex gap-2 sm:gap-3.5 items-center justify-center px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide max-w-full">
                       {[
                         { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
-                        { id: 'all_packages', label: 'All Packages', type: 'all', filter: null },
+                        { id: 'all_packages', label: 'All Packages', type: 'all', filter: null, hidden: true },
                         { id: 'domestic_tab', label: 'Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
                         { id: 'intl_tab', label: 'International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
                         { id: 'family_tab', label: 'Family', type: 'all', filter: { category: 'tourCategory', subcategory: 'Family Tour', title: 'Tour by Category - Family Tour' } },
                         { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } },
                         { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } }
                       ].map((item) => {
+                        if ((item as any).hidden) return null;
                         const isCategoriesActive = item.type === 'categories' && dashboardViewMode === 'categories' && !selectedCategoryFilter;
                         const isAllActive = item.type === 'all' && dashboardViewMode === 'all' && !selectedCategoryFilter && !item.filter;
                         const isFilterActive = item.filter && selectedCategoryFilter && 

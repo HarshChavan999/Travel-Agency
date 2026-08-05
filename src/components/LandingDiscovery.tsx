@@ -322,11 +322,11 @@ export default function LandingDiscovery({
             </h2>
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-12">
             {stateStories.slice(0, 2).map((story) => (
               <div
                 key={story.stateName}
-                className="bg-gradient-to-br from-amber-50/60 via-orange-50/30 to-white border border-orange-100/80 rounded-md p-6 sm:p-10 shadow-xs hover:shadow-md transition-all duration-300"
+                className="py-4"
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                   {/* Left Column: Visual Photography */}

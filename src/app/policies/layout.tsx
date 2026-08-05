@@ -91,9 +91,9 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
   }, []);
 
   const tabs = [
-    { name: 'Conditions of Use and Sale', href: '/policies/conditions-of-use' },
-    { name: 'Privacy Notice', href: '/policies/privacy-notice' },
-    { name: 'Internet-Based Policy', href: '/policies/internet-based-policy' },
+    { name: 'Terms & Conditions', href: '/policies/conditions-of-use' },
+    { name: 'Privacy Policy', href: '/policies/privacy-notice' },
+    { name: 'Copyright Policies', href: '/policies/internet-based-policy' },
   ];
 
   return (
@@ -200,10 +200,10 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
           </div>
         </div>
       </header>
-      {/* Top Navigation Tabs */}
-      <div className="border-b border-gray-200 sticky top-0 bg-white z-10 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8 overflow-x-auto hide-scrollbar" aria-label="Tabs">
+      {/* Top Policy Navigation Tabs Bar */}
+      <div className="border-b border-slate-200 bg-white sticky top-16 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-10 overflow-x-auto hide-scrollbar" aria-label="Tabs">
             {tabs.map((tab) => {
               const isActive = pathname === tab.href;
               return (
@@ -211,11 +211,11 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
                   key={tab.name}
                   href={tab.href}
                   className={`
-                    whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                    whitespace-nowrap py-3.5 px-0 border-b-2 text-sm sm:text-[15px] font-semibold transition-all cursor-pointer
                     ${
                       isActive
-                        ? 'border-orange-500 text-orange-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-orange-500 text-orange-600 font-bold'
+                        : 'border-transparent text-slate-600 hover:text-orange-500 hover:border-orange-400'
                     }
                   `}
                 >
@@ -228,7 +228,7 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
       </div>
 
       {/* Page Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16 flex-1 w-full">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14 flex-1 w-full">
         {children}
       </div>
 
