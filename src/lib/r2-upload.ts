@@ -1,7 +1,7 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from './r2-config';
 
-export type ImageCategory = 'listings' | 'proofs' | 'logos' | 'avatars' | 'covers';
+export type ImageCategory = 'listings' | 'proofs' | 'logos' | 'avatars' | 'covers' | 'blogs';
 
 /**
  * Generate a unique filename to prevent collisions and enable immutable caching
@@ -37,7 +37,7 @@ export async function uploadToR2(
     Key: key,
     Body: new Uint8Array(buffer),
     ContentType: file.type || `image/${uniqueName.split('.').pop()}`,
-    CacheControl: category === 'listings' || category === 'covers'
+    CacheControl: category === 'listings' || category === 'covers' || category === 'blogs'
       ? 'public, max-age=31536000, immutable'
       : 'public, max-age=3600',
   }));

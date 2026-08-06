@@ -455,6 +455,8 @@ export default function BlogAdminClient() {
 
       const formData = new FormData();
       formData.append('file', fileToUpload);
+      formData.append('category', 'covers');
+      formData.append('userId', user?.uid || 'admin');
 
       const res = await fetch('/api/upload', {
         method: 'POST',

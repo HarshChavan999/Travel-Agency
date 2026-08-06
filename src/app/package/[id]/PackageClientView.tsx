@@ -131,12 +131,12 @@ export default function PackageClientView({ listing }: { listing: any }) {
                 </span>
               </div>
             ) : (
-              <button
+              <span
                 onClick={() => setShowAuthModal(true)}
-                className="bg-orange-500 hover:bg-orange-600 text-white shadow-md px-5 py-1.5 text-sm font-bold tracking-wide rounded-md ml-2 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-gray-600 flex items-center gap-1.5"
               >
-                <User className="h-4 w-4" /> Login
-              </button>
+                <User className="h-4 w-4 text-gray-700" /> Login
+              </span>
             )}
           </div>
         </div>
