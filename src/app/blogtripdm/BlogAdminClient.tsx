@@ -132,6 +132,26 @@ function renderMarkdownToHtml(content: string): string {
 
   let html = content.replace(/<!--[\s\S]*?-->/g, '');
 
+  // Strip visible Focus Keyword callout line
+  html = html.replace(/^\s*> ?\*\*Focus Keyword:\*\*.*$/gmi, '');
+  html = html.replace(/^\s*Focus Keyword:.*$/gmi, '');
+
+  // Deduplicate duplicate FAQ sections if present
+  const faqHeaderRegex = /(?:^|\n)(?:---|\*\*\*|___)?\s*\n?##\s*(Frequently Asked Questions|FAQs)[\s\S]*?(?=\n##\s+|\n---\s*\n##\s+|$)/gi;
+  const faqMatches = html.match(faqHeaderRegex);
+  if (faqMatches && faqMatches.length > 1) {
+    let count = 0;
+    html = html.replace(faqHeaderRegex, (match) => {
+      count++;
+      return count === 1 ? '' : match;
+    });
+  }
+
+  // Strip decorative standalone dots, commas, quotes, and dashes
+  html = html
+    .replace(/^\s*[\.\…\,`'"\s]{1,}\s*$/gm, '')
+    .replace(/^\s*[\-\*_]{3,}\s*$/gm, '');
+
   html = html
     .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
     .replace(/^### (.+)$/gm, (_, t) => `<h3 id="${t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}">${t}</h3>`)
@@ -150,15 +170,16 @@ function renderMarkdownToHtml(content: string): string {
       const cells = match.split('|').filter((_, i, a) => i > 0 && i < a.length - 1);
       const isHeader = cells.every(c => /^\s*[-:]+\s*$/.test(c));
       if (isHeader) return '';
-      return '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
+      return '<tr>' + cells.map(c => `<td>${c.trim().replace(/^[\*\-\+]\s+/, '')}</td>`).join('') + '</tr>';
     });
 
-  html = html.replace(/(<tr>[\s\S]*?<\/tr>\n?)+/g, (match) => `<div class="table-wrap"><table>${match}</table></div>`);
+  html = html.replace(/(<tr>[\s\S]*?<\/tr>\n?)+/g, (match) => `<div class="table-wrap"><table class="blog-table"><tbody>${match}</tbody></table></div>`);
 
   html = html.split('\n\n').map(block => {
     const trimmed = block.trim();
     if (!trimmed) return '';
-    if (/^<(h[1-6]|ul|ol|blockquote|hr|div|table|tr)/.test(trimmed)) return trimmed;
+    if (/^<(h[1-6]|ul|ol|blockquote|hr|div|table|tbody|tr)/.test(trimmed)) return trimmed;
+    if (/^\s*[\.\…\,`'"\-\*\_\s]+\s*$/.test(trimmed)) return '';
     return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
   }).filter(Boolean).join('\n');
 

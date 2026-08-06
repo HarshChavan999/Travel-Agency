@@ -63,7 +63,7 @@ Return a single JSON object with this EXACT structure:
     "tableOfContents": [
       {"id": "section-id", "title": "Section Title", "level": 2}
     ],
-    "contentMarkdown": "THE FULL ARTICLE IN MARKDOWN. Must be 3000-5000 words. Use ## H2 and ### H3 headings. Short paragraphs. Include ALL these sections:\n\n## Introduction\n## Quick Facts About [topic]\n## Best Time to Visit\n## Weather Guide (month-by-month table)\n## How to Reach [topic]\n## Getting Around\n## Top Things to Do\n## Hidden Gems & Off-the-Beaten-Path\n## Accommodation Guide\n## Where to Eat (local food guide)\n## Budget Breakdown (with INR tables)\n## Packing Checklist\n## Safety Tips & Common Mistakes\n## Nearby Attractions\n## TripDM Travel Packages CTA\n## FAQs\n## Conclusion"
+    "contentMarkdown": "THE FULL ARTICLE IN MARKDOWN. Must be 3000-5000 words. Use ## H2 and ### H3 headings. Short paragraphs. Include ALL these sections:\n\n## Introduction\n## Quick Facts About [topic]\n## Best Time to Visit\n## Weather Guide (month-by-month table)\n## How to Reach [topic]\n## Getting Around\n## Top Things to Do\n## Hidden Gems & Off-the-Beaten-Path\n## Accommodation Guide\n## Where to Eat (local food guide)\n## Budget Breakdown (with INR tables)\n## Packing Checklist\n## Safety Tips & Common Mistakes\n## Nearby Attractions\n## TripDM Travel Packages CTA\n## Conclusion (Note: DO NOT add an FAQ section in contentMarkdown because FAQs are generated in the faq array below)"
   },
 
   "faq": [
@@ -108,16 +108,12 @@ Return a single JSON object with this EXACT structure:
 }
 
 CRITICAL: The contentMarkdown MUST include clean, complete Markdown tables with valid headers and separator rows like:
-| Month | Temp | Crowd | Verdict |
-|-------|------|-------|---------|
-| Jan   | 25°C | Low   | ✅ Best  |
+| Category / Location | Recommended Property / Option | Details |
+|---------------------|-------------------------------|---------|
+| Luxury              | The Lalit Grand Palace         | 5-star heritage hotel near Dal Lake |
 
-And cost tables like:
-| Item | Budget | Mid-Range | Luxury |
-|------|--------|-----------|--------|
-| Hotel/night | ₹800 | ₹2,500 | ₹8,000+ |
-
-DO NOT break table rows into paragraph text. Always use pipe (|) characters for columns.
+DO NOT put bullet points (- or *) inside table cells. Always use clean text for cell contents.
+DO NOT output stray dots (...), standalone dashes (---), or decorative ellipsis lines between paragraphs or FAQs.
 DO NOT use Unicode box-drawing characters (like ┌, ─, ┐, │, ├, ┤, └, ┘) or ASCII box art for lists. Always use standard Markdown lists (1. Item or - Item).
 
 Include "💡 Pro Tip:" callouts throughout.
@@ -230,10 +226,9 @@ function buildFullContent(data: any): string {
     parts.push(`<!-- SCHEMA_JSON:${JSON.stringify(schemaPayload)} -->`);
   }
 
-  // --- Focus Keyword hint for reader ---
+  // --- Focus Keyword (hidden HTML comment for SEO context) ---
   if (seo.focusKeyword) {
-    parts.push(`> **Focus Keyword:** ${seo.focusKeyword}`);
-    parts.push('');
+    parts.push(`<!-- FOCUS_KEYWORD: ${seo.focusKeyword} -->`);
   }
 
   // --- Quick Jumplinks to Navigate ---
@@ -249,7 +244,12 @@ function buildFullContent(data: any): string {
 
   // --- Main Article Content ---
   if (article.contentMarkdown) {
-    parts.push(article.contentMarkdown);
+    let cleanMarkdown = article.contentMarkdown;
+    // Strip duplicate FAQ section from contentMarkdown if structured faq array is present
+    if (faq.length > 0) {
+      cleanMarkdown = cleanMarkdown.replace(/(?:^|\n)##\s*(Frequently Asked Questions|FAQs)[\s\S]*?(?=\n##\s+|\n---\s*\n##\s+|$)/gi, '').trim();
+    }
+    parts.push(cleanMarkdown);
     parts.push('');
   }
 

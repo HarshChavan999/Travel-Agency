@@ -247,7 +247,10 @@ function parseTableLine(line: string): string[] {
   let trimmed = line.trim();
   if (trimmed.startsWith('|')) trimmed = trimmed.substring(1);
   if (trimmed.endsWith('|')) trimmed = trimmed.substring(0, trimmed.length - 1);
-  return trimmed.split('|').map(c => c.trim());
+  return trimmed.split('|').map(c => {
+    let text = c.trim();
+    return text.replace(/^[\*\-\+]\s+/, '');
+  });
 }
 
 function convertMarkdownTables(content: string): string {
@@ -289,11 +292,24 @@ function convertMarkdownTables(content: string): string {
             }
           }
         } else {
-          headerCells = parseTableLine(tableLines[0]);
-          for (let j = 1; j < tableLines.length; j++) {
-            const cells = parseTableLine(tableLines[j]);
-            if (cells.length > 0 && cells.some(c => c.length > 0)) {
-              bodyRows.push(cells);
+          const rawLine0 = tableLines[0].trim();
+          const line0HasBullets = /\|?\s*[\*\-\+]\s+/.test(rawLine0);
+
+          if (line0HasBullets) {
+            headerCells = [];
+            for (let j = 0; j < tableLines.length; j++) {
+              const cells = parseTableLine(tableLines[j]);
+              if (cells.length > 0 && cells.some(c => c.length > 0)) {
+                bodyRows.push(cells);
+              }
+            }
+          } else {
+            headerCells = parseTableLine(tableLines[0]);
+            for (let j = 1; j < tableLines.length; j++) {
+              const cells = parseTableLine(tableLines[j]);
+              if (cells.length > 0 && cells.some(c => c.length > 0)) {
+                bodyRows.push(cells);
+              }
             }
           }
         }
@@ -314,6 +330,15 @@ function convertMarkdownTables(content: string): string {
           }).join('\n');
 
           const tableHtml = `\n\n<div class="table-wrap"><table class="blog-table"><thead><tr>${thHtml}</tr></thead><tbody>\n${trHtml}\n</tbody></table></div>\n\n`;
+          result.push(tableHtml);
+          continue;
+        } else if (bodyRows.length > 0) {
+          const trHtml = bodyRows.map(row => {
+            const tdHtml = row.map(c => `<td>${c}</td>`).join('');
+            return `<tr>${tdHtml}</tr>`;
+          }).join('\n');
+
+          const tableHtml = `\n\n<div class="table-wrap"><table class="blog-table"><tbody>\n${trHtml}\n</tbody></table></div>\n\n`;
           result.push(tableHtml);
           continue;
         }
@@ -452,10 +477,26 @@ function renderContent(content: string): string {
   // Strip hidden HTML comment blocks
   html = html.replace(/<!--[\s\S]*?-->/g, '');
 
-  // 0. Remove decorative triangle lines (▼ ▼ ▼, ▲ ▲ ▲) and stray standalone comma/quote lines
+  // Strip visible Focus Keyword callout line
+  html = html.replace(/^\s*> ?\*\*Focus Keyword:\*\*.*$/gmi, '');
+  html = html.replace(/^\s*Focus Keyword:.*$/gmi, '');
+
+  // Deduplicate duplicate FAQ sections if present
+  const faqHeaderRegex = /(?:^|\n)(?:---|\*\*\*|___)?\s*\n?##\s*(Frequently Asked Questions|FAQs)[\s\S]*?(?=\n##\s+|\n---\s*\n##\s+|$)/gi;
+  const faqMatches = html.match(faqHeaderRegex);
+  if (faqMatches && faqMatches.length > 1) {
+    let count = 0;
+    html = html.replace(faqHeaderRegex, (match) => {
+      count++;
+      return count === 1 ? '' : match;
+    });
+  }
+
+  // 0. Remove decorative triangle lines (▼ ▼ ▼, ▲ ▲ ▲), stray standalone dots (...), commas, quotes, and standalone dashes/asterisks
   html = html
     .replace(/^\s*[▼▲\s]{2,}\s*$/gm, '')
-    .replace(/^\s*[,`'\s]{1,5}\s*$/gm, '')
+    .replace(/^\s*[\.\…\,`'"\s]{1,}\s*$/gm, '')
+    .replace(/^\s*[\-\*_]{3,}\s*$/gm, '')
     .replace(/\n\s*,\s*\n/g, '\n');
 
   // Strip Unicode Box Drawing ASCII blocks
@@ -510,7 +551,7 @@ function renderContent(content: string): string {
     if (/^<(h[1-6]|ul|ol|blockquote|hr|div|table|thead|tbody|tr)/i.test(trimmed)) {
       return trimmed;
     }
-    if (/^\s*[,`'\s]+\s*$/.test(trimmed)) return ''; // drop paragraphs containing only punctuation
+    if (/^\s*[\.\…\,`'"\-\*\_\s]+\s*$/.test(trimmed)) return ''; // drop paragraphs containing only dots, punctuation, or dashes
     return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
   }).filter(Boolean).join('\n');
 
