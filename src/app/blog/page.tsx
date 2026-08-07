@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import BlogClient from './BlogClient';
+import Footer from '@/components/Footer';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
@@ -135,7 +136,7 @@ export default async function BlogPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Lato:wght@300;400;700&family=Nunito:wght@600;700;800&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after { box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: #f8fafc; }
         .blog-card { transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease; }
         .blog-card:hover { transform: translateY(-3px); border-color: rgba(249,115,22,0.22) !important; box-shadow: 0 16px 40px rgba(0,0,0,0.08) !important; }
@@ -268,13 +269,7 @@ export default async function BlogPage() {
         )}
 
         {/* ── Footer ──────────────────────────────────────────────────────── */}
-        <footer style={{ borderTop: '1px solid rgba(0,0,0,0.06)', padding: '24px', textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-            <img src="/tripdm-logo.png" alt="TripDM" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#64748b' }}>TripDM Blog</span>
-          </div>
-          <p style={{ color: '#94a3b8', fontSize: 12 }}>© {new Date().getFullYear()} TripDM. All rights reserved. Expert travel content for the modern traveler.</p>
-        </footer>
+        <Footer />
       </div>
     </>
   );

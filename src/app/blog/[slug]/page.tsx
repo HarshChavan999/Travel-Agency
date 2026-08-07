@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import Footer from '@/components/Footer';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
@@ -910,6 +911,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         </main>
 
+        <Footer />
       </div>
     </>
   );

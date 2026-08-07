@@ -240,6 +240,93 @@ const getFormattedMealPlan = (plan: any) => {
   return 'No Meals';
 };
 
+function DayImageGallery({ images, altText }: { images: string[]; altText: string }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  if (!images || images.length === 0) return null;
+
+  if (images.length === 1) {
+    return (
+      <div className="rounded-lg overflow-hidden relative shadow-sm border border-stone-200" style={{ height: '200px' }}>
+        <img
+          src={optimizeImageUrl(images[0], { width: 600, quality: 85, format: 'auto', cacheBust: false })}
+          alt={altText}
+          className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg overflow-hidden relative group shadow-sm border border-stone-200" style={{ height: '200px' }}>
+      {/* Images container with smooth slide/fade */}
+      <div className="relative w-full h-full">
+        {images.map((imgUrl, idx) => (
+          <img
+            key={idx}
+            src={optimizeImageUrl(imgUrl, { width: 600, quality: 85, format: 'auto', cacheBust: false })}
+            alt={`${altText} - Photo ${idx + 1}`}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+              idx === activeIdx ? 'opacity-100 z-10' : 'opacity-0 z-0'
+            }`}
+            loading="lazy"
+          />
+        ))}
+      </div>
+
+      {/* Dark gradient overlay at bottom */}
+      <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent z-20 pointer-events-none" />
+
+      {/* Top right count badge */}
+      <div className="absolute top-2 right-2 z-20 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20">
+        {activeIdx + 1} / {images.length}
+      </div>
+
+      {/* Prev / Next Arrows */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setActiveIdx((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+        }}
+        className="absolute left-1.5 top-1/2 -translate-y-1/2 z-30 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-full opacity-80 hover:opacity-100 transition-all cursor-pointer shadow-md"
+        aria-label="Previous image"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setActiveIdx((prev) => (prev + 1) % images.length);
+        }}
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 z-30 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-full opacity-80 hover:opacity-100 transition-all cursor-pointer shadow-md"
+        aria-label="Next image"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+
+      {/* Dot Indicators */}
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5">
+        {images.map((_, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveIdx(idx);
+            }}
+            className={`transition-all duration-300 rounded-full cursor-pointer ${
+              idx === activeIdx ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PackageDetailView({
   listing,
   onBack,
@@ -936,26 +1023,26 @@ export default function PackageDetailView({
                       'ELEVEN','TWELVE','THIRTEEN','FOURTEEN','FIFTEEN','SIXTEEN','SEVENTEEN','EIGHTEEN','NINETEEN','TWENTY'];
                     const dayLabel = dayWords[(day.day || index + 1) - 1] || `${day.day || index + 1}`;
 
-                    // Find the image for this day
-                    let dayImage: string | null = null;
-                    if (day.imageUrls && day.imageUrls.length > 0) {
-                      dayImage = day.imageUrls[0];
+                    // Gather all images for this day (without random fallback for days with no images)
+                    let dayImages: string[] = [];
+                    if (Array.isArray(day.imageUrls) && day.imageUrls.length > 0) {
+                      dayImages = day.imageUrls.filter(Boolean);
                     } else if (day.imageUrl) {
-                      dayImage = day.imageUrl;
+                      dayImages = [day.imageUrl];
+                    } else if (Array.isArray(day.images) && day.images.length > 0) {
+                      dayImages = day.images.map((f: any) => (typeof f === 'string' ? f : (f.url || ''))).filter(Boolean);
                     }
-                    
-                    if (!dayImage && listing.placesCovered) {
+
+                    if (dayImages.length === 0 && listing.placesCovered) {
                       const matchedPlace = listing.placesCovered.find(
                         (p: any) => p.name?.trim().toLowerCase() === (day.placeName || '').trim().toLowerCase()
                       );
                       if (matchedPlace?.imageUrls?.length > 0) {
-                        dayImage = matchedPlace.imageUrls[0];
+                        dayImages = matchedPlace.imageUrls.filter(Boolean);
                       }
                     }
-                    // Fallback: cycle through allImages
-                    if (!dayImage && allImages.length > 0) {
-                      dayImage = allImages[index % allImages.length];
-                    }
+
+                    const hasDayImages = dayImages.length > 0;
 
                     return (
                       <div key={day.id || index} className="py-8">
@@ -982,25 +1069,21 @@ export default function PackageDetailView({
                         </h3>
 
                         {/* 2-column: text left, image right */}
-                        <div className={`flex gap-6 ${dayImage ? 'flex-col md:flex-row' : ''}`}>
+                        <div className={`flex gap-6 ${hasDayImages ? 'flex-col md:flex-row' : ''}`}>
                           {/* Description */}
-                          <div className={dayImage ? 'md:flex-1 md:max-w-[55%]' : 'w-full'}>
+                          <div className={hasDayImages ? 'md:flex-1 md:max-w-[55%]' : 'w-full'}>
                             <p className="text-gray-600 leading-relaxed text-[15px]">
                               {day.description || 'Detailed itinerary for this day will be shared upon booking confirmation.'}
                             </p>
                           </div>
 
-                          {/* Image */}
-                          {dayImage && (
+                          {/* Image Gallery (1 photo, multi-photo auto-carousel, or none) */}
+                          {hasDayImages && (
                             <div className="md:w-[42%] shrink-0">
-                              <div className="rounded-lg overflow-hidden" style={{ height: '200px' }}>
-                                <img
-                                  src={optimizeImageUrl(dayImage, { width: 600, quality: 85, format: 'auto', cacheBust: false })}
-                                  alt={locationName && day.placeName ? `${locationName} - ${cleanPlaceNameForSEO(day.placeName)}` : (day.placeName || `Day ${day.day}`)}
-                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                                  loading="lazy"
-                                />
-                              </div>
+                              <DayImageGallery
+                                images={dayImages}
+                                altText={locationName && day.placeName ? `${locationName} - ${cleanPlaceNameForSEO(day.placeName)}` : (day.placeName || `Day ${day.day}`)}
+                              />
                             </div>
                           )}
                         </div>

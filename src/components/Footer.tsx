@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 
@@ -18,6 +20,7 @@ export default function Footer({ onNavigate }: FooterProps = {}) {
             <h3 className="text-base font-bold mb-4 text-white">Get to Know us</h3>
             <ul className="space-y-2.5 text-sm text-gray-400">
               <li><Link href="#" className="hover:text-white transition-colors">About us</Link></li>
+              <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Career</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Press Release</Link></li>
             </ul>
