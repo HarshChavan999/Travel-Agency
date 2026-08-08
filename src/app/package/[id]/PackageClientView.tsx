@@ -93,15 +93,15 @@ export default function PackageClientView({ listing }: { listing: any }) {
   
   return (
     <div className="min-h-screen flex flex-col relative">
-      <header className="header-transition absolute top-0 left-0 right-0 z-[100] bg-gradient-to-b from-white/25 via-white/5 to-transparent text-white h-16 flex items-center border-b border-white/20 shadow-[0_6px_25px_rgba(255,255,255,0.12)]">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
+      <header className="sticky top-0 z-[100] bg-white text-slate-800 h-16 flex items-center border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 px-4 w-full h-full">
           {/* Logo */}
-          <div className="flex items-center gap-4 flex-1 w-full h-full">
+          <div className="flex items-center gap-4 flex-1 h-full">
             <div 
               className="flex items-center gap-1 sm:gap-2 font-black tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => router.push('/')}
             >
-              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 w-auto object-contain brightness-125 filter drop-shadow" />
+              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 md:h-20 w-auto object-contain py-1" />
             </div>
           </div>
 
@@ -110,13 +110,13 @@ export default function PackageClientView({ listing }: { listing: any }) {
             {user && userData ? (
               <div className="flex items-center gap-3 ml-2">
                 <div
-                  className={`flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-orange-400 text-slate-200`}
+                  className="flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-orange-500 text-slate-800"
                   onClick={() => router.push('/?section=profile')}
                 >
                   {userData.avatarUrl ? (
-                    <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-md object-cover border border-white/20" />
+                    <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-md object-cover border border-gray-200" />
                   ) : (
-                    <div className="w-7 h-7 bg-slate-800 rounded-md flex items-center justify-center text-slate-300 border border-white/20">
+                    <div className="w-7 h-7 bg-slate-100 rounded-md flex items-center justify-center text-slate-600 border border-gray-200">
                       <User className="h-4 w-4" />
                     </div>
                   )}
@@ -124,7 +124,7 @@ export default function PackageClientView({ listing }: { listing: any }) {
                 </div>
                 
                 <span
-                  className="text-xs text-slate-400 hover:text-orange-400 cursor-pointer ml-3 border-l border-white/15 pl-3 transition-colors"
+                  className="text-xs text-slate-500 hover:text-orange-500 cursor-pointer ml-3 border-l border-gray-200 pl-3 transition-colors font-medium"
                   onClick={() => signOut?.()}
                 >
                   Sign Out
@@ -133,9 +133,9 @@ export default function PackageClientView({ listing }: { listing: any }) {
             ) : (
               <span
                 onClick={() => setShowAuthModal(true)}
-                className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-gray-600 flex items-center gap-1.5"
+                className="cursor-pointer transition-all text-[15px] font-semibold text-slate-800 hover:text-orange-500 flex items-center gap-1.5"
               >
-                <User className="h-4 w-4 text-gray-700" /> Login
+                <User className="h-4 w-4 text-slate-700" /> Login
               </span>
             )}
           </div>

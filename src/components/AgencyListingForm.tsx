@@ -66,7 +66,7 @@ const sanitizeFileName = (name: string) => {
 const cleanPlaceNameForSEO = (name: string) => {
   if (!name) return '';
   const parts = name.split(/[\s\-\/]+/);
-  const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight)$/i;
+  const noiseWords = /^(full|half|guided|scenic|enroute|en-route|leisure|free|optional|morning|afternoon|evening|today|start|end|return|back|arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight|tourist|spot|spots)$/i;
   const cleanedParts = parts.filter(part => !noiseWords.test(part));
   if (cleanedParts.length === 0) return '';
   return cleanedParts.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');

@@ -216,7 +216,7 @@ export default function LandingDiscovery({
                   className="flex gap-6 overflow-x-auto pb-4 pt-1 scrollbar-hide snap-x scroll-smooth w-full"
                 >
                   {sec.listings.map((pkg) => (
-                    <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0">
+                    <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0 flex flex-col h-full self-stretch">
                       <ListingCard
                         listing={pkg}
                         onView={onView}
@@ -595,7 +595,7 @@ export default function LandingDiscovery({
             className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x scroll-smooth w-full"
           >
             {rail.listings.map((pkg) => (
-              <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0">
+              <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0 flex flex-col h-full self-stretch">
                 <ListingCard
                   listing={pkg}
                   onView={onView}
@@ -649,7 +649,7 @@ export default function LandingDiscovery({
             className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x scroll-smooth w-full"
           >
             {recentlyAdded.map((pkg) => (
-              <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0">
+              <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0 flex flex-col h-full self-stretch">
                 <ListingCard
                   listing={pkg}
                   onView={onView}

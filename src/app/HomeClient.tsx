@@ -499,7 +499,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               .replace(/\band\b/gi, ',')
               .replace(/\b\/\b/gi, ',');
             
-            const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|airport|station|railway|hotel|resort|day|visit|trip|journey|welcome|tourist|spot|spots)$/i;
+            const noiseWords = /^(full|half|guided|scenic|enroute|en-route|leisure|free|optional|morning|afternoon|evening|today|start|end|return|back|arrival|departure|transfer|sightseeing|local|tour|airport|station|railway|hotel|resort|day|visit|trip|journey|welcome|tourist|spot|spots|excursion|drive|activities|stay|overnight)$/i;
             
             normalized.split(',').forEach((part: string) => {
               let cleaned = part.trim();
@@ -1054,29 +1054,35 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [savingAgencySettings, setSavingAgencySettings] = useState(false);
   const [agencyDefaultInclusions, setAgencyDefaultInclusions] = useState<string[]>([]);
   const [agencyDefaultExclusions, setAgencyDefaultExclusions] = useState<string[]>([]);
+  const loadedAgencyUserIdRef = useRef<string | null>(null);
 
-  // Load Agency States from userData & user
+  // Load Agency States from userData & user (only once per user session to prevent overwriting unsaved edits on snapshot re-renders)
   useEffect(() => {
     if (user && userData && userData.role === 'agency') {
-      setAgencyCompanyName(userData.companyName || userData.name || '');
-      setAgencyContactEmail(userData.contactEmail || user.email || '');
-      setAgencyDescription(userData.description || userData.agencyDescription || '');
-      setAgencyLogoUrl(userData.logoUrl || userData.agencyLogo || userData.avatarUrl || '');
-      
-      const incls = Array.isArray(userData.defaultInclusions)
-        ? userData.defaultInclusions
-        : userData.defaultInclusions 
-          ? userData.defaultInclusions.split('\n').filter(Boolean)
-          : [];
-      const excls = Array.isArray(userData.defaultExclusions)
-        ? userData.defaultExclusions
-        : userData.defaultExclusions 
-          ? userData.defaultExclusions.split('\n').filter(Boolean)
-          : [];
-          
-      setAgencyDefaultInclusions(incls);
-      setAgencyDefaultExclusions(excls);
-      setAgencyLogoError(false);
+      if (loadedAgencyUserIdRef.current !== user.uid) {
+        loadedAgencyUserIdRef.current = user.uid;
+        setAgencyCompanyName(userData.companyName || userData.name || '');
+        setAgencyContactEmail(userData.contactEmail || user.email || '');
+        setAgencyDescription(userData.description || userData.agencyDescription || '');
+        setAgencyLogoUrl(userData.logoUrl || userData.agencyLogo || userData.avatarUrl || '');
+        
+        const incls = Array.isArray(userData.defaultInclusions)
+          ? userData.defaultInclusions
+          : userData.defaultInclusions 
+            ? userData.defaultInclusions.split('\n').filter(Boolean)
+            : [];
+        const excls = Array.isArray(userData.defaultExclusions)
+          ? userData.defaultExclusions
+          : userData.defaultExclusions 
+            ? userData.defaultExclusions.split('\n').filter(Boolean)
+            : [];
+            
+        setAgencyDefaultInclusions(incls);
+        setAgencyDefaultExclusions(excls);
+        setAgencyLogoError(false);
+      }
+    } else if (!user) {
+      loadedAgencyUserIdRef.current = null;
     }
   }, [user, userData]);
 
@@ -1128,14 +1134,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
     setSavingAgencySettings(true);
     try {
-      await updateDoc(doc(dbInstance, 'users', user.uid), {
+      const cleanInclusions = agencyDefaultInclusions.filter((item) => item.trim() !== '');
+      const cleanExclusions = agencyDefaultExclusions.filter((item) => item.trim() !== '');
+
+      await setDoc(doc(dbInstance, 'users', user.uid), {
         companyName: agencyCompanyName,
         contactEmail: agencyContactEmail,
         description: agencyDescription,
         agencyDescription: agencyDescription,
-        defaultInclusions: agencyDefaultInclusions.filter((item) => item.trim() !== ''),
-        defaultExclusions: agencyDefaultExclusions.filter((item) => item.trim() !== '')
-      });
+        defaultInclusions: cleanInclusions,
+        defaultExclusions: cleanExclusions
+      }, { merge: true });
+
+      // Update local state to cleaned values
+      setAgencyDefaultInclusions(cleanInclusions);
+      setAgencyDefaultExclusions(cleanExclusions);
+
       alert('Agency settings saved successfully!');
     } catch (error) {
       console.error('Error saving agency settings:', error);
@@ -3903,7 +3917,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setShowComparison(false);
                   }}
                 >
-                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-20 w-auto object-contain" />
+                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 md:h-20 w-auto object-contain py-1" />
                 </div>
                 <div className="relative w-full max-w-xl">
                   <AutocompleteSearch

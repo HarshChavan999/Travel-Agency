@@ -123,7 +123,7 @@ const CITY_ALIASES: Record<string, string> = {
 const cleanPlaceNameForSEO = (name: string) => {
   if (!name) return '';
   const parts = name.split(/[\s\-\–\—→\u2192⇒\u21d2·•\/\\|,\.\(\)]+/);
-  const noiseWords = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight)$/i;
+  const noiseWords = /^(full|half|guided|scenic|enroute|en-route|leisure|free|optional|morning|afternoon|evening|today|start|end|return|back|arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|in|at|from|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|day|night|nights|days|excursion|drive|activities|stay|overnight|tourist|spot|spots)$/i;
   const cleanedParts = parts.filter(part => part && !noiseWords.test(part));
   if (cleanedParts.length === 0) return '';
   return cleanedParts.map(w => {
@@ -600,8 +600,47 @@ export default function PackageDetailView({
     setExpandedFAQs(prev => prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]);
   };
 
-  // Get unique places to display
+  // Get unique places/cities to display (filtering out activity descriptions & noise sentences)
   const getDisplayPlaces = () => {
+    const STANDALONE_NOISE = new Set([
+      'end', 'ends', 'start', 'starts', 'return', 'back', 'arrival', 'departure',
+      'transfer', 'sightseeing', 'local', 'tour', 'visit', 'trip', 'journey',
+      'welcome', 'explore', 'day', 'night', 'nights', 'days', 'excursion',
+      'drive', 'activities', 'stay', 'overnight', 'pickup', 'drop', 'checkin',
+      'checkout', 'flight', 'airport', 'station', 'railway', 'hotel', 'resort',
+      'tourist', 'spot', 'spots', 'city', 'temple', 'temples', 'museum', 'museums',
+      'experience', 'experiences', 'birthplace', 'overview', 'service', 'services',
+      'package', 'destination', 'destinations', 'full', 'half', 'guided', 'scenic',
+      'leisure', 'free', 'optional', 'morning', 'afternoon', 'evening', 'today',
+      'waterfall', 'waterfalls', 'fall', 'falls', 'lake', 'lakes', 'river', 'rivers',
+      'cave', 'caves', 'canyon', 'canyons', 'valley', 'valleys', 'viewpoint', 'viewpoints',
+      'peak', 'peaks', 'hill', 'hills', 'boating', 'safari', 'trek', 'trekking',
+      'beach', 'beaches', 'park', 'parks', 'sanctuary', 'sanctuaries', 'garden', 'gardens',
+      'fort', 'forts', 'palace', 'palaces', 'monument', 'monuments', 'shrine', 'shrines',
+      'bridge', 'bridges', 'pass', 'passes', 'dam', 'dams', 'cinema', 'cinemas',
+      'film', 'films', 'studio', 'studios', 'wonderland', 'kingdom', 'wild', 'wildlife',
+      'expedition', 'discovery', 'adventure', 'escape', 'retreat', 'gateway', 'haven',
+      'into', 'through', 'magic', 'wonders', 'essence', 'beauty', 'glimpse'
+    ]);
+
+    const isNoisePlace = (text: string): boolean => {
+      if (!text) return true;
+      const lower = text.toLowerCase().trim();
+      
+      if (STANDALONE_NOISE.has(lower)) return true;
+
+      // Filter out activity, attraction, and description keywords
+      const NOISE_PATTERN = /\b(museums?|temples?|experiences?|birthplace|ends?|starts?|city|activities|sightseeings?|attractions?|shopping|photography|local|tourist\s+spots?|overview|checkin|checkout|transfer|departure|arrival|itinerary|day\s+\d+|night\s+\d+|special|service|services|package|waterfalls?|falls?|lakes?|rivers?|caves?|canyons?|valleys?|viewpoints?|peaks?|hills?|boating|safari|trekking|beaches?|parks?|sanctuary|gardens?|forts?|palaces?|monuments?|shrines?|bridges?|dams?|cinemas?|films?|studios?|wonderland|kingdom|world\s+of|wild|wildlife|expedition|discovery|adventure|escape|retreat|gateway|haven|into\s+the|heart\s+of|land\s+of)\b/i;
+      
+      if (NOISE_PATTERN.test(lower)) return true;
+      
+      // Filter out overly long sentence phrases (> 3 words)
+      const words = lower.split(/\s+/).filter(Boolean);
+      if (words.length > 3) return true;
+
+      return false;
+    };
+
     const cleanPlaceName = (rawName: string): string[] => {
       if (!rawName) return [];
       
@@ -611,25 +650,21 @@ export default function PackageDetailView({
         .replace(/\b(to|towards|via|and|&)\b/gi, ',');
       
       const result: string[] = [];
-      const leadingNoise = /^(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort)\b\s*/i;
-      const trailingNoise = /\s*\b(arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort)$/i;
+      const leadingNoise = /^(full|half|guided|scenic|enroute|en-route|leisure|free|optional|morning|afternoon|evening|today|start|end|return|back|arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|tourist|spot|spots)\b\s*/i;
+      const trailingNoise = /\s*\b(full|half|guided|scenic|enroute|en-route|leisure|free|optional|morning|afternoon|evening|today|start|end|return|back|arrival|departure|transfer|sightseeing|local|tour|visit|trip|journey|welcome|explore|day|night|nights|days|excursion|drive|activities|stay|overnight|pickup|drop|checkin|checkout|flight|at|from|in|to|for|via|by|towards|of|and|&|an|a|the|airport|station|railway|hotel|resort|tourist|spot|spots)$/i;
 
       normalized.split(',').forEach(part => {
         let cleaned = part.trim();
         let prev = '';
         while (cleaned !== prev) {
           prev = cleaned;
-          // Strip leading non-alphanumeric (except space)
           cleaned = cleaned.replace(/^[^a-zA-Z0-9\s]+/g, '').trim();
-          // Strip trailing non-alphanumeric (except space)
           cleaned = cleaned.replace(/[^a-zA-Z0-9\s]+$/g, '').trim();
-          // Strip leading noise words
           cleaned = cleaned.replace(leadingNoise, '').trim();
-          // Strip trailing noise words
           cleaned = cleaned.replace(trailingNoise, '').trim();
         }
         
-        if (cleaned) {
+        if (cleaned && !isNoisePlace(cleaned)) {
           const lower = cleaned.toLowerCase();
           const capitalized = CITY_ALIASES[lower] || cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
           result.push(capitalized);
@@ -651,6 +686,18 @@ export default function PackageDetailView({
       cleanPlaceName(place).forEach(c => cleanedPlaces.add(c));
     });
     
+    const finalPlaces = Array.from(cleanedPlaces);
+    if (finalPlaces.length > 0) return finalPlaces;
+
+    // Fallback to pickUpLocation or state/country if placesCovered contained only activity noise phrases
+    if (listing.pickUpLocation) {
+      cleanPlaceName(listing.pickUpLocation).forEach(c => cleanedPlaces.add(c));
+    }
+    if (cleanedPlaces.size === 0 && (listing.stateName || listing.countryName)) {
+      const loc = listing.stateName || listing.countryName || '';
+      if (loc) cleanedPlaces.add(loc);
+    }
+
     return Array.from(cleanedPlaces);
   };
 
@@ -667,7 +714,8 @@ export default function PackageDetailView({
       if (countries) parts.push(countries);
     }
     const locationName = listing.packageType === 'international' ? listing.countryName : listing.stateName;
-    parts.push(listing.title || locationName || 'Package');
+    const cleanTitle = (listing.title || locationName || 'Package').replace(/\s*\(.*?\)\s*$/, '').trim();
+    parts.push(cleanTitle || 'Package');
     return parts;
   };
 
@@ -676,6 +724,95 @@ export default function PackageDetailView({
   const breadcrumb = getBreadcrumb();
   const packageCode = `PKG${listing.id?.slice(-4).toUpperCase() || '0000'}`;
 
+  // Helper to parse and format experience types with proper commas
+  const parseExperienceTypes = (expInput: string[] | string | undefined | null): string[] => {
+    if (!expInput) return [];
+
+    const splitSingleString = (trimmed: string): string[] => {
+      if (!trimmed) return [];
+      if (trimmed.includes(',') || trimmed.includes(';') || trimmed.includes('|') || trimmed.includes('\n')) {
+        return trimmed.split(/[,;|\n]+/).map(s => s.trim()).filter(Boolean);
+      }
+
+      const KNOWN_PHRASES = [
+        'Wildlife Zoo & Safari',
+        'Wildlife Zoo and Safari',
+        'Heritage Museum Tour',
+        'Heritage Museum',
+        'Religious Spiritual Tour',
+        'Spiritual Tour',
+        'Temple Tour',
+        'Cultural Tour',
+        'Heritage Tour',
+        'Wildlife Safari',
+        'Local Sightseeing',
+        'Family Vacation',
+        'Family Tour',
+        'Friends Trip',
+        'Friends Tour',
+        'Water Sports',
+        'Hill Station',
+        'Religious',
+        'Pilgrimage',
+        'Shopping',
+        'Photography',
+        'Trekking',
+        'Adventure',
+        'Wildlife',
+        'Cultural',
+        'Honeymoon',
+        'Beach',
+        'Snow'
+      ];
+
+      let textToParse = trimmed;
+      const matched: string[] = [];
+      const sortedPhrases = [...KNOWN_PHRASES].sort((a, b) => b.length - a.length);
+
+      for (const phrase of sortedPhrases) {
+        const regex = new RegExp(`\\b${phrase.replace(/&/g, '\\&')}\\b`, 'gi');
+        if (regex.test(textToParse)) {
+          matched.push(phrase);
+          textToParse = textToParse.replace(regex, ' ').trim();
+        }
+      }
+
+      if (matched.length > 0) {
+        const remaining = textToParse.split(/\s+/).filter(Boolean);
+        return [...matched, ...remaining];
+      }
+
+      return [trimmed];
+    };
+
+    let rawList: string[] = [];
+    if (Array.isArray(expInput)) {
+      expInput.forEach(item => {
+        if (typeof item === 'string') {
+          rawList.push(...splitSingleString(item.trim()));
+        }
+      });
+    } else if (typeof expInput === 'string') {
+      rawList = splitSingleString(expInput.trim());
+    }
+
+    const uniqueCleaned = new Set<string>();
+    rawList.forEach(item => {
+      if (!item) return;
+      const cleaned = item
+        .trim()
+        .split(/\s+/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ')
+        .replace(/\bAnd\b/gi, '&');
+      if (cleaned) uniqueCleaned.add(cleaned);
+    });
+
+    return Array.from(uniqueCleaned);
+  };
+
+  const parsedExpTypes = parseExperienceTypes(listing.experienceType);
+
   // Gather all tags for the badge row
   const tags: string[] = [];
   if (Array.isArray(listing.tourCategories) && listing.tourCategories.length > 0) {
@@ -683,10 +820,8 @@ export default function PackageDetailView({
   } else {
     tags.push('Family Tour');
   }
-  if (Array.isArray(listing.experienceType)) {
-    tags.push(...listing.experienceType);
-  } else if (typeof listing.experienceType === 'string' && listing.experienceType) {
-    tags.push(listing.experienceType);
+  if (parsedExpTypes.length > 0) {
+    tags.push(...parsedExpTypes);
   }
   if (listing.season) {
     tags.push(listing.season === 'all-seasons' ? 'All Seasons' : `${listing.season} Season`);
@@ -705,9 +840,7 @@ export default function PackageDetailView({
     {
       icon: Tag,
       label: 'Tour Category',
-      value: Array.isArray(listing.tourCategories) && listing.tourCategories.length > 0
-        ? listing.tourCategories.join(', ')
-        : 'General'
+      value: parseExperienceTypes(listing.tourCategories).join(', ') || 'General'
     },
     {
       icon: Sunrise,
@@ -719,11 +852,7 @@ export default function PackageDetailView({
     {
       icon: Compass,
       label: 'Experience Type',
-      value: Array.isArray(listing.experienceType) && listing.experienceType.length > 0
-        ? listing.experienceType.join(', ')
-        : (typeof listing.experienceType === 'string' && listing.experienceType
-            ? listing.experienceType
-            : 'Adventure')
+      value: parsedExpTypes.length > 0 ? parsedExpTypes.join(', ') : 'Adventure'
     },
     {
       icon: Utensils,
@@ -808,7 +937,7 @@ export default function PackageDetailView({
         )}
 
         {/* Hero content overlay */}
-        <div className="relative z-20 h-full flex flex-col justify-between px-6 pt-20 pb-5 max-w-7xl mx-auto">
+        <div className="relative z-20 h-full flex flex-col justify-between px-6 pt-6 pb-5 max-w-7xl mx-auto">
           {/* Top row: breadcrumb + action buttons */}
           <div className="flex items-center justify-between">
             {/* Breadcrumb */}
@@ -902,17 +1031,7 @@ export default function PackageDetailView({
 
           {/* Bottom: title, tags, image indicators */}
           <div>
-            {/* Category badges */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {tags.map((tag, i) => (
-                <span
-                  key={i}
-                  className="text-[11px] font-semibold uppercase tracking-wider text-white bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1 rounded-full"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+
 
             {/* Location Tagline (if custom title is present) */}
             {listing.title && locationName && (
@@ -922,12 +1041,35 @@ export default function PackageDetailView({
             )}
 
             {/* Package Title */}
-            <h1
-              className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight"
-              style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
-            >
-              {detailTitle}
-            </h1>
+            {(() => {
+              const match = detailTitle.match(/^(.*?)\s*(\(.*?\))\s*$/);
+              if (match && match[1] && match[2]) {
+                return (
+                  <div className="mb-3">
+                    <h1
+                      className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight"
+                      style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+                    >
+                      {match[1].trim()}
+                    </h1>
+                    <div
+                      className="text-lg md:text-2xl lg:text-3xl font-semibold text-white/95 mt-1.5 leading-snug tracking-wide"
+                      style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
+                    >
+                      {match[2].trim()}
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <h1
+                  className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight"
+                  style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+                >
+                  {detailTitle}
+                </h1>
+              );
+            })()}
 
             {/* Places, duration, rating row */}
             <div className="flex items-center flex-wrap gap-3 text-white/90 text-sm mb-4">

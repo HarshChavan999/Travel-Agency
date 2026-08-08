@@ -129,6 +129,28 @@ export default function ListingCard({
     ? listing.placesCovered.map((p: any) => p.name?.trim()).filter(Boolean).join(' | ') 
     : location;
 
+  const renderFormattedTitle = (titleStr: string) => {
+    if (!titleStr) return null;
+    const match = titleStr.match(/^(.*?)\s*(\(.*?\))\s*$/);
+    if (match && match[1] && match[2]) {
+      return (
+        <div className="flex flex-col justify-center w-full">
+          <span className="font-bold text-[16px] text-gray-900 leading-tight truncate" title={match[1].trim()}>
+            {match[1].trim()}
+          </span>
+          <span className="text-[12.5px] font-semibold text-slate-600 leading-snug truncate mt-0.5" title={match[2].trim()}>
+            {match[2].trim()}
+          </span>
+        </div>
+      );
+    }
+    return (
+      <span className="font-bold text-[16px] text-gray-900 leading-[1.3] line-clamp-2" title={titleStr}>
+        {titleStr}
+      </span>
+    );
+  };
+
   // Generate optimized image URL with caching parameters
   const optimizedImageUrl = mainImage ? optimizeImageUrl(mainImage, {
     quality: 85,
@@ -213,7 +235,7 @@ export default function ListingCard({
   };
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-[18px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group flex flex-col w-full max-w-[420px] border border-slate-100/90">
+    <div className="bg-white/95 backdrop-blur-sm rounded-[18px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group flex flex-col h-full w-full max-w-[420px] border border-slate-100/90">
       {/* Compare Toast */}
       {showCompareToast && (
         <div className="absolute top-4 right-4 z-20 animate-in fade-in duration-200">
@@ -367,20 +389,22 @@ export default function ListingCard({
       </div>
 
       {/* Content Section */}
-      <div className="p-4 flex flex-col gap-4">
+      <div className="p-4 flex-1 flex flex-col justify-between gap-4">
         
         {/* Title and Rating */}
-        <div>
-          <h3 className="font-bold text-[18px] text-gray-900 leading-[1.3] line-clamp-2" title={cardTitle}>
-            {cardTitle}
-          </h3>
-          {listing.title && location && (
-            <div className="flex items-center gap-1 text-[12px] mt-1.5 font-bold tracking-wide text-slate-700">
-              <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-              <span className="truncate" style={{ fontFamily: 'var(--font-outfit), var(--font-jakarta), sans-serif' }} title={location}>{location}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 mt-1.5">
+        <div className="flex flex-col gap-1">
+          <div className="h-[48px] flex items-center overflow-hidden w-full">
+            {renderFormattedTitle(cardTitle)}
+          </div>
+          <div className="h-[20px] flex items-center">
+            {listing.title && location && (
+              <div className="flex items-center gap-1 text-[12px] font-bold tracking-wide text-slate-700">
+                <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                <span className="truncate" style={{ fontFamily: 'var(--font-outfit), var(--font-jakarta), sans-serif' }} title={location}>{location}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
             <div className="flex items-center">
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star 
