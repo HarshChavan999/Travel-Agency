@@ -125,6 +125,46 @@ export default function ListingCard({
   const dropLocation = listing.dropLocation || listing.placesCovered?.[listing.placesCovered.length - 1]?.name?.trim() || listing.stateName || 'Delhi';
   const cardTitle = listing.title || (listing.packageType === 'international' ? listing.countryName : listing.stateName) || `${packageType} Package`;
   const locationName = listing.packageType === 'international' ? listing.countryName : listing.stateName;
+
+  // Calculate real rating & review count dynamically
+  const getRatingInfo = () => {
+    if (Array.isArray(listing.reviews) && listing.reviews.length > 0) {
+      const validRatings = listing.reviews.map((r: any) => Number(r.rating)).filter((r: number) => !isNaN(r) && r > 0);
+      if (validRatings.length > 0) {
+        const sum = validRatings.reduce((a: number, b: number) => a + b, 0);
+        return {
+          rating: sum / validRatings.length,
+          reviewsCount: listing.reviews.length,
+          source: 'Real Reviews'
+        };
+      }
+    }
+
+    if (typeof listing.rating === 'number' && listing.rating > 0) {
+      return {
+        rating: listing.rating,
+        reviewsCount: listing.reviewsCount || 0,
+        source: 'Rating'
+      };
+    }
+
+    const agencyRating = listing.agencyData?.googleRating || listing.agencyData?.rating;
+    if (typeof agencyRating === 'number' && agencyRating > 0) {
+      return {
+        rating: agencyRating,
+        reviewsCount: listing.agencyData?.googleReviewsCount || listing.agencyData?.reviewsCount || 0,
+        source: 'Google Rating'
+      };
+    }
+
+    return {
+      rating: null,
+      reviewsCount: 0,
+      source: null
+    };
+  };
+
+  const ratingInfo = getRatingInfo();
   const placesText = listing.placesCovered && listing.placesCovered.length > 0 
     ? listing.placesCovered.map((p: any) => p.name?.trim()).filter(Boolean).join(' | ') 
     : location;
@@ -398,24 +438,39 @@ export default function ListingCard({
           </div>
           <div className="h-[20px] flex items-center">
             {listing.title && location && (
-              <div className="flex items-center gap-1 text-[12px] font-bold tracking-wide text-slate-700">
-                <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+              <div className="flex items-center text-[12px] font-bold tracking-wide text-slate-700">
                 <span className="truncate" style={{ fontFamily: 'var(--font-outfit), var(--font-jakarta), sans-serif' }} title={location}>{location}</span>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <div className="flex items-center">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Star 
-                  key={s} 
-                  className={`h-[14px] w-[14px] ${
-                    s <= (listing.rating || 5) ? 'fill-[#FFC107] text-[#FFC107]' : 'text-gray-300'
-                  }`} 
-                />
-              ))}
-            </div>
-            <span className="text-gray-500 font-medium text-[12px]">Google Rating</span>
+          <div className="flex items-center gap-1.5 mt-0.5 min-h-[20px]">
+            {ratingInfo.rating ? (
+              <>
+                <span className="font-bold text-[12.5px] text-gray-900 leading-none">
+                  {ratingInfo.rating.toFixed(1)}
+                </span>
+                <div className="flex items-center">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star 
+                      key={s} 
+                      className={`h-[13px] w-[13px] ${
+                        s <= Math.round(ratingInfo.rating!) ? 'fill-[#FFC107] text-[#FFC107]' : 'text-gray-200'
+                      }`} 
+                    />
+                  ))}
+                </div>
+                <span className="text-gray-500 font-medium text-[11.5px]">
+                  {ratingInfo.reviewsCount > 0 
+                    ? `(${ratingInfo.reviewsCount} ${ratingInfo.reviewsCount === 1 ? 'review' : 'reviews'})`
+                    : (ratingInfo.source || 'Rating')}
+                </span>
+              </>
+            ) : (
+              <span className="text-slate-400 text-[11.5px] font-medium flex items-center gap-1">
+                <Star className="h-3 w-3 text-slate-300 fill-slate-300" />
+                No reviews yet
+              </span>
+            )}
           </div>
         </div>
 
@@ -440,32 +495,39 @@ export default function ListingCard({
         </div>
 
         {/* Divider */}
-        <hr className="border-gray-800 w-full" />
+        <hr className="border-gray-200 w-full" />
 
-        {/* 3 Columns Details */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="flex flex-col text-left">
-            <span className="text-[12px] text-gray-500 mb-0.5">Duration</span>
-            <span className="text-[14px] text-gray-900 font-medium">
+        {/* Details Section */}
+        <div className="flex flex-col gap-2 px-0.5">
+          {/* Duration Row */}
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-gray-500 font-medium">
+              Duration
+            </span>
+            <span className="font-semibold text-gray-900 text-[12.5px]">
               {duration}D | {nights}N
             </span>
           </div>
-          <div className="flex flex-col text-left border-l border-gray-800 pl-3">
-            <span className="text-[12px] text-gray-500 mb-0.5">Pick-up</span>
-            <span className="text-[14px] text-gray-900 font-medium truncate" title={pickupLocation}>
-              {pickupLocation}
-            </span>
-          </div>
-          <div className="flex flex-col text-left border-l border-gray-800 pl-3">
-            <span className="text-[12px] text-gray-500 mb-0.5">Drop</span>
-            <span className="text-[14px] text-gray-900 font-medium truncate" title={dropLocation}>
-              {dropLocation}
-            </span>
+
+          {/* Pick-up & Drop 2 Columns */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200 items-start pt-1.5 border-t border-gray-100">
+            <div className="flex flex-col text-left min-w-0 pr-3">
+              <span className="text-[11px] text-gray-500 font-medium mb-0.5">Pick-up</span>
+              <span className="text-[12px] text-gray-900 font-medium leading-snug break-words [overflow-wrap:anywhere]" title={pickupLocation}>
+                {(pickupLocation || '').replace(/\s*\/\s*/g, ' / ')}
+              </span>
+            </div>
+            <div className="flex flex-col text-left min-w-0 pl-3">
+              <span className="text-[11px] text-gray-500 font-medium mb-0.5">Drop</span>
+              <span className="text-[12px] text-gray-900 font-medium leading-snug break-words [overflow-wrap:anywhere]" title={dropLocation}>
+                {(dropLocation || '').replace(/\s*\/\s*/g, ' / ')}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Divider */}
-        <hr className="border-gray-800 w-full" />
+        <hr className="border-gray-200 w-full" />
 
         {/* Bottom Actions Row */}
         <div className="flex items-end justify-between pt-1">

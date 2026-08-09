@@ -3941,46 +3941,45 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 
                 {/* Location */}
                 <div className="flex items-center gap-1.5 text-gray-700 select-none mr-2">
-                  <MapPin className="h-4 w-4 text-orange-500" />
+                  <MapPin className="h-4 w-4 text-gray-600" />
                   <div className="flex flex-col leading-[1.1] hidden sm:flex">
                     <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
-                    
                   </div>
                 </div>
 
                 {/* Compare */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${showComparison ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 ${showComparison ? 'text-orange-500 font-semibold' : 'text-gray-800 hover:text-orange-500'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('listings');
                     setShowComparison(true);
                   }}
                 >
-                  <Scale className="h-4 w-4 text-orange-400" /> Compare
+                  <Scale className="h-4 w-4 text-gray-600" /> Compare
                 </span>
 
                 {/* Wishlist */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-500 font-semibold' : 'text-gray-800 hover:text-orange-500'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('wishlist');
                     setShowComparison(false);
                   }}
                 >
-                  <Heart className="h-4 w-4 text-orange-500" /> Wishlist
+                  <Heart className="h-4 w-4 text-gray-600" /> Wishlist
                 </span>
 
                 {/* Messages */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-500' : 'text-gray-800'}`}
+                  className={`cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-500 font-semibold' : 'text-gray-800 hover:text-orange-500'}`}
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('chat');
                   }}
                 >
-                  <MessageSquare className="h-4 w-4 text-orange-500" /> Messages
+                  <MessageSquare className="h-4 w-4 text-gray-600" /> Messages
                 </span>
 
                 {/* Profile / Sign In */}
