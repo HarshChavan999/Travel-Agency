@@ -65,13 +65,33 @@ export default function LandingDiscovery({
   const domesticCount = approvedListings.filter((l) => l.packageType !== 'international').length;
   const intlCount = approvedListings.filter((l) => l.packageType === 'international').length;
 
-  // Dynamically auto-created destination sections & navigation pills
+  const [aiStories, setAiStories] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    async function loadPublishedStories() {
+      try {
+        const res = await fetch('/api/admin/destination-stories');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.stories)) {
+          const publishedOnly = data.stories.filter((s: any) => s.published !== false);
+          if (publishedOnly.length > 0) {
+            setAiStories(publishedOnly);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load custom AI destination stories:', err);
+      }
+    }
+    loadPublishedStories();
+  }, []);
+
+  // Dynamic auto-created destination sections & navigation pills
   const destinationSections = getDynamicDestinationSections(listings, packageTypeTab);
   const destinationPills = getDiscoveredDestinationPills(listings, packageTypeTab);
 
-  // Legacy data collections
+  // Data collections
   const popularDestinations = getPopularDestinations(listings, 1);
-  const stateStories = getStateStories(listings);
+  const displayStories = aiStories;
   const categoryCollections = getCategoryCollections(listings);
   const dynamicExperiences = getDynamicExperiences(listings);
   const recentlyAdded = getRecentlyAddedPackages(listings, 12);
@@ -313,19 +333,48 @@ export default function LandingDiscovery({
       {/* ==========================================
           SECTION 2 — State → Story → Places → Experiences (Editorial Storytelling)
           ========================================== */}
-      {stateStories.length > 0 && (
-        <section className="py-12 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
-          <div className="mb-8">
-            
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
-              Destination Stories
-            </h2>
-          </div>
+      {displayStories.length > 0 && (
+        <>
+          {/* Schema.org JSON-LD Structured Data for Google Indexing */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                "name": "Featured Destination Stories",
+                "description": "Curated travel stories, guides and itineraries generated from verified packages.",
+                "itemListElement": displayStories.map((story: any, idx: number) => ({
+                  "@type": "ListItem",
+                  "position": idx + 1,
+                  "item": {
+                    "@type": "TouristDestination",
+                    "name": story.title || story.stateName,
+                    "description": story.narrative,
+                    "image": story.coverImage || undefined,
+                    "address": {
+                      "@type": "PostalAddress",
+                      "addressRegion": story.stateName,
+                      "addressCountry": "India"
+                    },
+                    "keywords": Array.isArray(story.seoKeywords) ? story.seoKeywords.join(', ') : undefined
+                  }
+                }))
+              })
+            }}
+          />
 
-          <div className="space-y-12">
-            {stateStories.slice(0, 2).map((story) => (
+          <section className="py-12 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
+            <div className="mb-8">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                Destination Stories
+              </h2>
+            </div>
+
+            <div className="space-y-12">
+            {displayStories.map((story: any, index: number) => (
               <div
-                key={story.stateName}
+                key={story.id || story.stateName || index}
                 className="py-4"
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
@@ -334,7 +383,7 @@ export default function LandingDiscovery({
                     {story.coverImage ? (
                       <img
                         src={story.coverImage}
-                        alt={story.stateName}
+                        alt={story.title || story.stateName}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                       />
                     ) : (
@@ -343,71 +392,33 @@ export default function LandingDiscovery({
                       </div>
                     )}
                     <span className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white text-xs font-black px-3.5 py-1.5 rounded-sm border border-white/20">
-                      {story.packageCount} {story.packageCount === 1 ? 'Package Available' : 'Packages Available'}
+                      {story.packageCount || 1} {(story.packageCount || 1) === 1 ? 'Package Available' : 'Packages Available'}
                     </span>
                   </div>
 
                   {/* Right Column: State Story Details */}
                   <div className="lg:col-span-7 flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-2xl sm:text-3xl font-black text-slate-900">
-                          {story.stateName}
-                        </h3>
-                        {story.startingPrice && (
-                          <span className="bg-orange-500 text-white text-xs font-black px-3 py-1 rounded-sm shadow-xs">
-                            From ₹{story.startingPrice.toLocaleString('en-IN')}
-                          </span>
-                        )}
+                      <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight mb-4">
+                        {story.title || story.stateName}
+                      </h3>
+
+                      <div className="text-xs sm:text-sm text-slate-600 font-medium mb-6 leading-relaxed space-y-2">
+                        {(story.narrative || story.description || `Explore verified itineraries across ${story.stateName} covering major cultural landmarks, scenic routes, and local experiences.`)
+                          .split('\n\n')
+                          .map((paragraph: string, pIdx: number) => (
+                            <p key={pIdx}>{paragraph}</p>
+                          ))}
                       </div>
-
-                      <p className="text-xs sm:text-sm text-slate-600 font-medium mb-6">
-                        Explore verified itineraries across {story.stateName} covering major cultural landmarks, scenic routes, and local experiences.
-                      </p>
-
-                      {/* Discovered Places Covered */}
-                      {story.discoveredPlaces.length > 0 && (
-                        <div className="mb-5">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                            Places Discovered from Packages:
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            {story.discoveredPlaces.map((place) => (
-                              <span
-                                key={place}
-                                className="px-3 py-1 rounded-sm bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-2xs"
-                              >
-                                📍 {place}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Discovered Experience Tags */}
-                      {story.experienceTags.length > 0 && (
-                        <div className="mb-6">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                            Trip Experience Types:
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            {story.experienceTags.map((exp) => (
-                              <span
-                                key={exp}
-                                className="px-3 py-1 rounded-sm bg-orange-100/70 text-orange-700 border border-orange-200 text-xs font-extrabold"
-                              >
-                                {exp}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {/* CTA Button */}
                     <div>
                       <button
-                        onClick={() => setSearchTerm(story.stateName)}
+                        onClick={() => {
+                          setSearchTerm(story.stateName);
+                          if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
                         className="px-6 py-3 rounded-md bg-slate-900 hover:bg-orange-600 text-white text-xs font-extrabold transition-all shadow-sm flex items-center gap-2 group/btn"
                       >
                         <span>Explore {story.stateName} Packages</span>
@@ -420,7 +431,8 @@ export default function LandingDiscovery({
             ))}
           </div>
         </section>
-      )}
+      </>
+    )}
 
       {/* ==========================================
           SECTION 3 — Travel Intent Discovery (Shop by Intent 2x2 Cards)

@@ -253,11 +253,21 @@ export function getStateStories(listings: PackageListing[]): StateStory[] {
 
       // Collect real experiences
       if (pkg.experienceType) {
-        const exps = Array.isArray(pkg.experienceType) ? pkg.experienceType : [pkg.experienceType];
-        exps.forEach((e) => e && expSet.add(String(e).trim()));
+        const raw = Array.isArray(pkg.experienceType) ? pkg.experienceType.join(',') : String(pkg.experienceType);
+        raw.split(/[,;\n]+/).forEach((e) => {
+          const trimmed = e.trim();
+          if (trimmed && trimmed.length < 30) expSet.add(trimmed);
+        });
       }
       if (Array.isArray(pkg.tourCategories)) {
-        pkg.tourCategories.forEach((tc) => tc && expSet.add(tc.trim()));
+        pkg.tourCategories.forEach((tc) => {
+          if (tc) {
+            String(tc).split(/[,;\n]+/).forEach((t) => {
+              const trimmed = t.trim();
+              if (trimmed && trimmed.length < 30) expSet.add(trimmed);
+            });
+          }
+        });
       }
     });
 

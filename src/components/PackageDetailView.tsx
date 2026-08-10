@@ -132,6 +132,15 @@ const cleanPlaceNameForSEO = (name: string) => {
   }).join(' ');
 };
 
+export const cleanDayPrefix = (text: string): string => {
+  if (!text) return '';
+  let cleaned = text.replace(/^(?:day\s*(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*[:\-\.]*\s*)+/i, '').trim();
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  return cleaned;
+};
+
 // Pure Real Review Data Processor (No Static / Mock Reviews)
 function getReviewsData(listing: any, userDbReviews: any[]) {
   const locationName = listing?.packageType === 'international' ? listing?.countryName : listing?.stateName;
@@ -1207,7 +1216,7 @@ export default function PackageDetailView({
                           className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight mb-5"
                           style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}
                         >
-                          {day.placeName || `Day ${day.day} Activities`}
+                          {cleanDayPrefix(day.placeName) || `Day ${day.day} Activities`}
                         </h3>
 
                         {/* 2-column: text left, image right */}
@@ -1215,7 +1224,7 @@ export default function PackageDetailView({
                           {/* Description */}
                           <div className={hasDayImages ? 'md:flex-1 md:max-w-[55%]' : 'w-full'}>
                             <p className="text-gray-600 leading-relaxed text-[15px]">
-                              {day.description || 'Detailed itinerary for this day will be shared upon booking confirmation.'}
+                              {cleanDayPrefix(day.description) || 'Detailed itinerary for this day will be shared upon booking confirmation.'}
                             </p>
                           </div>
 

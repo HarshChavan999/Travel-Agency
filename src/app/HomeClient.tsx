@@ -22,6 +22,7 @@ import AuthModal from '@/components/AuthModal';
 import FilterSidebar from '@/components/FilterSidebar';
 import UserProfile from '@/components/UserProfile';
 import AdminCouponManagement from '@/components/AdminCouponManagement';
+import AdminDestinationStories from '@/components/AdminDestinationStories';
 import CheckoutModal from '@/components/CheckoutModal';
 import LandingDiscovery from '@/components/LandingDiscovery';
 import { useComparison } from '@/contexts/ComparisonContext';
@@ -62,7 +63,7 @@ import {
   Utensils,
   TrendingUp,
   Info,
-  Users, 
+  Users,
   BarChart2, 
   Building, 
   Settings, 
@@ -162,6 +163,13 @@ const isFuzzySearchMatch = (searchQuery: string, text: string): boolean => {
   const q = searchQuery.trim().toLowerCase();
   const t = text.toLowerCase();
   if (t.includes(q)) return true;
+
+  // Handle multi-word / compound queries like "Assam & Meghalaya" or "Kashmir, Ladakh"
+  const queryTokens = q.split(/[\s,/\-&]+|\band\b/).map(s => s.trim()).filter(s => s.length >= 2);
+  if (queryTokens.length > 1) {
+    return queryTokens.some(token => isFuzzySearchMatch(token, text));
+  }
+
   if (q.length <= 2) return false;
 
   const words = t.split(/[\s,/\-]+/).filter(Boolean);
@@ -462,6 +470,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [viewingAdminListing, setViewingAdminListing] = useState<any>(null);
   // User Experience Enhancements
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (searchTerm && typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [searchTerm]);
 
   const allDestinations = useMemo(() => {
     const dests = new Set<string>();
@@ -2743,6 +2757,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 >
                   <Tag className="h-4 w-4 text-orange-500" /> Coupons &amp; Discounts
                 </button>
+                <button
+                  onClick={() => setActiveSection('destination-stories')}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'destination-stories'
+                      ? 'bg-indigo-50 text-indigo-700 font-bold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  <Sparkles className="h-4 w-4 text-indigo-600" /> Destination Stories AI
+                </button>
               </div>
             </nav>
           </div>
@@ -2760,6 +2783,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 {activeSection === 'settings' && 'Settings'}
                 {activeSection === 'chats' && 'All Chats'}
                 {activeSection === 'coupons' && 'Coupon & Discount Management'}
+                {activeSection === 'destination-stories' && 'Destination Stories AI Generator'}
               </h1>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">Welcome, {userData.name}</span>
@@ -3732,6 +3756,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
               {activeSection === 'chats' && <AdminChatViewer />}
               {activeSection === 'coupons' && <AdminCouponManagement />}
+              {activeSection === 'destination-stories' && <AdminDestinationStories packages={listings} />}
               {activeSection === 'settings' && (
                 <div className="space-y-6">
                   <Card>

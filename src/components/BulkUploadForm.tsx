@@ -224,6 +224,19 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
                 placeName = parts[0].trim();
                 description = parts.slice(1).join('@').trim();
               }
+
+              // Clean leading "Day X:" / "Day X -" / "Day 0X:" prefix from placeName and description
+              const cleanPrefix = (str: string) => {
+                if (!str) return '';
+                let cleaned = str.replace(/^(?:day\s*(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*[:\-\.]*\s*)+/i, '').trim();
+                if (cleaned.length > 0) {
+                  cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+                }
+                return cleaned;
+              };
+
+              placeName = cleanPrefix(placeName);
+              description = cleanPrefix(description);
               
               return {
                 id: `${Date.now()}_day_${index}_${i}`,
