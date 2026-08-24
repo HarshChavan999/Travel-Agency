@@ -422,6 +422,7 @@ export interface DynamicExperience {
   name: string;
   tagKey: string;
   packageCount: number;
+  startingPrice?: number | null;
   coverImage: string | null;
   listings: PackageListing[];
 }
@@ -430,49 +431,70 @@ export function getDynamicExperiences(listings: PackageListing[]): DynamicExperi
   const approvedListings = listings.filter((l) => l.approved !== false);
   const expMap = new Map<string, PackageListing[]>();
 
+  const normalizeTag = (tag: string): string => {
+    let t = tag.trim();
+    if (/family/i.test(t)) return 'Family Vacations';
+    if (/honeymoon|couple/i.test(t)) return 'Honeymoon & Couples';
+    if (/adventure|trek|outdoors/i.test(t)) return 'Adventure & Outdoors';
+    if (/spiritual|heritage|temple|religious|pilgrimage/i.test(t)) return 'Spiritual & Heritage';
+    if (/nature|wildlife|safari/i.test(t)) return 'Nature & Wildlife';
+    if (/weekend|short/i.test(t)) return 'Weekend Escapes';
+    if (/group|departure/i.test(t)) return 'Group Departures';
+    if (/holiday|tour|local|sightseeing/i.test(t)) return 'Sightseeing & Local Tours';
+    return t.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  };
+
   approvedListings.forEach((pkg) => {
-    const tags = new Set<string>();
+    const rawTags = new Set<string>();
 
     if (pkg.experienceType) {
       const exps = Array.isArray(pkg.experienceType) ? pkg.experienceType : [pkg.experienceType];
-      exps.forEach((e) => e && tags.add(String(e).trim()));
+      exps.forEach((e) => e && rawTags.add(String(e).trim()));
     }
     if (Array.isArray(pkg.tourCategories)) {
-      pkg.tourCategories.forEach((c) => c && tags.add(c.trim()));
+      pkg.tourCategories.forEach((c) => c && rawTags.add(c.trim()));
     }
     if (pkg.eventType) {
-      tags.add(pkg.eventType.trim());
+      rawTags.add(pkg.eventType.trim());
     }
 
-    tags.forEach((tag) => {
-      const key = tag.toLowerCase();
-      if (!expMap.has(key)) expMap.set(key, []);
-      if (!expMap.get(key)!.some((p) => p.id === pkg.id)) {
-        expMap.get(key)!.push(pkg);
+    rawTags.forEach((rawTag) => {
+      const normalized = normalizeTag(rawTag);
+      if (!expMap.has(normalized)) expMap.set(normalized, []);
+      if (!expMap.get(normalized)!.some((p) => p.id === pkg.id)) {
+        expMap.get(normalized)!.push(pkg);
       }
     });
   });
 
   const experiences: DynamicExperience[] = [];
 
-  expMap.forEach((pkgList, key) => {
+  expMap.forEach((pkgList, name) => {
     if (pkgList.length === 0) return;
 
-    const displayName = key.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-
     let coverImage: string | null = null;
+    let minPrice: number | null = null;
+
     pkgList.forEach((pkg) => {
       if (!coverImage) {
         if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
         else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
         else if (pkg.itinerary?.[0]?.imageUrl) coverImage = pkg.itinerary[0].imageUrl;
       }
+      const rawCost = pkg.cost || pkg.price;
+      if (rawCost) {
+        const num = parseFloat(String(rawCost).replace(/[^0-9.]/g, ''));
+        if (!isNaN(num) && num > 0) {
+          if (minPrice === null || num < minPrice) minPrice = num;
+        }
+      }
     });
 
     experiences.push({
-      name: displayName,
-      tagKey: key,
+      name,
+      tagKey: name.toLowerCase(),
       packageCount: pkgList.length,
+      startingPrice: minPrice,
       coverImage: coverImage || null,
       listings: pkgList,
     });

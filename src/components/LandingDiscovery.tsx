@@ -435,107 +435,16 @@ export default function LandingDiscovery({
     )}
 
       {/* ==========================================
-          SECTION 3 — Travel Intent Discovery (Shop by Intent 2x2 Cards)
-          ========================================== */}
-      {categoryCollections.length > 0 && (
-        <section className="py-12 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 w-full">
-            {categoryCollections.map((col) => (
-              <div
-                key={col.id}
-                className="bg-white border border-slate-200/80 rounded-md p-6 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xl font-black text-slate-900 group-hover:text-orange-600 transition-colors">
-                      {col.title}
-                    </h3>
-                    {col.badgeText && (
-                      <span className="text-xs font-bold px-3 py-1 rounded-sm bg-orange-50 text-orange-600 border border-orange-200/60">
-                        {col.badgeText}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 mb-5 line-clamp-1">{col.description}</p>
-
-                  <div className="grid grid-cols-2 gap-3 mb-5">
-                    {col.listings.slice(0, 4).map((pkg) => {
-                      const img = getThumbnail(pkg);
-                      const price = formatPrice(pkg.cost || pkg.price);
-                      return (
-                        <div
-                          key={pkg.id}
-                          onClick={() => onView(pkg)}
-                          className="group/item cursor-pointer flex flex-col bg-slate-50/80 border border-slate-200/60 rounded-xs overflow-hidden hover:border-orange-400 transition-all hover:shadow-xs"
-                        >
-                          <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
-                            {img ? (
-                              <img
-                                src={img}
-                                alt={pkg.title}
-                                className="w-full h-full object-cover group-hover/item:scale-108 transition-transform duration-500"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400">
-                                <Compass className="w-6 h-6" />
-                              </div>
-                            )}
-                            {price && (
-                              <span className="absolute bottom-1.5 right-1.5 bg-slate-900/85 backdrop-blur-xs text-white text-[11px] font-extrabold px-2 py-0.5 rounded-xs">
-                                {price}
-                              </span>
-                            )}
-                          </div>
-                          <div className="p-2.5">
-                            <h4 className="text-xs font-bold text-slate-900 line-clamp-1 group-hover/item:text-orange-600">
-                              {pkg.title}
-                            </h4>
-                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                              {pkg.stateName || pkg.countryName || pkg.destination || 'Special Deal'}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() =>
-                    onSelectCategoryFilter({
-                      category: col.categoryKey,
-                      subcategory: col.subcategoryKey,
-                      title: col.title,
-                    })
-                  }
-                  className="w-full py-2.5 border border-slate-200 rounded-xs text-xs font-bold text-slate-700 hover:text-orange-600 hover:bg-orange-50/60 hover:border-orange-300 transition-all flex items-center justify-center gap-2"
-                >
-                  <span>Explore {col.title}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ==========================================
-          SECTION 4 — Dynamic Experience Explorer (Discovered from DB Attributes)
+          SECTION 3 — Unified Experience & Theme Explorer
           ========================================== */}
       {dynamicExperiences.length > 0 && (
         <section className="py-12 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
-          <div className="mb-8">
-            
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
-              Find Trips by Experience
-            </h2>
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+                Find Trips by Experience
+              </h2>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full">
@@ -559,10 +468,15 @@ export default function LandingDiscovery({
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/35 to-transparent opacity-85 group-hover:opacity-70 transition-opacity" />
 
                 <div className="relative z-10">
-                  <span className="text-xs font-extrabold px-3 py-1 rounded-sm bg-orange-500 text-white mb-2 inline-block shadow-xs">
+                  <span className="bg-orange-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-sm inline-block mb-1.5 shadow-xs">
                     {exp.packageCount} {exp.packageCount === 1 ? 'Package' : 'Packages'}
                   </span>
                   <h3 className="text-lg sm:text-xl font-black text-white line-clamp-1 drop-shadow-xs">{exp.name}</h3>
+                  {exp.startingPrice && (
+                    <p className="text-xs font-bold text-amber-300 mt-0.5">
+                      From ₹{exp.startingPrice.toLocaleString('en-IN')}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
