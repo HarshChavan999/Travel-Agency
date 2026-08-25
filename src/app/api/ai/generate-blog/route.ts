@@ -3,10 +3,73 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export const dynamic = 'force-static';
 
+/**
+ * Server-side helper to fetch and clean text from competitor URLs.
+ */
+async function fetchCompetitorContent(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    // Extract title, description, headings, and clean body text
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : '';
+
+    const descMatch = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i) ||
+                      html.match(/<meta\s+content=["']([^"']*)["']\s+name=["']description["']/i);
+    const description = descMatch ? descMatch[1].trim() : '';
+
+    const h1Matches = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+    const h2Matches = [...html.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+    const h3Matches = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+
+    // Clean body text by stripping scripts, styles, svgs, and tags
+    let bodyText = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, ' ')
+      .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
+      .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#27;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    bodyText = bodyText.slice(0, 3500);
+
+    return `URL: ${url}
+Title: ${title}
+Description: ${description}
+H1 Headings: ${h1Matches.join(' | ')}
+H2 Headings: ${h2Matches.slice(0, 15).join(' | ')}
+H3 Headings: ${h3Matches.slice(0, 15).join(' | ')}
+Content Snippet: ${bodyText}`;
+  } catch (err: any) {
+    console.warn(`Could not fetch competitor URL ${url}:`, err.message);
+    return null;
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    const { topic, keywords } = await req.json();
+    const body = await req.json();
+    const { topic, keywords, competitorUrls, category } = body;
 
     if (!topic) {
       return NextResponse.json({ success: false, error: 'Topic is required' }, { status: 400 });
@@ -17,59 +80,211 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-    // Model initialization moved to retry loop below
-
     const today = new Date().toISOString().split('T')[0];
 
-    const prompt = `
-You are a SENIOR SEO STRATEGIST, TRAVEL JOURNALIST, and GOOGLE EEAT CONTENT EXPERT with 15 years of experience.
+    // Process competitor URLs if provided
+    let competitorEvidenceText = '';
+    let parsedCompetitorUrls: string[] = [];
 
-Your mission: Write the single best travel article on the internet for this topic that can outrank TripAdvisor, Lonely Planet, MakeMyTrip, Thrillophilia, and Booking.com.
+    if (Array.isArray(competitorUrls)) {
+      parsedCompetitorUrls = competitorUrls.filter(Boolean);
+    } else if (typeof competitorUrls === 'string' && competitorUrls.trim()) {
+      parsedCompetitorUrls = competitorUrls
+        .split(/[\n,]+/)
+        .map(u => u.trim())
+        .filter(u => u.startsWith('http'));
+    }
+
+    if (parsedCompetitorUrls.length > 0) {
+      console.log(`Crawling ${parsedCompetitorUrls.length} competitor URLs for topic "${topic}"...`);
+      const crawlResults = await Promise.all(parsedCompetitorUrls.slice(0, 5).map(fetchCompetitorContent));
+      const validResults = crawlResults.filter(Boolean);
+      if (validResults.length > 0) {
+        competitorEvidenceText = `
+### LIVE COMPETITOR BENCHMARK EVIDENCE (Google 1st-Page Rankings):
+The following data was extracted directly from live top-ranking competitor pages for this topic:
+
+${validResults.join('\n\n---\n\n')}
+
+CRITICAL COMPETITOR ANALYSIS RULES (INFORMATION GAIN & OUTRANKING PROTOCOL):
+DO NOT merely paraphrase or copy the competitor content. Google penalizes regurgitated content.
+Instead, perform an intelligent semantic gap analysis:
+1. **Identify Missing Topics & Angles:** What key details, logistical warnings, or local realities did competitors omit or skim over?
+2. **Missing Entities & Attractions:** What specific viewpoints, routes, base camps, or local food did they miss?
+3. **Missing Semantic Keywords:** Extract and naturally integrate the high-value search terms and phrases that appear across top rankings.
+4. **Questions Answered Better:** Identify what travelers are asking on Google (PPA) and provide more direct, accurate, snippet-optimized answers.
+5. **Information Gain (Unique Value):** Add real 2026 ground intelligence, exact INR cost breakdowns, realistic driving hours, and weather buffer days that competitors lack.
+6. **Correct Outdated/Inaccurate Information:** Fix outdated tariffs, obsolete permit rules, or vague advice present in older competitor blogs.
+7. **Strict Originality:** Maintain TripDM's distinct, authoritative, helpful expert tone. Never duplicate competitor phrasing.
+`;
+      }
+    }
+
+    const prompt = `
+You are the CHIEF SEO STRATEGIST, VETERAN GLOBAL TRAVEL JOURNALIST, and GOOGLE EEAT ARCHITECT for TripDM (a premier travel agency platform).
+
+Your mission: Write the ultimate, definitive, 100% field-tested travel guide for this topic that dominates Google search, outranking TripAdvisor, Lonely Planet, MakeMyTrip, and Thrillophilia.
 
 TOPIC: ${topic}
 ${keywords ? `FOCUS KEYWORDS: ${keywords}` : ''}
+${category ? `PREFERRED CATEGORY: ${category}` : ''}
 DATE: ${today}
+${competitorEvidenceText}
 
-STRICT RULES (violation is unacceptable):
-1. Write 100% human-like prose. No AI clichés. No "vibrant", "bustling", "nestled", "tapestry", "delve".
-2. Use short paragraphs (2-4 sentences max). Use contractions. Sound like a seasoned traveler sharing tips with a friend.
-3. Back up claims with specifics — exact prices in INR, real distances, real names of places.
-4. Every section must add unique value a traveler cannot easily find elsewhere.
-5. Follow Google EEAT: show genuine Experience, Expertise, Authoritativeness, Trustworthiness.
-6. Use ALL sections below. Include comparison tables, cost tables, pro tips, common mistakes, and FAQs.
-7. The article MUST be 1500–2500 words in the contentMarkdown field.
-8. Return ONLY valid JSON. No markdown code fences. No extra text.
+================================================================================
+DYNAMIC TOPIC-AWARE ARCHITECTURE RULES (CRITICAL):
+================================================================================
 
-Return a single JSON object with this EXACT structure:
+You MUST FIRST detect the exact intent & archetype of the topic "${topic}" and dynamically generate the most appropriate high-ranking structure. DO NOT force irrelevant sections (e.g. do NOT put mountain passes on beach comparisons; do NOT put border checkposts on city guides).
+
+### ARCHETYPE 1: Destination / Regional / Offbeat Guide (e.g., "Hidden Places in Kashmir", "Spiti Valley Guide", "Kerala Backwaters")
+- **Structure**:
+  1. Introduction: The Core Appeal & What Offbeat Actually Means Here
+  2. Quick Facts & Essential Logistics (Entry rules, SIM connectivity, cash/ATMs, fuel/transit)
+  3. Best Time to Visit & Seasonal Access Table (Include Pass/Road elevation table ONLY if it is an alpine/mountain region; otherwise, weather/monsoon table)
+  4. Categorized Destinations / Attractions (Split by logistics, e.g., Category A: Accessible Day Trips vs Category B: Remote Multi-Day Circuits)
+  5. Practical Multi-Day / 7-Day Itinerary Table (with realistic driving hours and Weather/Road Buffer Days)
+  6. Permits & Local Regulations (Include border/checkpost rules ONLY if it is a border/tribal/protected area; otherwise local permits/tickets)
+  7. Where to Stay: Accommodation Guide Table (Homestays / JKTDC / Resorts / Guest Houses with INR tariffs)
+  8. Local Food & Authentic Dining Culture (Home specialties, breakfast bakery/tea culture, renowned local food spots)
+  9. Realistic Multi-Tier 2026 Budget Breakdown Table in INR (Budget Backpacking vs Mid-Range vs Private Comfort)
+  10. Audience & Fitness Suitability (Families with kids, Seniors, Couples, Solo/Trekkers)
+  11. Packing Checklist & Mountain/Terrain Safety Tips
+  12. Responsible Travel & Local Etiquette
+  13. TripDM Custom Tour Packages CTA
+
+### ARCHETYPE 2: Comparison Article (X vs Y) (e.g., "Bali vs Maldives", "Goa vs Gokarna", "Kedarnath vs Badrinath", "Thailand vs Vietnam")
+- **Structure**:
+  1. Introduction & The Fundamental Dilemma: Which is Right for You in 2026?
+  2. Quick Comparison Scorecard Table (Vibe, Average Cost/Day, Best For, Ideal Duration, Flight/Visa, Winner)
+  3. Vibe, Scenery & Atmosphere Showdown
+  4. Top Beaches / Attractions / Activities Face-Off
+  5. Cost & Budget Comparison Table (Side-by-side INR comparison for Stays, Food, Local Transport, Activities)
+  6. Best Time to Visit, Weather & Seasonality Comparison
+  7. Food, Dining & Nightlife Face-Off
+  8. Where to Stay: Accommodation Comparison (Luxury vs Boutique vs Budget in both)
+  9. Audience Match: Which Wins for Honeymooners, Families, Solo Travelers, or Budget Travelers?
+  10. Practical Transit & Flight Logistics (How to reach, flight costs, visa on arrival)
+  11. The Final Verdict & Decision Matrix (Pick X if..., Pick Y if...)
+  12. TripDM Custom Tour Packages CTA
+
+### ARCHETYPE 3: Itinerary Guide (e.g., "7 Days in Kerala", "10 Days in Vietnam", "5 Days in Dubai")
+- **Structure**:
+  1. Introduction & Route Overview Summary
+  2. Quick Trip Facts (Ideal days, best starting airport, total route distance, transport choice)
+  3. Best Season & Weather Window for this Route
+  4. Day-by-Day Step-by-Step Itinerary (Morning, Afternoon, Evening, Recommended Stay Base, Transit Time)
+  5. Interactive Route Logistics (Private cab vs trains vs domestic flights, booking tips)
+  6. Where to Stay along the Circuit (Table of base towns with recommended stays & INR rates)
+  7. Realistic Route Budget Breakdown Table in INR
+  8. What to Book in Advance & Passes/Tickets Guide
+  9. Audience Feasibility & Pacing (Is it rushed? Advice for seniors/kids)
+  10. Packing Checklist & Essential Transit Hacks
+  11. TripDM Custom Tour Packages CTA
+
+### ARCHETYPE 4: Budget / Visa / Travel Hacks (e.g., "20 Cheapest Countries from India", "Visa on Arrival Countries")
+- **Structure**:
+  1. Introduction & 2026 Travel Cost Realities
+  2. Master Comparison Table (Destination, Daily Budget in INR, Visa Status, Flight Estimate, Ideal Stay Duration)
+  3. In-Depth Breakdown for Top Destinations (Highlights, cheap stays, street food, budget hacks)
+  4. Flight Booking Hacks & Seasonality Secrets
+  5. Visa Application / On-Arrival Process & Exact Fees
+  6. Daily Cost Management (Hostels/Guesthouses, local food, SIMs & Forex Cards)
+  7. Common Tourist Traps & Safety Mistakes to Avoid
+  8. TripDM Custom Tour Packages CTA
+
+### ARCHETYPE 5: Best Places / Things to Do Listicle (e.g., "15 Best Places in Jaipur", "Top 10 Cafes in Manali")
+- **Structure**:
+  1. Introduction: What Makes These Places Iconic
+  2. Curated Grouping / Categorization (e.g., Heritage & Palaces, Sunset Viewpoints, Food & Bazaars)
+  3. Spot-by-Spot In-Depth Guide (Timings, Entry Tickets in INR, Best Time of Day, Photography Advice, Pro Tip)
+  4. Master Summary Table (Spot name, Category, Entry Fee, Ideal time spent, Location)
+  5. Suggested 1 to 3 Day Sightseeing Circuit
+  6. How to Get Around (Local autos, metro, cabs, walking routes)
+  7. Local Food & Iconic Dining Spots Near Attractions
+  8. Best Time to Visit & Crowd Avoidance Strategies
+  9. TripDM Custom Tour Packages CTA
+
+================================================================================
+STRICT QUALITY & WRITING PRINCIPLES (EEAT):
+================================================================================
+1. **100% Human-Expert Voice**:
+   - Zero generic AI fluff. No "nestled", "tapestry", "delve", "bustling", "vibrant", "breathtaking tapestry".
+   - Short, punchy paragraphs (2–4 sentences max). Use contractions naturally.
+   - Ground everything in real-world facts: exact numbers (INR, driving hours, flight times, pass elevations, ticket costs), real shop/homestay/restaurant names, and genuine insider warnings.
+2. **Markdown Tables**:
+   - Every article MUST contain 2 to 4 responsive Markdown tables (e.g., Comparison Scorecard, Itinerary, Stays, Budget, or Pass Elevation).
+   - Valid Markdown pipes and separator rows. NEVER put bullet points inside table cells.
+3. **9+ Featured-Snippet-Optimized FAQs**:
+   - 9 to 12 direct, concise, factual answers (2–4 sentences) targeting "People Also Ask" questions.
+4. **Length**:
+   - \`contentMarkdown\` MUST be rich, complete, and approximately **2,500 to 4,000 words** of dense, original travel intelligence.
+
+================================================================================
+EXACT JSON OUTPUT STRUCTURE:
+================================================================================
+Return ONLY a valid JSON object matching this schema:
 
 {
   "seo": {
-    "title": "60 chars max. Include main keyword near start.",
-    "metaDescription": "150-160 chars. Compelling with main keyword. Ends with benefit.",
-    "focusKeyword": "primary keyword phrase",
-    "secondaryKeywords": ["keyword2", "keyword3", "keyword4", "keyword5"],
+    "title": "Compelling SEO Title (55-65 chars) with primary keyword near start and 2026",
+    "metaDescription": "150-160 chars. High CTR description ending with benefit and keyword.",
+    "focusKeyword": "primary search keyword phrase",
+    "secondaryKeywords": ["keyword2", "keyword3", "keyword4", "keyword5", "keyword6"],
     "slug": "url-friendly-slug-with-hyphens",
     "canonical": "https://tripdm.com/blog/[slug]",
     "ogTitle": "Social media optimized title",
-    "ogDescription": "Social media description 1-2 sentences"
+    "ogDescription": "Social media description"
   },
 
   "article": {
-    "title": "Full H1 article headline",
-    "excerpt": "1-2 sentence hook for the reader. 120-160 chars.",
-    "readingTime": "X min read",
+    "title": "Full H1 article headline with power words and 2026 guide context",
+    "excerpt": "Compelling 1-2 sentence hook summarizing the entire article. 120-160 chars.",
+    "readingTime": "12 min read",
     "category": "One of: Destinations | Travel Tips | Budget Travel | Luxury Travel | Adventure | India Travel | International Travel | Food & Culture | Travel Guides",
     "tableOfContents": [
-      {"id": "section-id", "title": "Section Title", "level": 2}
+      {"id": "section-slug-1", "title": "Section Title 1", "level": 2},
+      {"id": "section-slug-2", "title": "Section Title 2", "level": 2}
     ],
-    "contentMarkdown": "THE FULL ARTICLE IN MARKDOWN. Must be 3000-5000 words. Use ## H2 and ### H3 headings. Short paragraphs. Include ALL these sections:\n\n## Introduction\n## Quick Facts About [topic]\n## Best Time to Visit\n## Weather Guide (month-by-month table)\n## How to Reach [topic]\n## Getting Around\n## Top Things to Do\n## Hidden Gems & Off-the-Beaten-Path\n## Accommodation Guide\n## Where to Eat (local food guide)\n## Budget Breakdown (with INR tables)\n## Packing Checklist\n## Safety Tips & Common Mistakes\n## Nearby Attractions\n## TripDM Travel Packages CTA\n## Conclusion (Note: DO NOT add an FAQ section in contentMarkdown because FAQs are generated in the faq array below)"
+    "contentMarkdown": "FULL DETAILED MARKDOWN ARTICLE (2,500-4,000 words) strictly following the chosen Archetype. Include clean Markdown tables, H2 (##) and H3 (###) tags, anchor link IDs (<div id='section-slug'></div>) matching tableOfContents, pro tips (💡), and common mistakes (⚠️). (DO NOT put an FAQ section in contentMarkdown since it is placed in the faq array below)."
   },
 
   "faq": [
     {
-      "question": "Specific question a traveler would type into Google",
-      "answer": "Direct, concise answer in 2-4 sentences. Featured snippet optimized."
+      "question": "Specific high-intent search query 1?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 2?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 3?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 4?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 5?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 6?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 7?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 8?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
+    },
+    {
+      "question": "Specific high-intent search query 9?",
+      "answer": "Direct 2-4 sentence featured snippet answer."
     }
   ],
 
@@ -96,32 +311,12 @@ Return a single JSON object with this EXACT structure:
     }
   },
 
-  "internalLinks": [
-    {"anchor": "link text", "url": "https://tripdm.com/relevant-page", "context": "Where to place this link in the article"}
-  ],
-
-  "callToAction": "Strong CTA paragraph encouraging readers to book a TripDM travel package with link to https://tripdm.com",
-
-  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-
-  "relatedTopics": ["Related article title 1", "Related article title 2", "Related article title 3"]
+  "callToAction": "Clear CTA paragraph inviting readers to customize their dream holiday with verified local operators on TripDM: https://tripdm.com",
+  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"],
+  "relatedTopics": ["Related Topic Guide 1", "Related Topic Guide 2", "Related Topic Guide 3"]
 }
 
-CRITICAL: The contentMarkdown MUST include clean, complete Markdown tables with valid headers and separator rows like:
-| Category / Location | Recommended Property / Option | Details |
-|---------------------|-------------------------------|---------|
-| Luxury              | The Lalit Grand Palace         | 5-star heritage hotel near Dal Lake |
-
-DO NOT put bullet points (- or *) inside table cells. Always use clean text for cell contents.
-DO NOT output stray dots (...), standalone dashes (---), or decorative ellipsis lines between paragraphs or FAQs.
-DO NOT use Unicode box-drawing characters (like ┌, ─, ┐, │, ├, ┤, └, ┘) or ASCII box art for lists. Always use standard Markdown lists (1. Item or - Item).
-
-Include "💡 Pro Tip:" callouts throughout.
-Include a "⚠️ Common Mistake:" section.
-Include specific restaurant names, hotel names, viewpoints.
-Make the CTA section naturally mention TripDM packages.
-
-NOW GENERATE THE COMPLETE JSON FOR: "${topic}"
+NOW GENERATE THE COMPLETE, ULTRA-HIGH-QUALITY JSON FOR: "${topic}"
 `;
 
     const tryModels = ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
@@ -180,11 +375,10 @@ NOW GENERATE THE COMPLETE JSON FOR: "${topic}"
         slug: fullData.seo?.slug || '',
         excerpt: fullData.article?.excerpt || '',
         content: buildFullContent(fullData),
-        category: fullData.article?.category || 'Destinations',
+        category: fullData.article?.category || category || 'Destinations',
         tags: fullData.tags || [],
         metaTitle: fullData.seo?.title || '',
         metaDescription: fullData.seo?.metaDescription || '',
-        // Pass full rich data for advanced use
         _richData: fullData,
       };
 
@@ -202,7 +396,6 @@ NOW GENERATE THE COMPLETE JSON FOR: "${topic}"
 
 /**
  * Assembles the final, publish-ready Markdown content from all sections of the rich JSON.
- * This is what gets saved to Firestore as the blog's main content.
  */
 function buildFullContent(data: any): string {
   const parts: string[] = [];
@@ -213,10 +406,9 @@ function buildFullContent(data: any): string {
   const schema = data.schema || {};
   const seo = data.seo || {};
   const relatedTopics = data.relatedTopics || [];
-  const internalLinks = data.internalLinks || [];
   const toc = article.tableOfContents || [];
 
-  // --- SEO JSON-LD Schema Block (hidden in HTML comment for server rendering) ---
+  // --- SEO JSON-LD Schema Block ---
   if (schema.article || schema.faq) {
     const schemaPayload = {
       article: schema.article || {},
@@ -226,7 +418,7 @@ function buildFullContent(data: any): string {
     parts.push(`<!-- SCHEMA_JSON:${JSON.stringify(schemaPayload)} -->`);
   }
 
-  // --- Focus Keyword (hidden HTML comment for SEO context) ---
+  // --- Focus Keyword ---
   if (seo.focusKeyword) {
     parts.push(`<!-- FOCUS_KEYWORD: ${seo.focusKeyword} -->`);
   }
@@ -266,14 +458,14 @@ function buildFullContent(data: any): string {
   if (faq.length > 0) {
     parts.push('---');
     parts.push('');
-    parts.push('## Frequently Asked Questions\n');
-    faq.forEach((item: any) => {
-      parts.push(`### ${item.question}\n`);
+    parts.push('## Frequently Asked Questions\n<div id="faq"></div>\n');
+    faq.forEach((item: any, i: number) => {
+      parts.push(`### ${i + 1}. ${item.question}\n`);
       parts.push(`${item.answer}\n`);
     });
   }
 
-  // --- Secondary Keywords (for SEO context) ---
+  // --- Secondary Keywords ---
   if (seo.secondaryKeywords?.length > 0) {
     parts.push('');
     parts.push(`<!-- SECONDARY_KEYWORDS: ${seo.secondaryKeywords.join(', ')} -->`);

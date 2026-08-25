@@ -30,6 +30,8 @@ export interface BulkItem {
   id: string;
   title: string;
   category: string;
+  keywords?: string;
+  competitorUrls?: string[];
   status: 'pending' | 'generating' | 'success' | 'failed' | 'skipped';
   error?: string;
   wordCount?: number;
@@ -210,6 +212,7 @@ export default function BlogAdminClient() {
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiKeywords, setAiKeywords] = useState('');
+  const [aiCompetitors, setAiCompetitors] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiRichData, setAiRichData] = useState<any>(null);
@@ -524,18 +527,26 @@ export default function BlogAdminClient() {
     }
     setAiError('');
     setAiGenerating(true);
-    setAiGenStep('🔍 Researching keywords and search intent...');
+    setAiGenStep(aiCompetitors.trim() ? '🕷️ Crawling competitor pages & extracting SEO gaps...' : '🔍 Researching keywords and search intent...');
     try {
-      setTimeout(() => setAiGenStep('📝 Generating detailed article outline...'), 2000);
-      setTimeout(() => setAiGenStep('✍️ Writing 1500–2500 word EEAT article...'), 5000);
-      setTimeout(() => setAiGenStep('📊 Creating cost tables, tips & FAQs...'), 10000);
-      setTimeout(() => setAiGenStep('🔧 Optimizing metadata & JSON-LD schema...'), 15000);
-      setTimeout(() => setAiGenStep('✅ Finalizing and validating JSON output...'), 20000);
+      if (aiCompetitors.trim()) {
+        setTimeout(() => setAiGenStep('📊 Running semantic gap analysis against competitors...'), 3000);
+        setTimeout(() => setAiGenStep('📝 Constructing high-authority tiered itinerary & sections...'), 7000);
+        setTimeout(() => setAiGenStep('✍️ Writing 2500–4000 word outranking article...'), 12000);
+        setTimeout(() => setAiGenStep('🔧 Building elevation, budget & permit comparison tables...'), 18000);
+        setTimeout(() => setAiGenStep('✅ Finalizing schema, jumplinks & 9+ snippet FAQs...'), 24000);
+      } else {
+        setTimeout(() => setAiGenStep('📝 Generating detailed article outline & pass guide...'), 2000);
+        setTimeout(() => setAiGenStep('✍️ Writing 2500–4000 word EEAT article...'), 6000);
+        setTimeout(() => setAiGenStep('📊 Creating cost tables, tiered itineraries & FAQs...'), 12000);
+        setTimeout(() => setAiGenStep('🔧 Optimizing metadata & JSON-LD schema...'), 18000);
+        setTimeout(() => setAiGenStep('✅ Finalizing and validating JSON output...'), 24000);
+      }
 
       const res = await fetch('/api/ai/generate-blog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: aiTopic, keywords: aiKeywords }),
+        body: JSON.stringify({ topic: aiTopic, keywords: aiKeywords, competitorUrls: aiCompetitors }),
       });
       const data = await res.json();
       if (data.success && data.data) {
@@ -606,73 +617,138 @@ export default function BlogAdminClient() {
     return 'Destinations';
   };
 
-  const parseTitleList = (rawText: string): string[] => {
-    const lines = rawText.split('\n');
-    const titles: string[] = [];
+  const parseBulkInputToItems = (rawText: string, categoryOverride: string): BulkItem[] => {
+    const trimmed = rawText.trim();
+    if (!trimmed) return [];
 
-    const skipPatterns = [
-      'high-intent destination blogs',
-      'aeo / question-based titles',
-      'long-tail seo opportunities',
-      'great topics for a travel agency blog',
-      'if the objective is seo',
-      'i\'d prioritize these first',
-      'this are some for titles',
-    ];
+    // 1. Check if input is a JSON array
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item: any) => {
+            const title = item.title || item.topic || '';
+            if (!title) return null;
+            let competitorUrls: string[] = [];
+            if (Array.isArray(item.competitorUrls)) {
+              competitorUrls = item.competitorUrls.filter(Boolean);
+            } else if (typeof item.competitorUrls === 'string') {
+              competitorUrls = item.competitorUrls.split(/[\n,]+/).map((u: string) => u.trim()).filter((u: string) => u.startsWith('http'));
+            }
+            return {
+              id: Math.random().toString(36).substring(2, 9),
+              title: title.trim(),
+              keywords: item.keywords || item.focusKeywords || '',
+              competitorUrls: competitorUrls.length > 0 ? competitorUrls : undefined,
+              category: item.category || (categoryOverride === 'Auto-Detect' ? autoDetectCategory(title) : categoryOverride),
+              status: 'pending' as const,
+            };
+          }).filter(Boolean) as BulkItem[];
+        }
+      } catch (e) {
+        console.warn('Could not parse bulk input as JSON, falling back to line parser:', e);
+      }
+    }
+
+    // 2. Line by line parser (supports Title | Keywords | URLs or simple titles)
+    const lines = trimmed.split('\n');
+    const items: BulkItem[] = [];
 
     for (const line of lines) {
       let cleaned = line.trim();
       if (!cleaned) continue;
 
       cleaned = cleaned.replace(/^(\d+[\.\)]\s*|[\*\-\•]\s*)/, '').trim();
-      cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+      if (cleaned.length < 4) continue;
 
-      const lower = cleaned.toLowerCase();
-      if (cleaned.length < 5) continue;
-      if (skipPatterns.some(pat => lower.includes(pat))) continue;
+      // Check for pipe-separated format: Title | Keywords | URL1, URL2...
+      if (cleaned.includes('|')) {
+        const parts = cleaned.split('|').map(p => p.trim()).filter(Boolean);
+        const title = parts[0];
+        let keywords = '';
+        let competitorUrls: string[] = [];
 
-      if (!titles.includes(cleaned)) {
-        titles.push(cleaned);
+        if (parts.length >= 3) {
+          keywords = parts[1];
+          competitorUrls = parts[2].split(/[,\s]+/).map(u => u.trim()).filter(u => u.startsWith('http'));
+        } else if (parts.length === 2) {
+          // If part 1 contains http, it's competitor URLs, otherwise keywords
+          if (parts[1].includes('http://') || parts[1].includes('https://')) {
+            competitorUrls = parts[1].split(/[,\s]+/).map(u => u.trim()).filter(u => u.startsWith('http'));
+          } else {
+            keywords = parts[1];
+          }
+        }
+
+        if (title && !items.some(it => it.title.toLowerCase() === title.toLowerCase())) {
+          items.push({
+            id: Math.random().toString(36).substring(2, 9),
+            title,
+            keywords: keywords || undefined,
+            competitorUrls: competitorUrls.length > 0 ? competitorUrls : undefined,
+            category: categoryOverride === 'Auto-Detect' ? autoDetectCategory(title) : categoryOverride,
+            status: 'pending',
+          });
+        }
+      } else {
+        // Plain title line
+        cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+        if (!items.some(it => it.title.toLowerCase() === cleaned.toLowerCase())) {
+          items.push({
+            id: Math.random().toString(36).substring(2, 9),
+            title: cleaned,
+            category: categoryOverride === 'Auto-Detect' ? autoDetectCategory(cleaned) : categoryOverride,
+            status: 'pending',
+          });
+        }
       }
     }
-    return titles;
+
+    return items;
   };
 
-  const handleLoadPreset = (type: 'priority' | 'all') => {
+  const handleLoadPreset = (type: 'priority' | 'all' | 'multi_url_sample') => {
+    if (type === 'multi_url_sample') {
+      const sampleText = `Kashmir Travel Guide 2026 | kashmir travel guide, budget, safety | https://www.tourmyindia.com/states/jammu-kashmir/kashmir.html, https://www.triphills.com/kashmir-travel-guide-everything-you-need-to-know-before-you-go/
+Spiti Valley Road Trip Planner | spiti valley 7 day itinerary, kunzum pass | https://www.traveljunky.in/blog/spiti-valley-guide, https://travelcoffee.in/blog/spiti-valley
+Bali vs Maldives Honeymoon Guide 2026 | bali vs maldives cost, best for couples | https://www.tripadvisor.in/Tourism-g294226-Bali-Vacations.html
+Best Places to Visit in Meghalaya | cherrapunji, living root bridges, dawki | https://www.tourmyindia.com/states/meghalaya/
+Goa vs Gokarna for Beach Vacation | goa vs gokarna budget, beaches | https://travelcoffee.in/blog/goa-vs-gokarna
+7 Days in Kerala Itinerary | kerala backwaters, munnar, alleppey | https://www.tourmyindia.com/states/kerala/
+Kedarnath Trek Guide 2026 | kedarnath trek distance, registration, budget | https://travelcoffee.in/blog/kedarnath
+20 Cheapest Countries to Visit from India | budget international travel, visa on arrival | https://travelcoffee.in/blog/cheap-countries-india
+Auli Snowfall & Skiing Guide | auli ropeway, best snowfall month, cost | https://www.tourmyindia.com/states/uttarakhand/auli.html
+15 Best Things to Do in Dubai 2026 | dubai tourist places, burj khalifa, desert safari | https://www.tripadvisor.in/Tourism-g295424-Dubai-Vacations.html`;
+      setBulkInputText(sampleText);
+      const items = parseBulkInputToItems(sampleText, bulkCategoryOverride);
+      setBulkQueue(items);
+      addLog('info', `📌 Loaded sample: 10 High-Intent Articles with Focus Keywords & Competitor URLs.`);
+      return;
+    }
+
     const titles = type === 'priority' ? UTTARAKHAND_PRIORITY_TITLES : UTTARAKHAND_ALL_TITLES;
     const text = titles.join('\n');
     setBulkInputText(text);
 
-    const items: BulkItem[] = titles.map(t => ({
-      id: Math.random().toString(36).substring(2, 9),
-      title: t,
-      category: bulkCategoryOverride === 'Auto-Detect' ? autoDetectCategory(t) : bulkCategoryOverride,
-      status: 'pending',
-    }));
+    const items = parseBulkInputToItems(text, bulkCategoryOverride);
     setBulkQueue(items);
     addLog('info', `📌 Loaded preset: ${titles.length} Uttarakhand titles.`);
   };
 
   const handleParseInputToQueue = () => {
     if (!bulkInputText.trim()) {
-      alert('Please paste or enter blog titles first.');
+      alert('Please paste or enter blog titles, keywords, or competitor URLs first.');
       return;
     }
-    const parsedTitles = parseTitleList(bulkInputText);
-    if (parsedTitles.length === 0) {
-      alert('No valid blog titles found. Please check your text.');
+    const items = parseBulkInputToItems(bulkInputText, bulkCategoryOverride);
+    if (items.length === 0) {
+      alert('No valid blog items found. Please check your format.');
       return;
     }
-
-    const items: BulkItem[] = parsedTitles.map(t => ({
-      id: Math.random().toString(36).substring(2, 9),
-      title: t,
-      category: bulkCategoryOverride === 'Auto-Detect' ? autoDetectCategory(t) : bulkCategoryOverride,
-      status: 'pending',
-    }));
 
     setBulkQueue(items);
-    addLog('info', `📥 Loaded ${items.length} titles into generation queue.`);
+    const withUrls = items.filter(i => i.competitorUrls && i.competitorUrls.length > 0).length;
+    addLog('info', `📥 Loaded ${items.length} articles into generation queue (${withUrls} with Competitor URLs for live crawling).`);
   };
 
   const runBulkProcess = async () => {
@@ -712,7 +788,13 @@ export default function BlogAdminClient() {
       setBulkCurrentIndex(i);
 
       setBulkQueue(prev => prev.map((it, idx) => idx === i ? { ...it, status: 'generating', error: undefined } : it));
-      addLog('info', `⚡ [${i + 1}/${bulkQueue.length}] Generating: "${item.title}"...`);
+      
+      const compCount = item.competitorUrls?.length || 0;
+      if (compCount > 0) {
+        addLog('info', `🕷️ [${i + 1}/${bulkQueue.length}] Crawling ${compCount} competitor URLs & generating: "${item.title}"...`);
+      } else {
+        addLog('info', `⚡ [${i + 1}/${bulkQueue.length}] Generating: "${item.title}"...`);
+      }
 
       const startTime = Date.now();
       let success = false;
@@ -730,7 +812,12 @@ export default function BlogAdminClient() {
           const res = await fetch('/api/ai/generate-blog', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic: item.title, category: item.category }),
+            body: JSON.stringify({
+              topic: item.title,
+              keywords: item.keywords,
+              competitorUrls: item.competitorUrls,
+              category: item.category
+            }),
           });
 
           const data = await res.json();
@@ -1219,7 +1306,7 @@ export default function BlogAdminClient() {
               </div>
 
               {saveMsg && (
-                <div style={{ ...s.toast, background: saveMsgType === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', borderColor: saveMsgType === 'success' ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)', color: saveMsgType === 'success' ? '#059669' : '#dc2626' }}>
+                <div style={{ ...s.toast, background: saveMsgType === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: saveMsgType === 'success' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)', color: saveMsgType === 'success' ? '#059669' : '#dc2626' }}>
                   {saveMsg}
                 </div>
               )}
@@ -1299,13 +1386,13 @@ export default function BlogAdminClient() {
                         <p style={s.postExcerpt}>{blog.excerpt?.slice(0, 110)}{blog.excerpt?.length > 110 ? '...' : ''}</p>
                       </div>
                       <div style={s.postActions}>
-                        <a href={`/blog/${blog.slug}${blog.published ? '' : '?preview=true'}`} target="_blank" className="action-btn" style={{ ...s.actionBtn, color: '#0284c7', borderColor: 'rgba(2,132,199,0.2)', background: 'rgba(2,132,199,0.05)' }}>
+                        <a href={`/blog/${blog.slug}${blog.published ? '' : '?preview=true'}`} target="_blank" className="action-btn" style={{ ...s.actionBtn, color: '#0284c7', border: '1px solid rgba(2,132,199,0.2)', background: 'rgba(2,132,199,0.05)' }}>
                           👁️ View Live
                         </a>
-                        <button onClick={() => handleEdit(blog)} className="edit-btn action-btn" style={{ ...s.actionBtn, color: '#2563eb', borderColor: 'rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.05)' }}>
+                        <button onClick={() => handleEdit(blog)} className="edit-btn action-btn" style={{ ...s.actionBtn, color: '#2563eb', border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.05)' }}>
                           Edit
                         </button>
-                        <button onClick={() => handleTogglePublish(blog)} className={blog.published ? 'action-btn' : 'pub-btn action-btn'} style={{ ...s.actionBtn, ...(blog.published ? {} : { color: '#059669', borderColor: 'rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.05)' }) }}>
+                        <button onClick={() => handleTogglePublish(blog)} className={blog.published ? 'action-btn' : 'pub-btn action-btn'} style={{ ...s.actionBtn, ...(blog.published ? {} : { color: '#059669', border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.05)' }) }}>
                           {blog.published ? 'Unpublish' : 'Publish'}
                         </button>
                         <button onClick={() => handleDelete(blog)} className="del-btn action-btn" style={{ ...s.actionBtn, color: '#64748b' }}>
@@ -1339,7 +1426,7 @@ export default function BlogAdminClient() {
               </div>
 
               {saveMsg && (
-                <div style={{ ...s.toast, background: saveMsgType === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', borderColor: saveMsgType === 'success' ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)', color: saveMsgType === 'success' ? '#059669' : '#dc2626' }}>
+                <div style={{ ...s.toast, background: saveMsgType === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: saveMsgType === 'success' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)', color: saveMsgType === 'success' ? '#059669' : '#dc2626' }}>
                   {saveMsg}
                 </div>
               )}
@@ -1527,7 +1614,7 @@ export default function BlogAdminClient() {
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
-                        style={{ ...s.dropzone, borderColor: isDragging ? '#f97316' : 'rgba(0,0,0,0.15)' }}
+                        style={{ ...s.dropzone, border: isDragging ? '2px dashed #f97316' : '2px dashed rgba(0,0,0,0.15)' }}
                       >
                         <input
                           type="file"
@@ -1638,14 +1725,22 @@ export default function BlogAdminClient() {
 
               {/* Configuration & Input Section */}
               <div style={s.bulkCard}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={s.cardTitle}>1. Upload / Paste Blog Titles</div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={s.cardTitle}>1. Upload / Paste Blog Topics & Competitors</div>
+                    <div style={{ fontSize: 12, color: '#64748b' }}>
+                      Supports: <strong>Title | Focus Keywords | Competitor URLs</strong> OR JSON Array OR Plain Titles (one per line)
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button onClick={() => handleLoadPreset('multi_url_sample')} style={{ ...s.presetBtn, background: 'rgba(124,58,237,0.08)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.25)' }}>
+                      ⚡ Load 10 Sample Multi-Competitor Articles
+                    </button>
                     <button onClick={() => handleLoadPreset('priority')} style={s.presetBtn}>
-                      📌 Load Uttarakhand Priority Top 10
+                      📌 Load Uttarakhand Top 10
                     </button>
                     <button onClick={() => handleLoadPreset('all')} style={s.presetBtn}>
-                      🏔️ Load All 35+ Uttarakhand Titles
+                      🏔️ Load All 35+ Titles
                     </button>
                   </div>
                 </div>
@@ -1653,9 +1748,21 @@ export default function BlogAdminClient() {
                 <textarea
                   value={bulkInputText}
                   onChange={e => setBulkInputText(e.target.value)}
-                  rows={6}
-                  placeholder="Paste titles here (one title per line). Headers and bullet numbers like '1.' will be cleaned automatically."
-                  style={s.fTextarea}
+                  rows={8}
+                  placeholder={`Paste batch items here (one per line). Supported formats:
+
+Format 1 (Recommended with Competitors):
+Kashmir Travel Guide 2026 | kashmir guide, budget, safety | https://tourmyindia.com/kashmir, https://triphills.com/kashmir
+
+Format 2 (Title + Competitors):
+Bali vs Maldives Honeymoon 2026 | https://tripadvisor.com/bali, https://theholidaze.com/maldives
+
+Format 3 (Plain Titles):
+Spiti Valley 7-Day Road Trip Guide
+
+Format 4 (JSON Array):
+[ { "topic": "...", "keywords": "...", "competitorUrls": ["..."] } ]`}
+                  style={{ ...s.fTextarea, fontFamily: 'Fira Code, monospace', fontSize: 12, lineHeight: 1.5 }}
                   disabled={bulkRunning}
                 />
 
@@ -1860,7 +1967,19 @@ export default function BlogAdminClient() {
                             <td style={{ ...s.td, color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
                             <td style={s.td}>
                               <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.title}</div>
-                              {item.slug && <div style={{ fontSize: 11, color: '#166534' }}>/blog/{item.slug}</div>}
+                              {item.keywords && (
+                                <div style={{ fontSize: 11, color: '#475569', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ color: '#ea580c', fontWeight: 600 }}>🔑</span> {item.keywords}
+                                </div>
+                              )}
+                              {item.competitorUrls && item.competitorUrls.length > 0 && (
+                                <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                                    🕷️ {item.competitorUrls.length} Competitors (Live Crawl)
+                                  </span>
+                                </div>
+                              )}
+                              {item.slug && <div style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>/blog/{item.slug}</div>}
                               {item.error && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>⚠️ {item.error}</div>}
                             </td>
                             <td style={s.td}>
@@ -1881,7 +2000,7 @@ export default function BlogAdminClient() {
                             <td style={s.td}>
                               <div style={{ display: 'flex', gap: 6 }}>
                                 {item.status === 'success' && (
-                                  <button onClick={() => { setPreviewModalItem(item); setPreviewTab('render'); }} style={{ ...s.miniActionBtn, color: '#ea580c', borderColor: 'rgba(249,115,22,0.3)', background: 'rgba(249,115,22,0.06)' }}>
+                                  <button onClick={() => { setPreviewModalItem(item); setPreviewTab('render'); }} style={{ ...s.miniActionBtn, color: '#ea580c', border: '1px solid rgba(249,115,22,0.3)', background: 'rgba(249,115,22,0.06)' }}>
                                     👁️ Preview Page
                                   </button>
                                 )}
@@ -2078,6 +2197,24 @@ export default function BlogAdminClient() {
                 style={s.fInput}
               />
             </div>
+            <div style={s.fieldGroup}>
+              <label style={s.fLabel}>
+                Competitor URLs to Outrank (optional)
+                <span style={{ fontSize: 11, color: '#ea580c', marginLeft: 6, fontWeight: 500 }}>
+                  (Crawl & Semantic Gap Analysis)
+                </span>
+              </label>
+              <textarea
+                value={aiCompetitors}
+                onChange={e => setAiCompetitors(e.target.value)}
+                placeholder="Paste 1 to 5 Google 1st-page competitor URLs (one per line or comma separated)&#10;e.g. https://competitor.com/blog/offbeat-kashmir"
+                rows={3}
+                style={{ ...s.fTextarea, fontSize: 12, height: 72 }}
+              />
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                💡 AI crawls competitor pages live, extracts keyword gaps & ensures your article covers missing topics, tables, and itineraries.
+              </div>
+            </div>
             {aiError && (
               <div style={{ ...s.errorAlert, marginBottom: 12 }}>⚠️ {aiError}</div>
             )}
@@ -2091,7 +2228,7 @@ export default function BlogAdminClient() {
               disabled={aiGenerating}
               style={{ ...s.publishBtn, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', opacity: aiGenerating ? 0.7 : 1 }}
             >
-              {aiGenerating ? 'Generating EEAT Article...' : '✨ Generate Article'}
+              {aiGenerating ? 'Generating High-Ranking EEAT Article...' : '✨ Generate Outranking Article'}
             </button>
           </div>
         </div>
@@ -2102,7 +2239,7 @@ export default function BlogAdminClient() {
 
 const s: { [key: string]: React.CSSProperties } = {
   loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' },
-  loadSpinner: { width: 32, height: 32, border: '3px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
+  loadSpinner: { width: 32, height: 32, borderWidth: 3, borderStyle: 'solid', borderColor: 'rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
   loginWrapper: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', position: 'relative', overflow: 'hidden', padding: 24 },
   orb1: { position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)', pointerEvents: 'none' },
   orb2: { position: 'absolute', bottom: '-10%', left: '-5%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', pointerEvents: 'none' },
@@ -2125,7 +2262,7 @@ const s: { [key: string]: React.CSSProperties } = {
   eyeBtn: { position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#94a3b8', padding: 4 },
   errorAlert: { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px', color: '#dc2626', fontSize: 13, display: 'flex', gap: 8, alignItems: 'flex-start' },
   signInBtn: { background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', border: 'none', borderRadius: 10, padding: '12px 20px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'box-shadow 0.2s', fontFamily: 'inherit', width: '100%', boxShadow: '0 4px 12px rgba(249,115,22,0.2)' },
-  btnSpinner: { width: 16, height: 16, border: '2px solid rgba(0,0,0,0.1)', borderTopColor: '#0f172a', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' },
+  btnSpinner: { width: 16, height: 16, borderWidth: 2, borderStyle: 'solid', borderColor: 'rgba(0,0,0,0.1)', borderTopColor: '#0f172a', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' },
   loginFooter: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 20 },
 
   dash: { display: 'flex', minHeight: '100vh', background: '#f8fafc', color: '#334155' },
@@ -2150,7 +2287,7 @@ const s: { [key: string]: React.CSSProperties } = {
   activeBadge: { fontSize: 11, fontWeight: 600, color: '#ea580c', background: 'rgba(249,115,22,0.1)', padding: '2px 8px', borderRadius: 12 },
   newPostBtn: { background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)', display: 'flex', alignItems: 'center', gap: 6 },
   backBtn: { background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, color: '#334155', cursor: 'pointer' },
-  toast: { padding: '12px 16px', borderRadius: 8, border: '1px solid', marginBottom: 20, fontSize: 13, fontWeight: 500 },
+  toast: { padding: '12px 16px', borderRadius: 8, border: '1px solid transparent', marginBottom: 20, fontSize: 13, fontWeight: 500 },
 
   statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 },
   statCard: { background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 18, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
@@ -2196,7 +2333,7 @@ const s: { [key: string]: React.CSSProperties } = {
   googlePreviewTitle: { fontSize: 16, color: '#1a0dab', marginBottom: 4, lineHeight: 1.3 },
   googlePreviewDesc: { fontSize: 12, color: '#475569', lineHeight: 1.4 },
   tabBtn: { flex: 1, padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.1)', background: '#f8fafc', fontSize: 12, fontWeight: 600, color: '#64748b', cursor: 'pointer' },
-  tabBtnActive: { background: '#ffffff', borderColor: '#ea580c', color: '#ea580c' },
+  tabBtnActive: { background: '#ffffff', border: '1px solid #ea580c', color: '#ea580c' },
   dropzone: { border: '2px dashed rgba(0,0,0,0.15)', borderRadius: 8, padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' },
   fileInputHidden: { display: 'none' },
   coverPreview: { width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginTop: 10 },
@@ -2217,7 +2354,7 @@ const s: { [key: string]: React.CSSProperties } = {
   progressBarTrack: { height: 8, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden', marginBottom: 16 },
   progressBarFill: { height: '100%', background: 'linear-gradient(90deg, #f97316, #10b981)', transition: 'width 0.4s ease' },
   activeTaskCard: { background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  activeSpinner: { width: 22, height: 22, border: '3px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
+  activeSpinner: { width: 22, height: 22, borderWidth: 3, borderStyle: 'solid', borderColor: 'rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
   coolingTimerBadge: { background: '#fff', border: '1px solid rgba(245,158,11,0.3)', color: '#d97706', padding: '4px 10px', borderRadius: 20, fontSize: 12 },
 
   terminalContainer: { background: '#0f172a', borderRadius: 10, overflow: 'hidden', border: '1px solid #1e293b' },
@@ -2231,7 +2368,7 @@ const s: { [key: string]: React.CSSProperties } = {
   td: { padding: '10px 12px', fontSize: 13, color: '#334155' },
   badgePending: { background: '#f1f5f9', color: '#64748b', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 },
   badgeGenerating: { background: 'rgba(249,115,22,0.1)', color: '#ea580c', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 4 },
-  miniSpinner: { width: 10, height: 10, border: '2px solid rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.6s linear infinite' },
+  miniSpinner: { width: 10, height: 10, borderWidth: 2, borderStyle: 'solid', borderColor: 'rgba(249,115,22,0.2)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.6s linear infinite' },
   badgeSuccess: { background: 'rgba(16,185,129,0.1)', color: '#059669', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 },
   badgeFailed: { background: 'rgba(239,68,68,0.1)', color: '#dc2626', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 },
   miniActionBtn: { background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 4, padding: '3px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 },

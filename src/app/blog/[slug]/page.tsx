@@ -715,7 +715,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         .blog-table th { background: #0f172a; color: #ffffff; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 20px; }
         .blog-table td { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; color: #334155; line-height: 1.65; vertical-align: top; }
         .blog-table tr:nth-child(even) td { background: #f8fafc; }
-        .blog-table tr:hover td { background: #fff7ed; }
 
         /* Benefit List */
         .blog-benefit-list { list-style: none !important; padding: 0 !important; margin: 24px 0 !important; display: flex; flex-direction: column; gap: 10px; }
