@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Footer from '@/components/Footer';
 import BlogViewTracker from '@/components/BlogViewTracker';
+import BlogShareBar from '@/components/BlogShareBar';
+import BlogComments from '@/components/BlogComments';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'travel-agent-management-29c27';
 
@@ -97,7 +99,7 @@ async function getBlogBySlug(slug: string): Promise<Blog | null> {
   } catch { return null; }
 }
 
-async function getPopularBlogs(currentSlug: string): Promise<Blog[]> {
+async function getRecommendedBlogs(currentBlog: Blog): Promise<Blog[]> {
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
     const query = {
@@ -106,18 +108,83 @@ async function getPopularBlogs(currentSlug: string): Promise<Blog[]> {
         where: {
           fieldFilter: { field: { fieldPath: 'published' }, op: 'EQUAL', value: { booleanValue: true } }
         },
-        limit: 10,
+        limit: 50,
       },
     };
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query), cache: 'no-store' });
-    if (!res.ok) return getFallbackPopularBlogs(currentSlug);
-    const data = await res.json();
-    const blogs = data.filter((item: any) => item.document).map((item: any) => parseBlogDoc(item.document));
-    const filtered = blogs.filter((b: Blog) => b.slug !== currentSlug).slice(0, 5);
-    if (filtered.length >= 1) return filtered;
-    return getFallbackPopularBlogs(currentSlug);
+    let allBlogs: Blog[] = [];
+    if (res.ok) {
+      const data = await res.json();
+      allBlogs = data.filter((item: any) => item.document).map((item: any) => parseBlogDoc(item.document));
+    }
+
+    if (allBlogs.length === 0) {
+      allBlogs = getFallbackPopularBlogs(currentBlog.slug);
+    }
+
+    const currentTags = (currentBlog.tags || []).map((t) => t.toLowerCase().trim());
+    const currentCategory = (currentBlog.category || '').toLowerCase().trim();
+    const stopWords = new Set(['the', 'and', 'for', 'in', 'to', 'of', 'a', 'an', 'is', 'on', 'with', 'at', 'by', 'from', 'this', 'that', 'you', 'your', 'best', 'guide', 'top', '2026', '2025', '2024']);
+    const titleKeywords = (currentBlog.title + ' ' + currentBlog.slug)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !stopWords.has(w));
+
+    const candidateBlogs = allBlogs.filter((b: Blog) => b.slug !== currentBlog.slug);
+
+    const scored = candidateBlogs.map((b: Blog) => {
+      let score = 0;
+
+      // 1. Tag overlap (+6 points per matching tag)
+      const bTags = (b.tags || []).map((t) => t.toLowerCase().trim());
+      const matchingTags = bTags.filter((t) => currentTags.includes(t));
+      score += matchingTags.length * 6;
+
+      // 2. Category match (+4 points)
+      if (b.category && b.category.toLowerCase().trim() === currentCategory) {
+        score += 4;
+      }
+
+      // 3. Keyword / Semantic relevance in title (+3 points per matching keyword)
+      const bKeywords = (b.title + ' ' + b.slug)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !stopWords.has(w));
+      
+      const matchingKeywords = bKeywords.filter((w) => titleKeywords.includes(w));
+      score += matchingKeywords.length * 3;
+
+      // 4. View count tie-breaker (up to 2 points)
+      const views = typeof b.views === 'number' ? b.views : 0;
+      if (views > 0) {
+        score += Math.min(2, Math.log10(views + 1));
+      }
+
+      return { blog: b, score };
+    });
+
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const bViews = typeof b.blog.views === 'number' ? b.blog.views : 0;
+      const aViews = typeof a.blog.views === 'number' ? a.blog.views : 0;
+      return bViews - aViews;
+    });
+
+    const topResults = scored.slice(0, 3).map((s) => s.blog);
+    if (topResults.length >= 3) return topResults;
+
+    const fallbacks = getFallbackPopularBlogs(currentBlog.slug);
+    for (const fb of fallbacks) {
+      if (topResults.length >= 3) break;
+      if (!topResults.some((r) => r.slug === fb.slug)) {
+        topResults.push(fb);
+      }
+    }
+    return topResults.slice(0, 3);
   } catch {
-    return getFallbackPopularBlogs(currentSlug);
+    return getFallbackPopularBlogs(currentBlog.slug).slice(0, 3);
   }
 }
 
@@ -572,7 +639,54 @@ function renderContent(content: string): string {
     }
   );
 
+  // 10. Transform Frequently Asked Questions (FAQs) section into Interactive Accordion
+  html = convertFaqToAccordion(html);
+
   return html;
+}
+
+function convertFaqToAccordion(html: string): string {
+  // Regex to find FAQ section from <h2 id="...">Frequently Asked Questions / FAQs...</h2> until the next <h2 or end of content
+  const faqSectionRegex = /(<h2 id="[^"]*(?:frequently-asked-questions|faqs|faq)[^"]*">([\s\S]*?)<\/h2>)([\s\S]*?)(?=<h2|$)/i;
+  
+  const match = html.match(faqSectionRegex);
+  if (!match) return html;
+
+  const h2Tag = match[1];
+  const faqContent = match[3];
+
+  // Inside faqContent, find each <h3> (Question) and following paragraphs (Answer)
+  const itemRegex = /<h3[^>]*>([\s\S]*?)<\/h3>\s*([\s\S]*?)(?=<h3|$)/gi;
+  let itemsHtml = '';
+  let itemMatch;
+
+  while ((itemMatch = itemRegex.exec(faqContent)) !== null) {
+    const questionText = itemMatch[1].trim();
+    const answerHtml = itemMatch[2].trim();
+
+    if (questionText && answerHtml) {
+      itemsHtml += `
+        <details class="faq-accordion-item">
+          <summary class="faq-summary">
+            <span class="faq-q-title">${questionText}</span>
+            <span class="faq-chevron-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </span>
+          </summary>
+          <div class="faq-answer">
+            ${answerHtml}
+          </div>
+        </details>
+      `;
+    }
+  }
+
+  if (!itemsHtml) return html;
+
+  const accordionContainer = `\n<div class="faq-accordion">\n${itemsHtml}\n</div>\n`;
+  return html.replace(faqSectionRegex, `${h2Tag}\n${accordionContainer}`);
 }
 
 function formatDate(dateStr: string): string {
@@ -586,7 +700,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const blog = await getBlogBySlug(slug);
   if (!blog || !blog.published) notFound();
 
-  const popularBlogs = await getPopularBlogs(blog.slug);
+  const recommendedBlogs = await getRecommendedBlogs(blog);
   const contentHtml = renderContent(blog.content);
   const mainViews = getFormattedViews(blog);
 
@@ -616,17 +730,17 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         /* Navigation Header */
         .bp-nav { position: sticky; top: 0; z-index: 90; background: rgba(255,255,255,0.95); border-bottom: 1px solid rgba(0,0,0,0.06); backdrop-filter: blur(20px); }
-        .bp-nav-inner { max-width: 1180px; margin: 0 auto; padding: 0 32px; height: 80px; display: flex; align-items: center; justify-content: space-between; }
+        .bp-nav-inner { width: 100%; max-width: 1560px; margin: 0 auto; padding: 0 40px; height: 80px; display: flex; align-items: center; justify-content: space-between; }
         .bp-brand { display: flex; align-items: center; text-decoration: none; }
         .bp-nav-links { display: flex; align-items: center; }
         .bp-nav-link { color: #64748b; font-size: 14px; font-weight: 500; text-decoration: none; transition: color 0.2s; font-family: 'Inter', sans-serif; }
         .bp-nav-link:hover { color: #0f172a; }
 
         /* Main Container */
-        .bp-container { max-width: 1160px; margin: 0 auto; padding: 40px 24px 80px; }
+        .bp-container { width: 100%; max-width: 1560px; margin: 0 auto; padding: 36px 40px 80px; }
 
         /* Article Header (Above Hero) */
-        .bp-header { margin-bottom: 28px; }
+        .bp-header { margin-bottom: 28px; width: 100%; }
         .bp-category-badge { display: inline-block; color: #ea580c; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px; }
         .bp-title { font-family: 'Playfair Display', Georgia, serif; font-size: clamp(28px, 4vw, 48px); font-weight: 900; color: #0f172a; line-height: 1.2; margin: 0 0 20px; letter-spacing: -0.5px; }
         .bp-meta-row { display: flex; align-items: center; gap: 12px; font-size: 14px; color: #64748b; font-family: 'Inter', sans-serif; flex-wrap: wrap; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
@@ -639,15 +753,14 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         /* Hero Image Container */
         .bp-hero-box { width: 100%; margin-bottom: 40px; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
-        .bp-hero-img { width: 100%; max-height: 520px; object-fit: cover; display: block; }
+        .bp-hero-img { width: 100%; max-height: 560px; object-fit: cover; display: block; }
         .bp-hero-fallback { width: 100%; height: 400px; background: linear-gradient(135deg,#1e293b 0%,#0f172a 100%); display: flex; align-items: center; justify-content: center; }
 
-        /* Main Grid (Content + Sidebar) */
-        .bp-grid { display: grid; grid-template-columns: 1fr 300px; gap: 52px; align-items: start; }
-        @media (max-width: 960px) { .bp-grid { grid-template-columns: 1fr; gap: 40px; } }
+        /* Main Article Layout */
+        .bp-main-layout { width: 100%; }
 
         /* Article Main Content */
-        .bp-article-body { font-family: 'Lato', sans-serif; font-size: 17px; line-height: 1.9; color: #374151; font-weight: 400; }
+        .bp-article-body { font-family: 'Lato', sans-serif; font-size: 17.5px; line-height: 1.9; color: #374151; font-weight: 400; width: 100%; }
         .bp-article-body h1, .bp-article-body h2, .bp-article-body h3 {
           font-family: 'Playfair Display', Georgia, serif;
           color: #0f172a;
@@ -721,42 +834,189 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         .blog-benefit-list li { background: #fff7ed; border: 1px solid rgba(249,115,22,0.15); border-left: 3px solid #f97316; border-radius: 0 8px 8px 0; padding: 14px 18px; font-size: 15.5px; font-weight: 600; color: #1e293b; line-height: 1.5; margin: 0 !important; font-family: 'Inter', sans-serif; }
         .blog-benefit-list li::before { display: none !important; }
 
-        /* Sidebar Styling */
-        .bp-sidebar { display: flex; flex-direction: column; gap: 24px; position: sticky; top: 100px; }
-        .bp-sidebar-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
-        .bp-sidebar-card-title { font-family: 'Playfair Display', Georgia, serif; font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 20px; line-height: 1.3; }
+        /* FAQ Accordion - Clean natural headings without boxed containers */
+        .faq-accordion { margin: 24px 0 40px; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .faq-accordion-item { background: transparent !important; border: none !important; border-bottom: 1px solid #e2e8f0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 0 18px 0 !important; margin-bottom: 14px; }
+        .faq-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0 6px 0 !important; cursor: pointer; list-style: none; user-select: none; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; font-weight: 800; color: #0f172a; background: transparent !important; }
+        .faq-summary::-webkit-details-marker { display: none; }
+        .faq-summary::marker { display: none; }
+        .faq-q-title { flex: 1; min-width: 0; line-height: 1.4; color: #0f172a; }
+        .faq-chevron-icon { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: #64748b; flex-shrink: 0; background: transparent !important; border: none !important; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s; }
+        .faq-summary:hover .faq-chevron-icon { color: #0f172a; }
+        .faq-accordion-item[open] .faq-chevron-icon { transform: rotate(180deg); color: #0f172a; }
+        .faq-answer { padding: 8px 0 4px 0; font-size: 17px; line-height: 1.85; color: #374151; font-family: 'Lato', sans-serif; background: transparent !important; border: none !important; }
+        .faq-answer p { margin: 0 0 12px !important; line-height: 1.85; color: #374151; font-size: 17px; }
+        .faq-answer p:last-child { margin-bottom: 0 !important; }
 
-        /* Newsletter Card */
-        .bp-newsletter-form { display: flex; flex-direction: column; gap: 12px; }
-        .bp-newsletter-input { width: 100%; padding: 11px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; background: #f8fafc; }
-        .bp-newsletter-input:focus { border-color: #f97316; background: #fff; }
-        .bp-newsletter-btn { width: 100%; background: linear-gradient(135deg,#f97316,#ea580c); color: #ffffff; border: none; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 4px 12px rgba(249,115,22,0.25); }
-        .bp-newsletter-btn:hover { opacity: 0.9; }
-        .bp-newsletter-terms { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; font-family: 'Inter', sans-serif; cursor: pointer; }
-        .bp-newsletter-terms input { accent-color: #f97316; }
+        /* Recommended Travel Stories Horizontal Grid */
+        .bp-recommended-section {
+          margin-top: 56px;
+          padding-top: 48px;
+          border-top: 1px solid #e2e8f0;
+          width: 100%;
+        }
 
-        /* Popular Stories */
-        .bp-popular-list { display: flex; flex-direction: column; gap: 16px; }
-        .bp-popular-item { display: flex; gap: 12px; text-decoration: none; align-items: flex-start; }
-        .bp-popular-img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #f1f5f9; }
-        .bp-popular-info { flex: 1; min-width: 0; }
-        .bp-popular-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4; margin: 0 0 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; transition: color 0.15s; }
-        .bp-popular-item:hover .bp-popular-title { color: #f97316; }
-        .bp-popular-views { font-size: 11px; font-weight: 600; color: #ef4444; display: flex; align-items: center; gap: 4px; font-family: 'Inter', sans-serif; }
-        .bp-view-icon-sm { width: 12px; height: 12px; fill: #ef4444; }
+        .bp-recommended-header {
+          margin-bottom: 28px;
+        }
 
-        /* CTA Box */
-        .bp-cta-box { background: linear-gradient(135deg,#0f172a 0%,#1e293b 100%); border-radius: 16px; padding: 40px 36px; text-align: center; margin: 56px 0 40px; color: #ffffff; position: relative; overflow: hidden; }
-        .bp-cta-box::before { content: ''; position: absolute; top: -60px; right: -60px; width: 200px; height: 200px; background: rgba(249,115,22,0.1); border-radius: 50%; pointer-events: none; }
-        .bp-cta-title { font-family: 'Playfair Display', Georgia, serif; font-size: 26px; font-weight: 900; margin: 0 0 12px; }
-        .bp-cta-desc { font-family: 'Lato', sans-serif; font-size: 15px; color: #94a3b8; margin: 0 auto 24px; max-width: 440px; line-height: 1.75; font-weight: 300; }
-        .bp-cta-btn { display: inline-block; background: linear-gradient(135deg,#f97316,#ea580c); color: #ffffff; text-decoration: none; padding: 13px 32px; border-radius: 8px; font-weight: 700; font-size: 14px; font-family: 'Inter', sans-serif; transition: opacity 0.2s; box-shadow: 0 4px 16px rgba(249,115,22,0.3); letter-spacing: 0.3px; }
-        .bp-cta-btn:hover { opacity: 0.9; }
+        .bp-recommended-title {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-size: clamp(26px, 3.2vw, 36px);
+          font-weight: 900;
+          color: #0f172a;
+          margin: 0 0 8px;
+          letter-spacing: -0.4px;
+        }
 
-        /* Tags */
-        .bp-tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin: 32px 0 16px; }
-        .bp-tag-chip { font-size: 12.5px; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 12px; text-decoration: none; font-family: 'Inter', sans-serif; font-weight: 500; transition: all 0.15s; }
-        .bp-tag-chip:hover { background: rgba(249,115,22,0.08); color: #ea580c; border-color: rgba(249,115,22,0.2); }
+        .bp-recommended-subtitle {
+          font-family: 'Inter', sans-serif;
+          font-size: 15px;
+          color: #64748b;
+          margin: 0;
+          line-height: 1.5;
+        }
+
+        .bp-recommended-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 28px;
+          width: 100%;
+        }
+
+        @media (max-width: 960px) {
+          .bp-recommended-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .bp-recommended-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+          }
+        }
+
+        .bp-rec-card {
+          display: flex;
+          flex-direction: column;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          overflow: hidden;
+          text-decoration: none;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
+
+        .bp-rec-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 28px rgba(0,0,0,0.09);
+          border-color: #cbd5e1;
+        }
+
+        .bp-rec-img-box {
+          position: relative;
+          width: 100%;
+          height: 200px;
+          background: #0f172a;
+          overflow: hidden;
+        }
+
+        .bp-rec-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bp-rec-card:hover .bp-rec-img {
+          transform: scale(1.05);
+        }
+
+        .bp-rec-cat {
+          position: absolute;
+          top: 14px;
+          left: 14px;
+          background: rgba(15, 23, 42, 0.85);
+          backdrop-filter: blur(8px);
+          color: #ffffff;
+          font-size: 11px;
+          font-weight: 700;
+          font-family: 'Inter', sans-serif;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          padding: 5px 12px;
+          border-radius: 9999px;
+        }
+
+        .bp-rec-body {
+          padding: 20px 22px 22px;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+
+        .bp-rec-title {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-size: 18px;
+          font-weight: 700;
+          color: #0f172a;
+          line-height: 1.4;
+          margin: 0 0 10px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          transition: color 0.15s;
+        }
+
+        .bp-rec-card:hover .bp-rec-title {
+          color: #ea580c;
+        }
+
+        .bp-rec-excerpt {
+          font-family: 'Lato', sans-serif;
+          font-size: 14.5px;
+          color: #64748b;
+          line-height: 1.6;
+          margin: 0 0 16px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          flex: 1;
+        }
+
+        .bp-rec-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: 14px;
+          border-top: 1px solid #f1f5f9;
+          font-family: 'Inter', sans-serif;
+          font-size: 12.5px;
+        }
+
+        .bp-rec-readtime {
+          color: #94a3b8;
+          font-weight: 500;
+        }
+
+        .bp-rec-arrow {
+          color: #ea580c;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: transform 0.2s;
+        }
+
+        .bp-rec-card:hover .bp-rec-arrow {
+          transform: translateX(3px);
+        }
       `}</style>
 
       {/* Reading progress bar */}
@@ -840,6 +1100,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 </svg>
                 <BlogViewTracker slug={blog.slug} blogId={blog.id} initialViews={blog.views} fallbackViewsText={mainViews} />
               </span>
+              <span className="bp-meta-dot">|</span>
+              <BlogShareBar url={`https://tripdm.com/blog/${blog.slug}`} title={blog.title} />
             </div>
           </header>
 
@@ -854,58 +1116,52 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             )}
           </div>
 
-          {/* 2-Column Grid Layout */}
-          <div className="bp-grid">
+          {/* Main Layout */}
+          <div className="bp-main-layout">
 
-            {/* Left Column: Main Content */}
+            {/* Article Main Content */}
             <article className="bp-article-column">
               <div
                 className="bp-article-body"
                 dangerouslySetInnerHTML={{ __html: contentHtml }}
               />
 
-              {/* CTA Box */}
-              <div className="bp-cta-box">
-                <h3 className="bp-cta-title">Plan Your Dream Trip Today</h3>
-                <p className="bp-cta-desc">Get customized travel packages and expert itineraries directly from verified travel agents on TripDM.</p>
-                <Link href="/" className="bp-cta-btn">Explore Packages →</Link>
-              </div>
+              {/* Comments Section */}
+              <BlogComments blogSlug={blog.slug} blogId={blog.id} blogTitle={blog.title} />
 
-              {/* Tags */}
-              {blog.tags?.length > 0 && (
-                <div className="bp-tags-wrap">
-                  {blog.tags.map(tag => (
-                    <span key={tag} className="bp-tag-chip">#{tag}</span>
-                  ))}
-                </div>
+              {/* Dynamic Horizontal Recommended Stories Section */}
+              {recommendedBlogs.length > 0 && (
+                <section className="bp-recommended-section">
+                  <div className="bp-recommended-header">
+                    <h2 className="bp-recommended-title">Recommended For You</h2>
+                    <p className="bp-recommended-subtitle">Handpicked destination guides and itineraries related to this topic</p>
+                  </div>
+
+                  <div className="bp-recommended-grid">
+                    {recommendedBlogs.map((item) => (
+                      <Link key={item.id} href={`/blog/${item.slug}`} className="bp-rec-card">
+                        <div className="bp-rec-img-box">
+                          <img
+                            src={item.coverImage || 'https://images.unsplash.com/photo-1506461883276-594a12b11ce3?auto=format&fit=crop&w=600&q=80'}
+                            alt={item.title}
+                            className="bp-rec-img"
+                          />
+                          {item.category && <span className="bp-rec-cat">{item.category}</span>}
+                        </div>
+                        <div className="bp-rec-body">
+                          <h3 className="bp-rec-title">{item.title}</h3>
+                          {item.excerpt && <p className="bp-rec-excerpt">{item.excerpt}</p>}
+                          <div className="bp-rec-meta">
+                            <span className="bp-rec-readtime">{item.readTime || '5 min read'}</span>
+                            <span className="bp-rec-arrow">Read Guide →</span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
               )}
             </article>
-
-            {/* Right Sidebar Column */}
-            <aside className="bp-sidebar">
-
-              {/* Popular TripDM Stories */}
-              <div className="bp-sidebar-card">
-                <h3 className="bp-sidebar-card-title">Popular TripDM Stories</h3>
-                <div className="bp-popular-list">
-                  {popularBlogs.map((item) => (
-                    <Link key={item.id} href={`/blog/${item.slug}`} className="bp-popular-item">
-                      <img src={item.coverImage || 'https://images.unsplash.com/photo-1506461883276-594a12b11ce3?auto=format&fit=crop&w=400&q=80'} alt={item.title} className="bp-popular-img" />
-                      <div className="bp-popular-info">
-                        <h4 className="bp-popular-title">{item.title}</h4>
-                        <div className="bp-popular-views">
-                          <svg className="bp-view-icon-sm" viewBox="0 0 24 24">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                          </svg>
-                          {getFormattedViews(item)} Views
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-            </aside>
 
           </div>
 

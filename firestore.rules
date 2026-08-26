@@ -102,6 +102,20 @@ service cloud.firestore {
       allow write: if request.auth != null && (request.auth.token.email == 'tripdm26@gmail.com' || isAdmin());
     }
 
+    // Blog comments collection
+    // - Anyone can read approved comments
+    // - Public can submit new comments (validated server-side or client)
+    // - Allow updating likes counter
+    // - Only admins can modify or delete all fields
+    match /blog_comments/{commentId} {
+      allow read: if resource == null || resource.data.approved == true || isAdmin();
+      allow create: if request.resource.data.name is string &&
+                      request.resource.data.comment is string &&
+                      request.resource.data.blogSlug is string;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // Allow read access to public data for authenticated users
     match /{document=**} {
       allow read: if isAuthenticated();
