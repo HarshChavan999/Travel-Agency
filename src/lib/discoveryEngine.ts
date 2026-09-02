@@ -93,6 +93,125 @@ export function calculateDiscoveryScore(listing: PackageListing): number {
 }
 
 /**
+ * Regional category definitions and metadata for destination grouping.
+ */
+export const REGION_METADATA: Record<string, { label: string; shortLabel: string; icon: string; subtitle: string }> = {
+  north: {
+    label: 'North India',
+    shortLabel: 'North',
+    icon: '🏔️',
+    subtitle: 'Himalayas, Royal Heritage & Mountain Valleys',
+  },
+  south: {
+    label: 'South India',
+    shortLabel: 'South',
+    icon: '🌴',
+    subtitle: 'Serene Backwaters, Ancient Temples & Coastlines',
+  },
+  east_northeast: {
+    label: 'East & North-East',
+    shortLabel: 'East & NE',
+    icon: '🌿',
+    subtitle: 'Lush Hills, Living Roots, Tea Gardens & Culture',
+  },
+  west_central: {
+    label: 'West & Central',
+    shortLabel: 'West & Central',
+    icon: '🏰',
+    subtitle: 'Historic Forts, Wildlife Safaris & Coastal Escapes',
+  },
+  international: {
+    label: 'International',
+    shortLabel: 'International',
+    icon: '✈️',
+    subtitle: 'Iconic Global Getaways, Tropical Islands & Wonders',
+  },
+};
+
+/**
+ * Maps a destination name (state/city/country) and its associated listings to a regional bucket.
+ */
+export function getRegionForDestination(name: string, sampleListings: PackageListing[] = []): string {
+  const isIntl = sampleListings.some((l) => l.packageType === 'international');
+  const cleanName = name.trim().toLowerCase();
+
+  // If flagged as international or clearly an international destination
+  const intlKeywords = [
+    'dubai', 'uae', 'united arab emirates', 'thailand', 'bangkok', 'phuket', 'pattaya', 'krabi',
+    'bali', 'indonesia', 'maldives', 'singapore', 'malaysia', 'kuala lumpur', 'vietnam', 'hanoi',
+    'da nang', 'sri lanka', 'colombo', 'europe', 'switzerland', 'paris', 'france', 'london', 'uk',
+    'united kingdom', 'italy', 'rome', 'greece', 'turkey', 'mauritius', 'egypt', 'japan', 'tokyo',
+    'nepal', 'kathmandu', 'bhutan', 'thimphu', 'georgia', 'baku', 'azerbaijan', 'australia',
+    'new zealand', 'usa', 'canada', 'germany', 'spain', 'austria', 'netherlands', 'amsterdam',
+    'oman', 'qatar', 'kenya', 'south africa', 'seychelles', 'multi country'
+  ];
+  if (isIntl || intlKeywords.some((k) => cleanName === k || cleanName.includes(k))) {
+    return 'international';
+  }
+
+  // North India
+  const northKeywords = [
+    'jammu', 'kashmir', 'srinagar', 'gulmarg', 'pahalgam', 'sonamarg', 'ladakh', 'leh', 'nubra',
+    'himachal', 'manali', 'shimla', 'dharamshala', 'dalhousie', 'spiti', 'kasol', 'kullu', 'bir billing',
+    'uttarakhand', 'uttaranchal', 'rishikesh', 'haridwar', 'nainital', 'mussoorie', 'kedarnath', 'badrinath',
+    'char dham', 'jim corbett', 'dehradun', 'auli', 'rajasthan', 'jaipur', 'udaipur', 'jodhpur', 'jaisalmer',
+    'pushkar', 'bikaner', 'mount abu', 'ranthambore', 'delhi', 'new delhi', 'punjab', 'amritsar', 'haryana',
+    'chandigarh', 'uttar pradesh', 'up', 'agra', 'varanasi', 'banaras', 'kashi', 'ayodhya', 'mathura', 'vrindavan', 'lucknow'
+  ];
+  if (northKeywords.some((k) => cleanName === k || cleanName.includes(k))) {
+    return 'north';
+  }
+
+  // South India
+  const southKeywords = [
+    'kerala', 'munnar', 'alleppey', 'alappuzha', 'wayanad', 'kochi', 'cochin', 'kovalam', 'varkala', 'thekkady',
+    'karnataka', 'bangalore', 'bengaluru', 'coorg', 'mysore', 'mysuru', 'hampi', 'gokarna', 'chikmagalur', 'kabini',
+    'tamil nadu', 'ooty', 'kodaikanal', 'chennai', 'rameswaram', 'madurai', 'kanyakumari', 'coimbatore', 'mahabalipuram',
+    'telangana', 'hyderabad', 'warangal', 'andhra pradesh', 'andhra', 'visakhapatnam', 'vizag', 'tirupati', 'aruku',
+    'goa', 'north goa', 'south goa', 'puducherry', 'pondicherry', 'andaman', 'nicobar', 'port blair', 'havelock', 'neil island', 'lakshadweep'
+  ];
+  if (southKeywords.some((k) => cleanName === k || cleanName.includes(k))) {
+    return 'south';
+  }
+
+  // East & North-East India
+  const eastKeywords = [
+    'assam', 'kaziranga', 'guwahati', 'majuli', 'manas', 'meghalaya', 'shillong', 'cherrapunji', 'cherrapunjee', 'dawki',
+    'sikkim', 'gangtok', 'pelling', 'lachung', 'yumthang', 'arunachal', 'arunachal pradesh', 'tawang', 'ziro',
+    'nagaland', 'kohima', 'manipur', 'imphal', 'mizoram', 'aizawl', 'tripura', 'agartala',
+    'odisha', 'orissa', 'puri', 'bhubaneswar', 'konark', 'chilika',
+    'west bengal', 'bengal', 'kolkata', 'darjeeling', 'kalimpong', 'sundarbans', 'digha', 'dooars',
+    'bihar', 'patna', 'gaya', 'bodhgaya', 'nalanda', 'jharkhand', 'ranchi', 'jamshedpur'
+  ];
+  if (eastKeywords.some((k) => cleanName === k || cleanName.includes(k))) {
+    return 'east_northeast';
+  }
+
+  // West & Central India
+  const westKeywords = [
+    'maharashtra', 'mumbai', 'pune', 'lonavala', 'khandala', 'mahabaleshwar', 'matheran', 'alibaug', 'shirdi', 'nashik', 'aurangabad', 'ajanta', 'ellora', 'tadoba',
+    'gujarat', 'ahmedabad', 'kutch', 'rann of kutch', 'gir', 'somnath', 'dwarka', 'statue of unity', 'vadodara', 'surat', 'saputara',
+    'madhya pradesh', 'mp', 'bhopal', 'indore', 'ujjain', 'khajuraho', 'gwalior', 'kanha', 'bandhavgarh', 'panchmarhi', 'jabalpur',
+    'chhattisgarh', 'raipur', 'bastar', 'daman', 'diu', 'dadra'
+  ];
+  if (westKeywords.some((k) => cleanName === k || cleanName.includes(k))) {
+    return 'west_central';
+  }
+
+  // Check stateName/countryName of listings as fallback
+  for (const l of sampleListings) {
+    const s = (l.stateName || '').toLowerCase();
+    const c = (l.countryName || '').toLowerCase();
+    if (northKeywords.some((k) => s.includes(k) || c.includes(k))) return 'north';
+    if (southKeywords.some((k) => s.includes(k) || c.includes(k))) return 'south';
+    if (eastKeywords.some((k) => s.includes(k) || c.includes(k))) return 'east_northeast';
+    if (westKeywords.some((k) => s.includes(k) || c.includes(k))) return 'west_central';
+  }
+
+  return 'north';
+}
+
+/**
  * Extracts and calculates popular destinations dynamically from real database listings.
  */
 export interface DestinationCard {
@@ -101,6 +220,9 @@ export interface DestinationCard {
   packageCount: number;
   coverImage: string | null;
   startingPrice: number | null;
+  region: string;
+  regionLabel: string;
+  discoveredPlaces: string[];
   listings: PackageListing[];
 }
 
@@ -112,20 +234,24 @@ export function getPopularDestinations(listings: PackageListing[], minCount = 1)
 
     const names = new Set<string>();
 
-    const addCleanName = (raw: string) => {
+    const addCleanName = (raw: string, isCountry = false) => {
       if (!raw) return;
       const parts = raw.split(/,|\/|\band\b/i).map((p) => p.trim());
       parts.forEach((p) => {
         if (p.length > 2 && !/package|tour|trip|holiday/i.test(p)) {
+          // If it's domestic and the name is "India", skip it as a destination card to avoid redundant country-level card
+          if (isCountry && /^india$/i.test(p) && listing.packageType !== 'international') {
+            return;
+          }
           names.add(p);
         }
       });
     };
 
     if (listing.stateName) addCleanName(listing.stateName);
-    if (listing.countryName) addCleanName(listing.countryName);
+    if (listing.countryName) addCleanName(listing.countryName, true);
     if (Array.isArray(listing.stateNames)) listing.stateNames.forEach((s) => addCleanName(s));
-    if (Array.isArray(listing.countryNames)) listing.countryNames.forEach((c) => addCleanName(c));
+    if (Array.isArray(listing.countryNames)) listing.countryNames.forEach((c) => addCleanName(c, true));
     if (listing.destination) addCleanName(listing.destination);
 
     names.forEach((name) => {
@@ -148,6 +274,7 @@ export function getPopularDestinations(listings: PackageListing[], minCount = 1)
 
     let coverImage: string | null = null;
     let minPrice: number | null = null;
+    const placesSet = new Set<string>();
 
     pkgList.forEach((pkg) => {
       if (!coverImage) {
@@ -165,7 +292,18 @@ export function getPopularDestinations(listings: PackageListing[], minCount = 1)
           }
         }
       }
+
+      if (Array.isArray(pkg.placesCovered)) {
+        pkg.placesCovered.forEach((p) => {
+          if (p?.name && p.name.trim().length > 2 && p.name.trim().toLowerCase() !== displayName.toLowerCase()) {
+            placesSet.add(p.name.trim());
+          }
+        });
+      }
     });
+
+    const regionKey = getRegionForDestination(displayName, pkgList);
+    const regionMeta = REGION_METADATA[regionKey];
 
     destinations.push({
       name: displayName,
@@ -173,13 +311,72 @@ export function getPopularDestinations(listings: PackageListing[], minCount = 1)
       packageCount: pkgList.length,
       coverImage: coverImage || null,
       startingPrice: minPrice,
+      region: regionKey,
+      regionLabel: regionMeta ? regionMeta.label : 'Popular Destination',
+      discoveredPlaces: Array.from(placesSet).slice(0, 4),
       listings: pkgList,
     });
   });
 
-  return destinations
-    .sort((a, b) => b.packageCount - a.packageCount)
-    .slice(0, 12);
+  return destinations.sort((a, b) => b.packageCount - a.packageCount);
+}
+
+/**
+ * Regional Destination Group structure for category rows & tab filters.
+ */
+export interface RegionalDestinationGroup {
+  id: string; // 'north' | 'south' | 'east_northeast' | 'west_central' | 'international'
+  label: string;
+  shortLabel: string;
+  icon: string;
+  subtitle: string;
+  destinations: DestinationCard[];
+  totalPackages: number;
+}
+
+export function getRegionalDestinations(listings: PackageListing[], minCount = 1): RegionalDestinationGroup[] {
+  const allDestinations = getPopularDestinations(listings, minCount);
+
+  const groups: Record<string, DestinationCard[]> = {
+    north: [],
+    south: [],
+    east_northeast: [],
+    west_central: [],
+    international: [],
+  };
+
+  allDestinations.forEach((dest) => {
+    if (groups[dest.region]) {
+      groups[dest.region].push(dest);
+    } else {
+      groups.north.push(dest);
+    }
+  });
+
+  const orderedRegionKeys = ['north', 'south', 'east_northeast', 'west_central', 'international'];
+
+  return orderedRegionKeys
+    .map((key) => {
+      const meta = REGION_METADATA[key] || {
+        label: key,
+        shortLabel: key,
+        icon: '📍',
+        subtitle: 'Explore packages in this region',
+      };
+      const dests = groups[key] || [];
+      const totalPackages = dests.reduce((acc, d) => acc + d.packageCount, 0);
+
+      return {
+        id: key,
+        label: meta.label,
+        shortLabel: meta.shortLabel,
+        icon: meta.icon,
+        subtitle: meta.subtitle,
+        destinations: dests,
+        totalPackages,
+      };
+    })
+    .filter((group) => group.destinations.length > 0);
 }
 
 /**
@@ -418,6 +615,30 @@ export function getCategoryCollections(listings: PackageListing[]): CategoryColl
  * Dynamic Experience Discovery Engine
  * Scans real listings for experience attributes and returns only experience groups supported by real package data.
  */
+export const EXPERIENCE_THEME_IMAGES: Record<string, string> = {
+  'Family Vacations': 'https://images.unsplash.com/photo-1543039625-14cbd3802e7d?auto=format&fit=crop&q=80&w=1200', // Joyful family on beach/nature holiday
+  'Friends': 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?auto=format&fit=crop&q=80&w=1200', // Group of friends on scenic mountain trail
+  'Honeymoon & Couples': 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&q=80&w=1200', // Romantic couple in tropical paradise
+  'Spiritual & Heritage': 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&q=80&w=1200', // Grand Indian heritage temple / ghat
+  'Adventure & Outdoors': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=1200', // High mountain trekking & adventure
+  'Nature & Wildlife': 'https://images.unsplash.com/photo-1534177616072-ef7dc120449d?auto=format&fit=crop&q=80&w=1200', // Wildlife & pristine jungle safari
+  'Weekend Escapes': 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=1200', // Scenic road trip getaway
+  'Sightseeing & Local Tours': 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&q=80&w=1200', // Iconic monuments & culture
+  'Group Departures': 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=1200', // Group tour travelers
+};
+
+export const EXPERIENCE_TAGLINES: Record<string, string> = {
+  'Family Vacations': 'Kid-friendly resorts, scenic sightseeing & relaxed family fun',
+  'Honeymoon & Couples': 'Private retreats, candlelight moments & romantic getaways',
+  'Adventure & Outdoors': 'Thrilling treks, water sports & high altitude trails',
+  'Spiritual & Heritage': 'Sacred pilgrimage circuits, ancient temples & royal heritage',
+  'Nature & Wildlife': 'Jungle safaris, tea valleys & pristine natural landscapes',
+  'Weekend Escapes': 'Quick 2 to 4-day short recharge trips with easy departures',
+  'Sightseeing & Local Tours': 'City highlights, cultural landmarks & hidden scenic gems',
+  'Group Departures': 'Fixed departure group journeys with like-minded travelers',
+  'Friends': 'Group-friendly trips, road tours & fun party escapes',
+};
+
 export interface DynamicExperience {
   name: string;
   tagKey: string;
@@ -469,18 +690,26 @@ export function getDynamicExperiences(listings: PackageListing[]): DynamicExperi
 
   const experiences: DynamicExperience[] = [];
 
-  expMap.forEach((pkgList, name) => {
+  // Sort experience groups by packageCount descending
+  const sortedExpEntries = Array.from(expMap.entries()).sort((a, b) => b[1].length - a[1].length);
+
+  sortedExpEntries.forEach(([name, pkgList]) => {
     if (pkgList.length === 0) return;
 
-    let coverImage: string | null = null;
+    // Use authentic curated photography tailored for each experience category
+    let coverImage: string | null = EXPERIENCE_THEME_IMAGES[name] || null;
     let minPrice: number | null = null;
 
-    pkgList.forEach((pkg) => {
-      if (!coverImage) {
+    if (!coverImage) {
+      for (const pkg of pkgList) {
         if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
         else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
         else if (pkg.itinerary?.[0]?.imageUrl) coverImage = pkg.itinerary[0].imageUrl;
+        if (coverImage) break;
       }
+    }
+
+    pkgList.forEach((pkg) => {
       const rawCost = pkg.cost || pkg.price;
       if (rawCost) {
         const num = parseFloat(String(rawCost).replace(/[^0-9.]/g, ''));
@@ -500,7 +729,7 @@ export function getDynamicExperiences(listings: PackageListing[]): DynamicExperi
     });
   });
 
-  return experiences.sort((a, b) => b.packageCount - a.packageCount).slice(0, 8);
+  return experiences.slice(0, 8);
 }
 
 /**

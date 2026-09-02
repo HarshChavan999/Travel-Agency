@@ -5,12 +5,14 @@ import {
   PackageListing,
   getCategoryCollections,
   getPopularDestinations,
+  getRegionalDestinations,
   getRecentlyAddedPackages,
   getIntentRails,
   getStateStories,
   getDynamicExperiences,
   getDynamicDestinationSections,
   getDiscoveredDestinationPills,
+  EXPERIENCE_TAGLINES,
 } from '@/lib/discoveryEngine';
 import {
   ChevronLeft,
@@ -20,6 +22,19 @@ import {
   ArrowRight,
   Globe,
   Map,
+  Users,
+  Heart,
+  Mountain,
+  Trees,
+  Landmark,
+  Camera,
+  Car,
+  Sparkles,
+  Search,
+  MessageSquare,
+  BadgePercent,
+  ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface LandingDiscoveryProps {
@@ -91,6 +106,15 @@ export default function LandingDiscovery({
 
   // Data collections
   const popularDestinations = getPopularDestinations(listings, 1);
+  const regionalDestinations = getRegionalDestinations(listings, 1);
+  const [activeRegionId, setActiveRegionId] = useState<string>('north');
+
+  React.useEffect(() => {
+    if (regionalDestinations.length > 0 && !regionalDestinations.some((r) => r.id === activeRegionId)) {
+      setActiveRegionId(regionalDestinations[0].id);
+    }
+  }, [regionalDestinations, activeRegionId]);
+
   const displayStories = aiStories;
   const categoryCollections = getCategoryCollections(listings);
   const dynamicExperiences = getDynamicExperiences(listings);
@@ -280,55 +304,229 @@ export default function LandingDiscovery({
       {packageTypeTab === 'all' && (
         <>
           {/* ==========================================
-              SECTION 1 — Asymmetric Destination Discovery (Explore Destinations)
+              SECTION 1 — Interactive Regional Destination Hub (Option 1)
               ========================================== */}
-          {popularDestinations.length > 0 && (
-            <section className="py-8 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
-              <div className="flex items-end justify-between mb-8">
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+          {regionalDestinations.length > 0 && (() => {
+            const activeGroup =
+              regionalDestinations.find((g) => g.id === activeRegionId) || regionalDestinations[0];
+            const destinations = activeGroup?.destinations || [];
+            const heroDest = destinations[0];
+            const otherDests = destinations.slice(1);
+
+            return (
+              <section className="py-10 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
+                {/* Section Header */}
+                <div className="text-center max-w-3xl mx-auto mb-6">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight mb-2">
                     Explore Popular Destinations
                   </h2>
+                  <p className="text-slate-500 text-xs sm:text-sm font-medium">
+                    Handpicked holiday regions across India and worldwide with verified local operators
+                  </p>
                 </div>
-              </div>
 
-          {/* Uniform Grid Layout */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full">
-            {popularDestinations.slice(0, 8).map((dest) => (
-              <div
-                key={dest.name}
-                onClick={() => setSearchTerm(dest.name)}
-                className="group cursor-pointer relative rounded-md overflow-hidden bg-slate-900 border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 h-52 sm:h-56 w-full flex flex-col justify-end p-5"
-              >
-                {dest.coverImage ? (
-                  <img
-                    src={dest.coverImage}
-                    alt={dest.name}
-                    className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-108 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
-                    <MapPin className="w-8 h-8" />
+                {/* Region Selector Simple Text Tabs */}
+                <div className="flex items-center justify-start sm:justify-center gap-6 sm:gap-8 overflow-x-auto pb-1 pt-1 scrollbar-hide mb-8 w-full border-b border-slate-100">
+                  {regionalDestinations.map((group) => {
+                    const isActive = activeRegionId === group.id;
+                    return (
+                      <button
+                        key={group.id}
+                        onClick={() => setActiveRegionId(group.id)}
+                        className={`pb-3 text-sm sm:text-base font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 relative ${
+                          isActive
+                            ? 'text-slate-900 font-black'
+                            : 'text-slate-400 hover:text-slate-700'
+                        }`}
+                      >
+                        <span>{group.label}</span>
+                        {isActive && (
+                          <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-orange-500 rounded-full" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Region Showcase Grid */}
+                {destinations.length > 0 && (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                    {/* Hero Spotlight Card (Left side: 5 cols on desktop, or full if only 1 destination) */}
+                    {heroDest && (
+                      <div
+                        onClick={() => setSearchTerm(heroDest.name)}
+                        className={`${
+                          otherDests.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'
+                        } group cursor-pointer relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 min-h-[340px] sm:min-h-[400px] flex flex-col justify-between p-6 sm:p-8`}
+                      >
+                        {heroDest.coverImage ? (
+                          <img
+                            src={heroDest.coverImage}
+                            alt={heroDest.name}
+                            className="absolute inset-0 w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-700"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
+                            <MapPin className="w-12 h-12" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/40 to-transparent opacity-90 group-hover:opacity-80 transition-opacity" />
+
+                        {/* Top Badges */}
+                        <div className="relative z-10 flex items-center justify-between gap-2">
+                          <span className="bg-orange-500 text-white text-[11px] font-black px-3 py-1 rounded-full shadow-xs flex items-center gap-1">
+                            <span>🔥 Most Popular in {activeGroup.shortLabel}</span>
+                          </span>
+                          <span className="bg-slate-900/80 backdrop-blur-md text-white text-xs font-black px-3 py-1 rounded-full border border-white/20 shadow-xs">
+                            {heroDest.packageCount} {heroDest.packageCount === 1 ? 'Package' : 'Packages'}
+                          </span>
+                        </div>
+
+                        {/* Bottom Info */}
+                        <div className="relative z-10">
+                          <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-sm mb-2">
+                            {heroDest.name}
+                          </h3>
+
+                          {/* Discovered Highlights / City Chips */}
+                          {heroDest.discoveredPlaces && heroDest.discoveredPlaces.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-4">
+                              {heroDest.discoveredPlaces.map((place) => (
+                                <span
+                                  key={place}
+                                  className="text-[11px] font-bold bg-white/20 backdrop-blur-sm text-white px-2.5 py-0.5 rounded-md border border-white/10"
+                                >
+                                  {place}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-3 border-t border-white/15">
+                            {heroDest.startingPrice ? (
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider text-slate-300 font-bold">Starting from</p>
+                                <p className="text-base sm:text-lg font-black text-amber-300">
+                                  ₹{heroDest.startingPrice.toLocaleString('en-IN')}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-300 font-bold">Verified Packages</span>
+                            )}
+                            <span className="text-xs font-black text-white bg-white/20 group-hover:bg-orange-500 px-4 py-2 rounded-full transition-all flex items-center gap-1.5 shadow-xs">
+                              <span>Explore Packages</span>
+                              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Secondary Destinations Grid (Right side: 7 cols on desktop) */}
+                    {otherDests.length > 0 && (
+                      <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                        {otherDests.slice(0, 4).map((dest) => (
+                          <div
+                            key={dest.name}
+                            onClick={() => setSearchTerm(dest.name)}
+                            className="group cursor-pointer relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-2xs hover:shadow-lg transition-all duration-300 h-44 sm:h-48 flex flex-col justify-between p-5"
+                          >
+                            {dest.coverImage ? (
+                              <img
+                                src={dest.coverImage}
+                                alt={dest.name}
+                                className="absolute inset-0 w-full h-full object-cover opacity-85 group-hover:scale-108 transition-transform duration-500"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
+                                <MapPin className="w-8 h-8" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/35 to-transparent opacity-85 group-hover:opacity-75 transition-opacity" />
+
+                            {/* Top Badge */}
+                            <div className="relative z-10 flex items-center justify-between">
+                              <span className="bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-white/20 shadow-xs">
+                                {dest.packageCount} {dest.packageCount === 1 ? 'Package' : 'Packages'}
+                              </span>
+                            </div>
+
+                            {/* Bottom Info */}
+                            <div className="relative z-10">
+                              <h4 className="text-lg sm:text-xl font-black text-white tracking-tight drop-shadow-sm line-clamp-1 mb-1">
+                                {dest.name}
+                              </h4>
+                              {dest.discoveredPlaces && dest.discoveredPlaces.length > 0 && (
+                                <p className="text-[11px] font-semibold text-slate-200/85 line-clamp-1 mb-2">
+                                  {dest.discoveredPlaces.join(' • ')}
+                                </p>
+                              )}
+                              <div className="flex items-center justify-between pt-1.5 border-t border-white/10">
+                                {dest.startingPrice ? (
+                                  <p className="text-xs font-bold text-amber-300">
+                                    From ₹{dest.startingPrice.toLocaleString('en-IN')}
+                                  </p>
+                                ) : (
+                                  <span className="text-[10px] text-slate-300">Verified</span>
+                                )}
+                                <span className="text-[11px] font-bold text-white group-hover:text-orange-400 flex items-center gap-1 transition-colors">
+                                  <span>View</span>
+                                  <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/30 to-transparent opacity-85 group-hover:opacity-70 transition-opacity" />
 
-                <div className="relative z-10">
-                  <span className="bg-orange-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-sm inline-block mb-1.5 shadow-xs">
-                    {dest.packageCount} {dest.packageCount === 1 ? 'Package' : 'Packages'}
-                  </span>
-                  <h4 className="text-base font-black text-white line-clamp-1">{dest.name}</h4>
-                  {dest.startingPrice && (
-                    <p className="text-xs font-bold text-amber-300 mt-0.5">
-                      From ₹{dest.startingPrice.toLocaleString('en-IN')}
+                {/* If more than 5 destinations in this region, show an extra horizontal rail below */}
+                {otherDests.length > 4 && (
+                  <div className="mt-6 pt-6 border-t border-slate-100">
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
+                      More Destinations in {activeGroup.label}
                     </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+                    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x scroll-smooth w-full">
+                      {otherDests.slice(4).map((dest) => (
+                        <div
+                          key={dest.name}
+                          onClick={() => setSearchTerm(dest.name)}
+                          className="min-w-[220px] max-w-[240px] snap-start shrink-0 group cursor-pointer relative rounded-xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-300 h-36 flex flex-col justify-end p-4"
+                        >
+                          {dest.coverImage ? (
+                            <img
+                              src={dest.coverImage}
+                              alt={dest.name}
+                              className="absolute inset-0 w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
+                              <MapPin className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/30 to-transparent opacity-85 group-hover:opacity-75 transition-opacity" />
+
+                          <div className="relative z-10">
+                            <span className="bg-orange-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-sm inline-block mb-1 shadow-xs">
+                              {dest.packageCount} {dest.packageCount === 1 ? 'Package' : 'Packages'}
+                            </span>
+                            <h5 className="text-sm font-black text-white line-clamp-1">{dest.name}</h5>
+                            {dest.startingPrice && (
+                              <p className="text-[11px] font-bold text-amber-300 mt-0.5">
+                                From ₹{dest.startingPrice.toLocaleString('en-IN')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })()}
 
       {/* ==========================================
           SECTION 2 — State → Story → Places → Experiences (Editorial Storytelling)
@@ -435,54 +633,219 @@ export default function LandingDiscovery({
     )}
 
       {/* ==========================================
-          SECTION 3 — Unified Experience & Theme Explorer
+          SECTION 3 — Unified Experience & Theme Explorer (Asymmetric Bento Grid)
           ========================================== */}
-      {dynamicExperiences.length > 0 && (
-        <section className="py-12 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+      {dynamicExperiences.length > 0 && (() => {
+        const topTwo = dynamicExperiences.slice(0, 2);
+        const middleThree = dynamicExperiences.slice(2, 5);
+        const bottomRemaining = dynamicExperiences.slice(5, 8);
+
+        const getExperienceIcon = (name: string) => {
+          switch (name) {
+            case 'Family Vacations':
+              return <Users className="w-3.5 h-3.5 text-amber-400" />;
+            case 'Friends':
+              return <Users className="w-3.5 h-3.5 text-sky-400" />;
+            case 'Honeymoon & Couples':
+              return <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/40" />;
+            case 'Spiritual & Heritage':
+              return <Landmark className="w-3.5 h-3.5 text-amber-400" />;
+            case 'Adventure & Outdoors':
+              return <Mountain className="w-3.5 h-3.5 text-emerald-400" />;
+            case 'Nature & Wildlife':
+              return <Trees className="w-3.5 h-3.5 text-emerald-400" />;
+            case 'Weekend Escapes':
+              return <Car className="w-3.5 h-3.5 text-indigo-400" />;
+            case 'Sightseeing & Local Tours':
+              return <Camera className="w-3.5 h-3.5 text-cyan-400" />;
+            case 'Group Departures':
+              return <Compass className="w-3.5 h-3.5 text-orange-400" />;
+            default:
+              return <Sparkles className="w-3.5 h-3.5 text-amber-400" />;
+          }
+        };
+
+        return (
+          <section className="py-12 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
+            {/* Centered Section Header */}
+            <div className="text-center max-w-3xl mx-auto mb-10">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Find Trips by Experience
               </h2>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full">
-            {dynamicExperiences.map((exp) => (
-              <div
-                key={exp.name}
-                onClick={() => setSearchTerm(exp.name)}
-                className="group cursor-pointer relative rounded-md overflow-hidden bg-slate-900 border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 p-5 flex flex-col justify-end h-52 sm:h-56 w-full"
-              >
-                {exp.coverImage ? (
-                  <img
-                    src={exp.coverImage}
-                    alt={exp.name}
-                    className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-108 transition-transform duration-700"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
-                    <Compass className="w-10 h-10" />
+            {/* Row 1: Top 2 Hero Spotlight Cards (50% / 50%) */}
+            {topTwo.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+                {topTwo.map((exp) => (
+                  <div
+                    key={exp.name}
+                    onClick={() => setSearchTerm(exp.name)}
+                    className="md:col-span-6 group cursor-pointer relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-xs hover:shadow-xl transition-all duration-300 h-64 sm:h-72 lg:h-80 flex flex-col justify-end p-6 sm:p-8"
+                  >
+                    {exp.coverImage ? (
+                      <img
+                        src={exp.coverImage}
+                        alt={exp.name}
+                        className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
+                        <Compass className="w-12 h-12" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/40 to-transparent opacity-85 group-hover:opacity-75 transition-opacity" />
+
+                    {/* Tag Badge */}
+                    <div className="absolute top-5 left-5 z-10">
+                      <span className="bg-slate-900/85 backdrop-blur-md text-white text-xs font-black px-3.5 py-1.5 rounded-full border border-white/20 shadow-xs flex items-center gap-2">
+                        {getExperienceIcon(exp.name)}
+                        <span>{exp.packageCount} {exp.packageCount === 1 ? 'Package' : 'Packages'}</span>
+                      </span>
+                    </div>
+
+                    {/* Content */}
+                    <div className="relative z-10">
+                      <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-sm mb-1">
+                        {exp.name}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-200/90 line-clamp-1 mb-3">
+                        {EXPERIENCE_TAGLINES[exp.name] || 'Curated packages tailored for this travel style'}
+                      </p>
+                      <div className="flex items-center justify-between pt-2.5 border-t border-white/10">
+                        {exp.startingPrice ? (
+                          <p className="text-sm font-bold text-amber-300">
+                            From ₹{exp.startingPrice.toLocaleString('en-IN')}
+                          </p>
+                        ) : (
+                          <span className="text-xs text-slate-300">Verified Itineraries</span>
+                        )}
+                        <span className="text-xs font-extrabold text-white bg-white/20 group-hover:bg-orange-500 px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1 shadow-xs">
+                          <span>Explore</span>
+                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/35 to-transparent opacity-85 group-hover:opacity-70 transition-opacity" />
-
-                <div className="relative z-10">
-                  <span className="bg-orange-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-sm inline-block mb-1.5 shadow-xs">
-                    {exp.packageCount} {exp.packageCount === 1 ? 'Package' : 'Packages'}
-                  </span>
-                  <h3 className="text-lg sm:text-xl font-black text-white line-clamp-1 drop-shadow-xs">{exp.name}</h3>
-                  {exp.startingPrice && (
-                    <p className="text-xs font-bold text-amber-300 mt-0.5">
-                      From ₹{exp.startingPrice.toLocaleString('en-IN')}
-                    </p>
-                  )}
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            )}
+
+            {/* Row 2: Middle 3 Medium Cards (33% / 33% / 33%) */}
+            {middleThree.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-6 mb-6">
+                {middleThree.map((exp) => (
+                  <div
+                    key={exp.name}
+                    onClick={() => setSearchTerm(exp.name)}
+                    className="lg:col-span-4 group cursor-pointer relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-xs hover:shadow-xl transition-all duration-300 h-56 sm:h-64 flex flex-col justify-end p-5 sm:p-6"
+                  >
+                    {exp.coverImage ? (
+                      <img
+                        src={exp.coverImage}
+                        alt={exp.name}
+                        className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
+                        <Compass className="w-10 h-10" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/40 to-transparent opacity-85 group-hover:opacity-75 transition-opacity" />
+
+                    <div className="absolute top-4 left-4 z-10">
+                      <span className="bg-slate-900/85 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20 shadow-xs flex items-center gap-1.5">
+                        {getExperienceIcon(exp.name)}
+                        <span>{exp.packageCount} {exp.packageCount === 1 ? 'Package' : 'Packages'}</span>
+                      </span>
+                    </div>
+
+                    <div className="relative z-10">
+                      <h3 className="text-xl font-black text-white tracking-tight drop-shadow-sm mb-0.5">
+                        {exp.name}
+                      </h3>
+                      <p className="text-xs text-slate-200/90 line-clamp-1 mb-2.5">
+                        {EXPERIENCE_TAGLINES[exp.name] || 'Curated packages tailored for this travel style'}
+                      </p>
+                      <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                        {exp.startingPrice ? (
+                          <p className="text-xs font-bold text-amber-300">
+                            From ₹{exp.startingPrice.toLocaleString('en-IN')}
+                          </p>
+                        ) : (
+                          <span className="text-xs text-slate-300">Verified Itineraries</span>
+                        )}
+                        <span className="text-[11px] font-extrabold text-white bg-white/20 group-hover:bg-orange-500 px-3 py-1 rounded-full transition-all flex items-center gap-1 shadow-xs">
+                          <span>Explore</span>
+                          <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Row 3: Bottom Panoramic / Balanced Row (1 or 2 cards) */}
+            {bottomRemaining.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                {bottomRemaining.map((exp) => {
+                  const colSpan = bottomRemaining.length === 1 ? 'md:col-span-12' : bottomRemaining.length === 2 ? 'md:col-span-6' : 'lg:col-span-4';
+                  return (
+                    <div
+                      key={exp.name}
+                      onClick={() => setSearchTerm(exp.name)}
+                      className={`${colSpan} group cursor-pointer relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-xs hover:shadow-xl transition-all duration-300 h-52 sm:h-56 flex flex-col justify-end p-5 sm:p-6`}
+                    >
+                      {exp.coverImage ? (
+                        <img
+                          src={exp.coverImage}
+                          alt={exp.name}
+                          className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-500">
+                          <Compass className="w-10 h-10" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/40 to-transparent opacity-85 group-hover:opacity-75 transition-opacity" />
+
+                      <div className="absolute top-4 left-4 z-10">
+                        <span className="bg-slate-900/85 backdrop-blur-md text-white text-xs font-black px-3.5 py-1.5 rounded-full border border-white/20 shadow-xs flex items-center gap-2">
+                          {getExperienceIcon(exp.name)}
+                          <span>{exp.packageCount} {exp.packageCount === 1 ? 'Package' : 'Packages'}</span>
+                        </span>
+                      </div>
+
+                      <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                        <div>
+                          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-sm mb-0.5">
+                            {exp.name}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-slate-200/90 line-clamp-1">
+                            {EXPERIENCE_TAGLINES[exp.name] || 'Curated packages tailored for this travel style'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          {exp.startingPrice && (
+                            <p className="text-sm font-bold text-amber-300">
+                              From ₹{exp.startingPrice.toLocaleString('en-IN')}
+                            </p>
+                          )}
+                          <span className="text-xs font-extrabold text-white bg-white/20 group-hover:bg-orange-500 px-4 py-2 rounded-full transition-all flex items-center gap-1 shadow-xs">
+                            <span>Explore Packages</span>
+                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {/* ==========================================
           SECTION 5 — Marketplace Product Rails (Weekend Getaways, Group Escapes, etc.)
@@ -590,6 +953,69 @@ export default function LandingDiscovery({
           </div>
         </section>
       )}
+
+      {/* ==========================================
+          SECTION 7 — How TripDM Works & Why Book Direct (Clean Travel Marketplace Style)
+          ========================================== */}
+      <section className="py-16 sm:py-20 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-t border-slate-100">
+        {/* Section Header */}
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight mb-2.5">
+            How TripDM Works
+          </h2>
+          <p className="text-slate-500 text-sm sm:text-base font-medium">
+            Plan and book custom holidays directly with verified local tour operators in 3 simple steps
+          </p>
+        </div>
+
+        {/* 3-Step Connected Travel Journey Flow */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 relative mb-16">
+          {/* Connector Line for Desktop */}
+          <div className="hidden md:block absolute top-10 left-[20%] right-[20%] h-[2px] border-t-2 border-dashed border-slate-200 z-0" />
+
+          {/* Step 1 */}
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-full bg-orange-50 border-2 border-orange-500/30 text-orange-600 flex items-center justify-center mb-5 shadow-xs bg-white">
+              <Search className="w-8 h-8 text-orange-500" />
+            </div>
+            <span className="text-xs font-black uppercase tracking-wider text-orange-600 mb-1">Step 1</span>
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-2">
+              Explore & Compare Itineraries
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-xs">
+              Browse handpicked tour packages across top destinations. Compare quotes, hotels, and day-by-day itineraries side-by-side.
+            </p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-full bg-orange-50 border-2 border-orange-500/30 text-orange-600 flex items-center justify-center mb-5 shadow-xs bg-white">
+              <MessageSquare className="w-8 h-8 text-orange-500" />
+            </div>
+            <span className="text-xs font-black uppercase tracking-wider text-orange-600 mb-1">Step 2</span>
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-2">
+              Chat Directly with Local Planners
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-xs">
+              Connect 1-on-1 with the actual tour agency. Customize dates, modify hotel categories, and request special add-ons without bots.
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-full bg-orange-50 border-2 border-orange-500/30 text-orange-600 flex items-center justify-center mb-5 shadow-xs bg-white">
+              <ShieldCheck className="w-8 h-8 text-orange-500" />
+            </div>
+            <span className="text-xs font-black uppercase tracking-wider text-orange-600 mb-1">Step 3</span>
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-2">
+              Book at 0% Commission & Travel
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-xs">
+              Pay genuine ground operator rates with zero middleman fees. Receive instant booking confirmation and dedicated on-trip support.
+            </p>
+          </div>
+        </div>
+      </section>
         </>
       )}
     </div>
