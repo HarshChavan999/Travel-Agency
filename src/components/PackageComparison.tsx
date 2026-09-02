@@ -193,35 +193,36 @@ export default function PackageComparison({ onBack, onChat, onView }: PackageCom
         <div className="flex-1 w-full bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
           
           {/* Header */}
-          <div className="px-8 py-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <Button 
                 variant="ghost" 
                 onClick={onBack}
-                className="mb-3 -ml-3 text-gray-500 hover:text-gray-900 font-bold hover:bg-gray-100 rounded-lg px-3 py-2"
+                className="mb-2 -ml-2 text-gray-500 hover:text-gray-900 font-bold hover:bg-gray-100 rounded-lg px-3 py-2 text-xs sm:text-sm"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" /> Back to Packages
               </Button>
-              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Compare Packages</h2>
-              <p className="text-sm text-gray-500 mt-1 font-medium">Compare features, prices and inclusions side by side to find the best deal for you.</p>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">Compare Packages</h2>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1 font-medium">Compare features, prices and inclusions side by side to find the best deal for you.</p>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <Button 
                 variant="outline" 
-                className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 font-bold shadow-sm"
+                size="sm"
+                className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 font-bold shadow-sm text-xs"
                 onClick={handleShare}
               >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Comparison
+                <Share2 className="w-3.5 h-3.5 mr-1.5" />
+                Share
               </Button>
-              <Button onClick={clearComparison} variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-red-600 font-bold shadow-sm">
-                <Trash2 className="w-4 h-4 mr-2" />
+              <Button onClick={clearComparison} size="sm" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-red-600 font-bold shadow-sm text-xs">
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                 Clear All
               </Button>
             </div>
           </div>
 
-          <div className="p-8 overflow-x-auto">
+          <div className="p-3 sm:p-8 overflow-x-auto">
             <div className="min-w-[800px]">
               {/* Table Top Row (Images & Basic Info) */}
               <div className="grid grid-cols-[180px_repeat(3,minmax(0,1fr))] gap-4 mb-6">
