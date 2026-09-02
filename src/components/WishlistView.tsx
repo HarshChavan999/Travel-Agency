@@ -95,12 +95,12 @@ export default function WishlistView({ wishlist = [], listings = [], onWishlistT
               <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Wishlists</h1>
               <p className="text-sm text-gray-500 mt-1 font-medium">Save and manage your favorite travel destinations.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input 
                   placeholder="Search Wishlists" 
-                  className="pl-9 pr-4 py-2 w-full md:w-64 rounded-xl border-gray-200 bg-white shadow-sm text-sm"
+                  className="pl-9 pr-4 py-2 w-full sm:w-56 md:w-64 rounded-xl border-gray-200 bg-white shadow-sm text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />

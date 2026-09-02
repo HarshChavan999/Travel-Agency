@@ -90,7 +90,10 @@ import {
   Home as HomeIcon,
   Upload,
   BarChart3,
-  Briefcase
+  Briefcase,
+  Menu,
+  LogOut,
+  ChevronRight
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
@@ -346,6 +349,26 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   }, []);
 
   const [userActiveSection, setUserActiveSection] = useState('listings');  const [fromSection, setFromSection] = useState('listings');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+
+  // Lock background scroll when mobile sidebar drawer is open & handle Escape key
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setMobileMenuOpen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [mobileMenuOpen]);
+
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [currentChatAgency, setCurrentChatAgency] = useState<string>('agency1');
@@ -3919,13 +3942,299 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className={`flex flex-col bg-white ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+          {/* Mobile Slide-in Navigation Sidebar Drawer */}
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-[150] md:hidden">
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-hidden="true"
+              />
+
+              {/* Drawer Panel */}
+              <div className="fixed inset-y-0 left-0 w-[85vw] max-w-[340px] bg-white shadow-2xl flex flex-col z-[160] transition-transform duration-300 ease-out">
+                {/* Drawer Top / Header */}
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                  <div
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={() => {
+                      setUserActiveSection('listings');
+                      setViewingListing(null);
+                      setSelectedCategoryFilter(null);
+                      setDashboardViewMode('categories');
+                      setSearchTerm('');
+                      setShowBookingForm(false);
+                      setShowComparison(false);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-10 w-auto object-contain" />
+                  </div>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors"
+                    aria-label="Close menu"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* User Status Card */}
+                <div className="p-4 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border-b border-slate-100">
+                  {user && userData ? (
+                    <div className="flex items-center gap-3">
+                      {userData.avatarUrl ? (
+                        <img src={userData.avatarUrl} alt="Profile" className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm" />
+                      ) : (
+                        <div className="w-11 h-11 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-base shadow-sm">
+                          {userData.name ? userData.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-slate-500 font-medium">Signed in as</p>
+                        <h4 className="text-sm font-bold text-slate-900 truncate">{userData.name || 'User'}</h4>
+                        <p className="text-[11px] text-slate-400 truncate">{userData.email}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">Welcome to TripDM</h4>
+                        <p className="text-xs text-slate-500">Direct Message with verified travel agents</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setAuthModalTab('login');
+                          setShowAuthModal(true);
+                        }}
+                        className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs py-2 h-9 rounded-xl shadow-sm"
+                      >
+                        <User className="h-4 w-4 mr-1.5" /> Sign In / Register
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Drawer Search Input */}
+                <div className="p-3 border-b border-slate-100">
+                  <AutocompleteSearch
+                    placeholder="Search Holiday Destinations..."
+                    typewriterPrefix="Search "
+                    typewriter={["Gujarat", "Japan", "Rajasthan", "Kerala", "Goa"]}
+                    value={searchTerm}
+                    onChange={(val) => setSearchTerm(val)}
+                    onSelect={(val) => {
+                      setSearchTerm(val);
+                      setUserActiveSection('listings');
+                      setViewingListing(null);
+                      setShowComparison(false);
+                      setMobileMenuOpen(false);
+                    }}
+                    suggestions={allDestinations}
+                    inputClassName="w-full pl-9 pr-3 py-2 rounded-xl text-slate-900 bg-slate-100/90 focus:bg-white focus:ring-2 focus:ring-orange-500/40 focus:outline-none border border-slate-200 text-xs h-9 shadow-none font-medium"
+                    iconClassName="left-3 top-2.5 text-slate-400"
+                  />
+                </div>
+
+                {/* Navigation Links Scrollable Area */}
+                <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1 sidebar-scroll">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 px-3 pt-1 pb-1 tracking-wider">Main Navigation</p>
+
+                  {/* Explore Packages */}
+                  <button
+                    onClick={() => {
+                      setFromSection(userActiveSection);
+                      setUserActiveSection('listings');
+                      setViewingListing(null);
+                      setShowBookingForm(false);
+                      setShowComparison(false);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      userActiveSection === 'listings' && !showComparison && !viewingListing
+                        ? 'bg-orange-50 text-orange-600 font-bold'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Palmtree className="h-4 w-4 text-orange-500" />
+                      <span>Explore Packages</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-300" />
+                  </button>
+
+                  {/* Compare Packages */}
+                  <button
+                    onClick={() => {
+                      setFromSection(userActiveSection);
+                      setUserActiveSection('listings');
+                      setShowComparison(true);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      showComparison
+                        ? 'bg-orange-50 text-orange-600 font-bold'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Scale className="h-4 w-4 text-blue-500" />
+                      <span>Compare Packages</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {comparisonList.length > 0 && (
+                        <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                          {comparisonList.length}
+                        </span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </div>
+                  </button>
+
+                  {/* Wishlist */}
+                  <button
+                    onClick={() => {
+                      setFromSection(userActiveSection);
+                      setUserActiveSection('wishlist');
+                      setShowComparison(false);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      userActiveSection === 'wishlist'
+                        ? 'bg-orange-50 text-orange-600 font-bold'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Heart className="h-4 w-4 text-rose-500" />
+                      <span>My Wishlist</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {wishlist.length > 0 && (
+                        <span className="bg-rose-100 text-rose-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                          {wishlist.length}
+                        </span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </div>
+                  </button>
+
+                  {/* Messages */}
+                  <button
+                    onClick={() => {
+                      setFromSection(userActiveSection);
+                      setUserActiveSection('chat');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      userActiveSection === 'chat'
+                        ? 'bg-orange-50 text-orange-600 font-bold'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <MessageSquare className="h-4 w-4 text-emerald-500" />
+                      <span>Messages & Enquiries</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-300" />
+                  </button>
+
+                  {/* Profile */}
+                  <button
+                    onClick={() => {
+                      if (!user) {
+                        setAuthModalTab('login');
+                        setShowAuthModal(true);
+                      } else {
+                        setFromSection(userActiveSection);
+                        setUserActiveSection('profile');
+                      }
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      userActiveSection === 'profile'
+                        ? 'bg-orange-50 text-orange-600 font-bold'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <User className="h-4 w-4 text-purple-500" />
+                      <span>My Profile & Bookings</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-300" />
+                  </button>
+
+                  {/* Location Display */}
+                  <div className="pt-2 px-1">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-150">
+                      <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                      <span className="font-medium truncate">Delivery Pincode: <strong>{pincode}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 px-3 pb-1 tracking-wider">Explore More</p>
+                    <a
+                      href="/blog"
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-amber-500" />
+                        <span>Travel Guides & Stories</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </a>
+                    <a
+                      href="/agencytripdm"
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Briefcase className="h-4 w-4 text-indigo-500" />
+                        <span>For Travel Agencies</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </a>
+                    <a
+                      href="/policies/conditions-of-use"
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Shield className="h-4 w-4 text-slate-400" />
+                        <span>Policies & Terms</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Drawer Footer */}
+                {user && (
+                  <div className="p-3 border-t border-slate-100 bg-slate-50/70">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        signOut();
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" /> Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Top Navigation Bar */}
-          <header className="header-transition text-gray-900 z-[100] sticky top-0 bg-white shadow-sm border-b border-gray-200 h-16 flex items-center">
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 px-4 w-full h-full">
+          <header className="header-transition text-gray-900 z-[100] sticky top-0 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200">
+            {/* Desktop Header Layout */}
+            <div className="hidden md:flex max-w-7xl mx-auto items-center justify-between gap-4 px-4 h-16 w-full">
               {/* Logo & Search */}
-              <div className="flex items-center gap-4 flex-1 w-full h-full">
+              <div className="flex items-center gap-4 flex-1">
                 <div
-                  className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer"
+                  className="flex items-center gap-1 sm:gap-2 font-extrabold tracking-tight cursor-pointer shrink-0"
                   onClick={() => {
                     setUserActiveSection('listings');
                     setViewingListing(null);
@@ -3962,12 +4271,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               </div>
 
               {/* Right Links */}
-              <div className="flex items-center gap-5 w-full md:w-auto justify-between md:justify-end flex-wrap pl-4">
-                
+              <div className="flex items-center gap-5 shrink-0 pl-4">
                 {/* Location */}
-                <div className="flex items-center gap-1.5 text-gray-700 select-none mr-2">
-                  <MapPin className="h-4 w-4 text-gray-600" />
-                  <div className="flex flex-col leading-[1.1] hidden sm:flex">
+                <div className="flex items-center gap-1.5 text-gray-700 select-none mr-1">
+                  <MapPin className="h-4 w-4 text-orange-500" />
+                  <div className="flex flex-col leading-[1.1]">
                     <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
                   </div>
                 </div>
@@ -3982,6 +4290,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   }}
                 >
                   <Scale className="h-4 w-4 text-gray-600" /> Compare
+                  {comparisonList.length > 0 && (
+                    <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full ml-0.5">
+                      {comparisonList.length}
+                    </span>
+                  )}
                 </span>
 
                 {/* Wishlist */}
@@ -3994,6 +4307,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   }}
                 >
                   <Heart className="h-4 w-4 text-gray-600" /> Wishlist
+                  {wishlist.length > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full ml-0.5">
+                      {wishlist.length}
+                    </span>
+                  )}
                 </span>
 
                 {/* Messages */}
@@ -4009,7 +4327,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Profile / Sign In */}
                 {user && userData ? (
-                  <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-5">
+                  <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-4">
                     <div
                       className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
                       onClick={() => {
@@ -4018,13 +4336,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       }}
                     >
                       {userData.avatarUrl ? (
-                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover ring-1 ring-orange-300" />
                       ) : (
                         <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200">
                           <User className="h-4 w-4" />
                         </div>
                       )}
-                      <span className="hidden sm:inline">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
+                      <span>Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
                     </div>
                     
                     <span
@@ -4040,13 +4358,154 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 ) : (
                   <span
                     onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                    className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-gray-600 flex items-center gap-1.5"
+                    className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-gray-600 flex items-center gap-1.5 ml-2 border-l border-gray-200 pl-4"
                   >
                     <User className="h-4 w-4 text-gray-700" /> Login
                   </span>
                 )}
               </div>
             </div>
+
+            {/* Mobile Header Layout */}
+            <div className="flex md:hidden items-center justify-between px-3 sm:px-4 h-16 w-full">
+              {/* Left: Hamburger Button & Logo */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="p-2 -ml-1 text-slate-700 hover:text-orange-500 hover:bg-slate-100 active:bg-slate-200 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  aria-label="Open navigation menu"
+                >
+                  <Menu className="h-6 w-6" />
+                </button>
+
+                <div
+                  className="cursor-pointer flex items-center"
+                  onClick={() => {
+                    setUserActiveSection('listings');
+                    setViewingListing(null);
+                    setSelectedCategoryFilter(null);
+                    setDashboardViewMode('categories');
+                    setSearchTerm('');
+                    setShowBookingForm(false);
+                    setShowComparison(false);
+                  }}
+                >
+                  <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-10 sm:h-12 w-auto object-contain py-1" />
+                </div>
+              </div>
+
+              {/* Right: Quick Action Icons */}
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                {/* Search Toggle Icon */}
+                <button
+                  onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+                  className={`p-2 rounded-xl transition-colors ${
+                    mobileSearchOpen ? 'bg-orange-50 text-orange-600' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  aria-label="Search destinations"
+                >
+                  <Search className="h-5 w-5" />
+                </button>
+
+                {/* Compare Icon with Badge */}
+                <button
+                  onClick={() => {
+                    setFromSection(userActiveSection);
+                    setUserActiveSection('listings');
+                    setShowComparison(true);
+                  }}
+                  className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-colors relative"
+                  aria-label="Compare packages"
+                >
+                  <Scale className="h-5 w-5" />
+                  {comparisonList.length > 0 && (
+                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
+                      {comparisonList.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Wishlist Icon with Badge */}
+                <button
+                  onClick={() => {
+                    setFromSection(userActiveSection);
+                    setUserActiveSection('wishlist');
+                    setShowComparison(false);
+                  }}
+                  className="p-2 text-slate-600 hover:text-rose-500 hover:bg-slate-100 rounded-xl transition-colors relative"
+                  aria-label="View wishlist"
+                >
+                  <Heart className="h-5 w-5" />
+                  {wishlist.length > 0 && (
+                    <span className="absolute top-1 right-1 bg-rose-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
+                      {wishlist.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Messages Icon */}
+                <button
+                  onClick={() => {
+                    setFromSection(userActiveSection);
+                    setUserActiveSection('chat');
+                  }}
+                  className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  aria-label="View messages"
+                >
+                  <MessageSquare className="h-5 w-5" />
+                </button>
+
+                {/* Profile / Login Avatar */}
+                {user && userData ? (
+                  <button
+                    onClick={() => {
+                      setFromSection(userActiveSection);
+                      setUserActiveSection('profile');
+                    }}
+                    className="ml-1 p-0.5 rounded-full ring-2 ring-orange-400 focus:outline-none"
+                    aria-label="User Profile"
+                  >
+                    {userData.avatarUrl ? (
+                      <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                        {userData?.name ? userData.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setAuthModalTab('login');
+                      setShowAuthModal(true);
+                    }}
+                    className="ml-1 px-2.5 py-1 text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+                  >
+                    Login
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile Expandable Search Bar */}
+            {mobileSearchOpen && (
+              <div className="md:hidden px-4 pb-3 pt-1 border-t border-slate-100 bg-white/95">
+                <AutocompleteSearch
+                  placeholder="Search your Holiday Destination..."
+                  typewriterPrefix="Search for "
+                  typewriter={["Gujarat", "Japan", "Rajasthan", "Kerala", "Goa"]}
+                  value={searchTerm}
+                  onChange={(val) => setSearchTerm(val)}
+                  onSelect={(val) => {
+                    setSearchTerm(val);
+                    setMobileSearchOpen(false);
+                  }}
+                  suggestions={allDestinations}
+                  inputClassName="w-full pl-10 pr-4 py-2 rounded-full text-slate-900 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/40 focus:outline-none border border-slate-200 text-sm h-10 shadow-sm font-medium"
+                  iconClassName="left-3.5 top-3 text-slate-400"
+                />
+              </div>
+            )}
           </header>
 
 
@@ -5113,10 +5572,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 </div>
               )}
 
-                {userActiveSection === 'chat' && (
+              {userActiveSection === 'chat' && (
                 <div className="flex flex-col md:flex-row flex-1 min-h-0 w-full bg-white">
                   {/* Left Column: Conversations List */}
-                  <div className="w-full md:w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full z-10">
+                  <div className={`w-full md:w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full z-10 ${currentChatAgency ? 'hidden md:flex' : 'flex'}`}>
                     {/* Sidebar Header */}
                     <div className="p-4 border-b border-gray-200 bg-white shrink-0">
                       <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -5179,7 +5638,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 {/* Avatar */}
                                 <div className={`w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm relative ${
                                   !conversation.logoUrl && conversation.isOnline ? 'bg-orange-600' : (!conversation.logoUrl ? 'bg-slate-900' : '')
-                                }`}>
+                                }}`}>
                                   {conversation.logoUrl ? (
                                     <img src={conversation.logoUrl} alt={initials} className="w-full h-full object-cover rounded-full" />
                                   ) : (
@@ -5220,13 +5679,28 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   </div>
 
                   {/* Right Column: Chat Content */}
-                  <div className="flex-1 flex flex-col h-full bg-[#efeae2] bg-[radial-gradient(#d1ccc5_1.2px,transparent_1.2px)] [background-size:20px_20px]">
+                  <div className={`flex-1 flex flex-col h-full bg-[#efeae2] bg-[radial-gradient(#d1ccc5_1.2px,transparent_1.2px)] [background-size:20px_20px] ${!currentChatAgency ? 'hidden md:flex' : 'flex'}`}>
                     {currentChatAgency ? (
                       <div className="flex flex-col h-full relative">
                         {/* Conversation Header */}
-                        <div className="px-6 py-3 bg-[#f0f2f5] border-b border-gray-200 flex items-center justify-between z-10 shrink-0">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
+                        <div className="px-4 md:px-6 py-3 bg-[#f0f2f5] border-b border-gray-200 flex items-center justify-between z-10 shrink-0">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            {/* Mobile Back Button */}
+                            <button
+                              onClick={() => {
+                                setCurrentChatAgency('');
+                                setCurrentChatAgencyName('');
+                                setCurrentChatAgencyIsOnline(false);
+                                setCurrentChatAgencyLogo(null);
+                              }}
+                              className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition-colors flex items-center gap-1 font-semibold text-xs"
+                              aria-label="Back to conversations"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                              <span className="hidden xs:inline">Back</span>
+                            </button>
+
+                            <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner shrink-0">
                               {currentChatAgencyLogo ? (
                                 <img src={currentChatAgencyLogo} alt={currentChatAgencyName || 'AG'} className="w-full h-full object-cover rounded-full" />
                               ) : (
@@ -5234,7 +5708,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               )}
                             </div>
                             <div>
-                              <h4 className="font-bold text-xs text-gray-900">{currentChatAgencyName}</h4>
+                              <h4 className="font-bold text-xs text-gray-900 truncate max-w-[140px] sm:max-w-none">{currentChatAgencyName}</h4>
                               {currentChatAgencyIsOnline ? (
                                 <span className="text-[9px] text-emerald-600 font-semibold flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />

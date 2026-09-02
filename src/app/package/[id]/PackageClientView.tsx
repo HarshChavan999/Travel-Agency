@@ -1,6 +1,7 @@
-"use client";
+'use client';
+
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User } from 'lucide-react';
+import { ArrowLeft, User, Menu, X, Heart, Scale, MessageSquare, Palmtree, ChevronRight, LogOut, FileText, Briefcase, Shield } from 'lucide-react';
 import PackageDetailView from '@/components/PackageDetailView';
 import AuthModal from '@/components/AuthModal';
 import { useState, useEffect } from 'react';
@@ -15,6 +16,24 @@ export default function PackageClientView({ listing }: { listing: any }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [enrichedListing, setEnrichedListing] = useState(listing);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Lock background scroll when mobile sidebar drawer is open & handle Escape key
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setMobileMenuOpen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     async function fetchAgency() {
@@ -93,50 +112,277 @@ export default function PackageClientView({ listing }: { listing: any }) {
   
   return (
     <div className="min-h-screen flex flex-col relative">
-      <header className="sticky top-0 z-[100] bg-white text-slate-800 h-16 flex items-center border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 px-4 w-full h-full">
-          {/* Logo */}
-          <div className="flex items-center gap-4 flex-1 h-full">
+      {/* Mobile Slide-in Navigation Sidebar Drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-[150] md:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <div className="fixed inset-y-0 left-0 w-[85vw] max-w-[340px] bg-white shadow-2xl flex flex-col z-[160] transition-transform duration-300 ease-out">
+            {/* Drawer Top / Header */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/');
+                }}
+              >
+                <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-10 w-auto object-contain" />
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors"
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* User Status Card */}
+            <div className="p-4 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border-b border-slate-100">
+              {user && userData ? (
+                <div className="flex items-center gap-3">
+                  {userData.avatarUrl ? (
+                    <img src={userData.avatarUrl} alt="Profile" className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm" />
+                  ) : (
+                    <div className="w-11 h-11 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-base shadow-sm">
+                      {userData.name ? userData.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-500 font-medium">Signed in as</p>
+                    <h4 className="text-sm font-bold text-slate-900 truncate">{userData.name || 'User'}</h4>
+                    <p className="text-[11px] text-slate-400 truncate">{userData.email}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Welcome to TripDM</h4>
+                    <p className="text-xs text-slate-500">Direct Message with verified travel agents</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setShowAuthModal(true);
+                    }}
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs py-2 h-9 rounded-xl shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <User className="h-4 w-4" /> Sign In / Register
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Navigation Links Scrollable Area */}
+            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1 sidebar-scroll">
+              <p className="text-[10px] uppercase font-bold text-slate-400 px-3 pt-1 pb-1 tracking-wider">Navigation</p>
+
+              {/* Explore Packages */}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/');
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <Palmtree className="h-4 w-4 text-orange-500" />
+                  <span>Explore All Packages</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300" />
+              </button>
+
+              {/* Compare Packages */}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/?section=compare');
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <Scale className="h-4 w-4 text-blue-500" />
+                  <span>Compare Packages</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300" />
+              </button>
+
+              {/* Wishlist */}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/?section=wishlist');
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <Heart className="h-4 w-4 text-rose-500" />
+                  <span>My Wishlist</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {wishlist.length > 0 && (
+                    <span className="bg-rose-100 text-rose-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                      {wishlist.length}
+                    </span>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-slate-300" />
+                </div>
+              </button>
+
+              {/* Messages */}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/?section=chat');
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="h-4 w-4 text-emerald-500" />
+                  <span>Messages & Enquiries</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300" />
+              </button>
+
+              {/* Profile */}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (!user) {
+                    setShowAuthModal(true);
+                  } else {
+                    router.push('/?section=profile');
+                  }
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <User className="h-4 w-4 text-purple-500" />
+                  <span>My Profile & Bookings</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300" />
+              </button>
+
+              <div className="pt-4">
+                <p className="text-[10px] uppercase font-bold text-slate-400 px-3 pb-1 tracking-wider">Explore More</p>
+                <a
+                  href="/blog"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-amber-500" />
+                    <span>Travel Guides & Stories</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-300" />
+                </a>
+                <a
+                  href="/agencytripdm"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <div className="flex items-center gap-3">
+                    <Briefcase className="h-4 w-4 text-indigo-500" />
+                    <span>For Travel Agencies</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-300" />
+                </a>
+                <a
+                  href="/policies/conditions-of-use"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <div className="flex items-center gap-3">
+                    <Shield className="h-4 w-4 text-slate-400" />
+                    <span>Policies & Terms</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-300" />
+                </a>
+              </div>
+            </div>
+
+            {/* Drawer Footer */}
+            {user && (
+              <div className="p-3 border-t border-slate-100 bg-slate-50/70">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    signOut?.();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                >
+                  <LogOut className="h-4 w-4" /> Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Top Header */}
+      <header className="sticky top-0 z-[100] bg-white/95 backdrop-blur-md text-slate-800 h-16 flex items-center border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 px-3 sm:px-4 w-full h-full">
+          {/* Left: Mobile Hamburger & Logo */}
+          <div className="flex items-center gap-2 sm:gap-4 h-full">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden p-2 -ml-1 text-slate-700 hover:text-orange-500 hover:bg-slate-100 active:bg-slate-200 rounded-xl transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
             <div 
               className="flex items-center gap-1 sm:gap-2 font-black tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => router.push('/')}
             >
-              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-16 md:h-20 w-auto object-contain py-1" />
+              <img src="/tripdm-logo.png" alt="TripDM Logo" className="h-10 sm:h-12 md:h-16 w-auto object-contain py-1" />
             </div>
           </div>
 
-          {/* Right Links - Profile Settings */}
-          <div className="flex items-center gap-5 w-full md:w-auto justify-between md:justify-end flex-wrap pl-4">
+          {/* Right Links - Desktop & Mobile */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Explore Link */}
+            <button
+              onClick={() => router.push('/')}
+              className="hidden sm:inline-flex text-xs font-bold text-slate-600 hover:text-orange-500 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Explore Packages
+            </button>
+
             {user && userData ? (
-              <div className="flex items-center gap-3 ml-2">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div
                   className="flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-orange-500 text-slate-800"
                   onClick={() => router.push('/?section=profile')}
                 >
                   {userData.avatarUrl ? (
-                    <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-md object-cover border border-gray-200" />
+                    <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover border border-gray-200" />
                   ) : (
-                    <div className="w-7 h-7 bg-slate-100 rounded-md flex items-center justify-center text-slate-600 border border-gray-200">
-                      <User className="h-4 w-4" />
+                    <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                      {userData?.name ? userData.name.charAt(0).toUpperCase() : 'U'}
                     </div>
                   )}
                   <span className="hidden sm:inline">Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
                 </div>
                 
                 <span
-                  className="text-xs text-slate-500 hover:text-orange-500 cursor-pointer ml-3 border-l border-gray-200 pl-3 transition-colors font-medium"
+                  className="text-xs text-slate-500 hover:text-orange-500 cursor-pointer border-l border-gray-200 pl-3 transition-colors font-medium hidden sm:inline"
                   onClick={() => signOut?.()}
                 >
                   Sign Out
                 </span>
               </div>
             ) : (
-              <span
+              <button
                 onClick={() => setShowAuthModal(true)}
-                className="cursor-pointer transition-all text-[15px] font-semibold text-slate-800 hover:text-orange-500 flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs sm:text-sm font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <User className="h-4 w-4 text-slate-700" /> Login
-              </span>
+                <User className="h-4 w-4 text-orange-500" /> Login
+              </button>
             )}
           </div>
         </div>
