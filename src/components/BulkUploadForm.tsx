@@ -39,6 +39,7 @@ interface BulkUploadFormProps {
 interface ParsedListing {
   rowNum: number;
   data: {
+    title: string;
     packageType: 'domestic' | 'international';
     countryName: string;
     stateName: string;
@@ -78,9 +79,9 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
   // Generate and download sample CSV Template
   const handleDownloadTemplate = () => {
     const csvContent = [
-      ['packageType', 'countryName', 'stateName', 'pickUpLocation', 'dropLocation', 'cost', 'tourCategories', 'hotelTypes', 'mealPlan', 'placesCovered', 'imageUrls', 'itinerary', 'inclusions', 'exclusions', 'experienceType', 'season', 'eventType'],
-      ['domestic', '', 'Goa', 'Delhi Airport', 'Goa Airport', '15000', 'Family, Friends', 'budget, deluxe', 'breakfast-dinner', 'Panaji, Calangute Beach, Dudhsagar Falls', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e', 'Panaji @ Day 1: Arrival & transfer to hotel. Spend evening at leisure.||Calangute Beach @ Day 2: North Goa sightseeing tour.||Dudhsagar Falls @ Day 3: South Goa sightseeing tour & spice plantation.||Panaji @ Day 4: Departure transfer to airport.', '3 Nights hotel accommodation;Daily breakfast and dinner;North & South Goa sightseeing transfers', 'Airfare/Train tickets;Lunch;Personal expenses;Monument entry fees', 'adventure', 'summer', 'weekend'],
-      ['international', 'Thailand', '', 'Mumbai Airport', 'Bangkok Airport', '35000', 'Honeymoon, Friends', 'deluxe, premium', 'breakfast', 'Bangkok, Pattaya, Coral Island', 'https://images.unsplash.com/photo-1528127269322-539801943592, https://images.unsplash.com/photo-1552465011-b4e21bf6e79a', 'Pattaya @ Day 1: Arrival in Bangkok & transfer to Pattaya hotel.||Coral Island @ Day 2: Coral Island speedboat tour with lunch.||Bangkok @ Day 3: Transfer back to Bangkok. Afternoon city temple tour.||Bangkok @ Day 4: Departure transfer to Bangkok Airport.', '3 Nights hotel stay;Daily breakfast;Coral Island tour with lunch;Airport & hotel transfers', 'Flights;Thailand visa fees;Dinner;Personal expenses', 'adventure', 'winter', 'new-year']
+      ['title', 'packageType', 'countryName', 'stateName', 'pickUpLocation', 'dropLocation', 'cost', 'tourCategories', 'hotelTypes', 'mealPlan', 'placesCovered', 'imageUrls', 'itinerary', 'inclusions', 'exclusions', 'experienceType', 'season', 'eventType'],
+      ['4 Days / 3 Nights Goa Beach Holiday & Sightseeing Tour', 'domestic', '', 'Goa', 'Delhi Airport', 'Goa Airport', '15000', 'Family, Friends', 'budget, deluxe', 'breakfast-dinner', 'Panaji, Calangute Beach, Dudhsagar Falls', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e', 'Panaji @ Day 1: Arrival & transfer to hotel. Spend evening at leisure.||Calangute Beach @ Day 2: North Goa sightseeing tour.||Dudhsagar Falls @ Day 3: South Goa sightseeing tour & spice plantation.||Panaji @ Day 4: Departure transfer to airport.', '3 Nights hotel accommodation;Daily breakfast and dinner;North & South Goa sightseeing transfers', 'Airfare/Train tickets;Lunch;Personal expenses;Monument entry fees', 'adventure', 'summer', 'weekend'],
+      ['5 Days / 4 Nights Exotic Thailand Bangkok & Pattaya Tour', 'international', 'Thailand', '', 'Mumbai Airport', 'Bangkok Airport', '35000', 'Honeymoon, Friends', 'deluxe, premium', 'breakfast', 'Bangkok, Pattaya, Coral Island', 'https://images.unsplash.com/photo-1528127269322-539801943592, https://images.unsplash.com/photo-1552465011-b4e21bf6e79a', 'Pattaya @ Day 1: Arrival in Bangkok & transfer to Pattaya hotel.||Coral Island @ Day 2: Coral Island speedboat tour with lunch.||Bangkok @ Day 3: Transfer back to Bangkok. Afternoon city temple tour.||Bangkok @ Day 4: Departure transfer to Bangkok Airport.', '3 Nights hotel stay;Daily breakfast;Coral Island tour with lunch;Airport & hotel transfers', 'Flights;Thailand visa fees;Dinner;Personal expenses', 'adventure', 'winter', 'new-year']
     ];
 
     const csvString = Papa.unparse(csvContent);
@@ -256,9 +257,18 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
           const season = (row.season || '').trim().toLowerCase();
           const eventType = (row.eventType || '').trim().toLowerCase();
 
+          // 12. Parse or generate title
+          let title = (row.title || row.packageTitle || '').trim();
+          if (!title) {
+            const dest = packageType === 'international' ? countryName : stateName;
+            const daysCount = itinerary.length > 0 ? `${itinerary.length} Days / ${Math.max(1, itinerary.length - 1)} Nights ` : '';
+            title = dest ? `${daysCount}${dest} Tour Package` : 'Exciting Travel Package';
+          }
+
           return {
             rowNum,
             data: {
+              title,
               packageType,
               countryName,
               stateName,
@@ -321,6 +331,7 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
       const mainPhoto = listing.data.placesCovered[0]?.imageUrls[0] || '';
 
       const listingData = {
+        title: listing.data.title,
         packageType: listing.data.packageType,
         countryName: listing.data.countryName,
         stateName: listing.data.stateName,
@@ -499,7 +510,8 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
                     <thead>
                       <tr className="bg-gray-50 text-xs font-bold text-gray-500 border-b border-gray-200">
                         <th className="p-4 w-12 text-center">Row</th>
-                        <th className="p-4">Package Destination</th>
+                        <th className="p-4">Package Title</th>
+                        <th className="p-4">Destination</th>
                         <th className="p-4">Type</th>
                         <th className="p-4">Price (INR)</th>
                         <th className="p-4">Days</th>
@@ -516,7 +528,8 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
                           <React.Fragment key={listing.rowNum}>
                             <tr className={`hover:bg-gray-50/50 ${!listing.isValid ? 'bg-red-50/20' : ''}`}>
                               <td className="p-4 text-center font-semibold text-gray-500">{listing.rowNum}</td>
-                              <td className="p-4 font-bold text-gray-900">{destinationName || <span className="text-red-500">Missing Destination</span>}</td>
+                              <td className="p-4 font-bold text-gray-900 max-w-xs truncate" title={listing.data.title}>{listing.data.title}</td>
+                              <td className="p-4 font-medium text-gray-700">{destinationName || <span className="text-red-500">Missing Destination</span>}</td>
                               <td className="p-4 capitalize text-gray-600">{listing.data.packageType}</td>
                               <td className="p-4 font-semibold text-gray-800">₹{listing.data.cost}</td>
                               <td className="p-4 font-medium text-gray-600">{listing.data.itinerary.length} Days</td>
@@ -536,7 +549,7 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
                             {/* Validation Errors Sub-Row */}
                             {listing.errors.length > 0 && (
                               <tr className="bg-yellow-50/30 border-b border-gray-100">
-                                <td colSpan={6} className="p-3 pl-12 text-xs">
+                                <td colSpan={7} className="p-3 pl-12 text-xs">
                                   <div className="flex flex-col gap-1 text-yellow-900 font-medium">
                                     {listing.errors.map((error, idx) => (
                                       <div key={idx} className="flex items-center gap-1.5">
