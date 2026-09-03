@@ -38,7 +38,7 @@ const levenshtein = (a: string, b: string) => {
 };
 
 export default function AutocompleteSearch({
-  placeholder = "Search...",
+  placeholder = "Search for destination",
   value,
   onChange,
   onSelect,
@@ -52,6 +52,7 @@ export default function AutocompleteSearch({
   typewriter = []
 }: AutocompleteSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +61,7 @@ export default function AutocompleteSearch({
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    if (!typewriter || typewriter.length === 0) {
+    if (!typewriter || typewriter.length === 0 || !isFocused) {
       return;
     }
 
@@ -83,7 +84,7 @@ export default function AutocompleteSearch({
     }, typingSpeed);
 
     return () => clearTimeout(timeout);
-  }, [displayText, isDeleting, typewriter, typewriterIndex]);
+  }, [displayText, isDeleting, typewriter, typewriterIndex, isFocused]);
 
   const hasTypewriter = typewriter && typewriter.length > 0;
 
@@ -102,25 +103,23 @@ export default function AutocompleteSearch({
     
     const q = value.toLowerCase().trim();
     
-    const scoredItems = suggestions.map(item => {
+    const scoredItems = suggestions.map((item) => {
       const itemLower = item.toLowerCase();
       let score = 0;
       
       if (itemLower === q) score = 100;
-      else if (itemLower.startsWith(q)) score = 80;
-      else if (itemLower.includes(` ${q}`)) score = 70; // starts with word
-      else if (itemLower.includes(q)) score = 60;
-      else {
-        // Typo tolerance
+      else if (itemLower.startsWith(q)) score = 85;
+      else if (itemLower.includes(` ${q}`)) score = 75; // starts with word inside destination name (e.g. "Pradesh")
+      else if (q.length >= 3 && itemLower.includes(q)) score = 60;
+      else if (q.length >= 4) {
+        // Strict typo tolerance only for queries of 4+ characters, max 1 typo
         const dist = levenshtein(q, itemLower);
-        if (dist <= 2 && q.length > 3) score = 40; // Allow 2 typos for longer words
-        else if (dist <= 1 && q.length > 2) score = 40; // Allow 1 typo for shorter words
+        if (dist <= 1 && Math.abs(q.length - itemLower.length) <= 1) score = 40;
         else {
-          // check words
           const words = itemLower.split(' ');
-          const wordMatch = words.some(w => {
-            const d = levenshtein(q, w);
-            return (d <= 2 && q.length > 3) || (d <= 1 && q.length > 2);
+          const wordMatch = words.some((w) => {
+            if (Math.abs(w.length - q.length) > 1) return false;
+            return levenshtein(q, w) <= 1;
           });
           if (wordMatch) score = 30;
         }
@@ -130,9 +129,9 @@ export default function AutocompleteSearch({
     });
     
     return scoredItems
-      .filter(i => i.score > 0)
+      .filter((i) => i.score > 0)
       .sort((a, b) => b.score - a.score)
-      .map(i => i.item)
+      .map((i) => i.item)
       .slice(0, 8); // Show max 8 suggestions
   }, [value, suggestions]);
 
@@ -141,10 +140,10 @@ export default function AutocompleteSearch({
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex(prev => (prev < filteredSuggestions.length - 1 ? prev + 1 : prev));
+      setActiveIndex((prev) => (prev < filteredSuggestions.length - 1 ? prev + 1 : prev));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIndex(prev => (prev > 0 ? prev - 1 : -1));
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
@@ -175,7 +174,7 @@ export default function AutocompleteSearch({
       <div className={className}>
         <Input
           type="text"
-          placeholder={hasTypewriter ? "" : placeholder}
+          placeholder={isFocused && hasTypewriter ? "" : placeholder}
           value={value}
           onChange={(e) => {
             onChange(e.target.value);
@@ -183,13 +182,17 @@ export default function AutocompleteSearch({
             setActiveIndex(-1);
           }}
           onFocus={() => {
+            setIsFocused(true);
             if (value.trim().length > 0) setIsOpen(true);
+          }}
+          onBlur={() => {
+            setIsFocused(false);
           }}
           onKeyDown={handleKeyDown}
           className={inputClassName}
         />
         {icon}
-        {hasTypewriter && !value && (
+        {hasTypewriter && isFocused && !value && (
           <div className="absolute inset-y-0 left-10 flex items-center pointer-events-none text-sm text-gray-400">
             <span>{typewriterPrefix}</span>
             <span className="font-bold text-gray-700 ml-1">{displayText}</span>

@@ -167,21 +167,22 @@ const isFuzzySearchMatch = (searchQuery: string, text: string): boolean => {
   const t = text.toLowerCase();
   if (t.includes(q)) return true;
 
-  // Handle multi-word / compound queries like "Assam & Meghalaya" or "Kashmir, Ladakh"
-  const queryTokens = q.split(/[\s,/\-&]+|\band\b/).map(s => s.trim()).filter(s => s.length >= 2);
+  // Handle multi-word / compound queries like "Assam Meghalaya" or "Kashmir, Ladakh"
+  const queryTokens = q.split(/[\s,/\-&]+|\band\b/).map((s) => s.trim()).filter((s) => s.length >= 2);
   if (queryTokens.length > 1) {
-    return queryTokens.some(token => isFuzzySearchMatch(token, text));
+    return queryTokens.every((token) => isFuzzySearchMatch(token, text));
   }
 
-  if (q.length <= 2) return false;
+  // Short queries (3 chars or less like "Goa", "Leh") should only match exact substring
+  if (q.length <= 3) return false;
 
-  const words = t.split(/[\s,/\-]+/).filter(Boolean);
-  return words.some(w => {
-    if (Math.abs(w.length - q.length) > 3) return false;
+  const words = t.split(/[\s,/\-.;:()]+/).filter(Boolean);
+  return words.some((w) => {
+    // Length difference must not exceed 1 for medium words, or 2 for long words
+    if (Math.abs(w.length - q.length) > (q.length >= 7 ? 2 : 1)) return false;
     const dist = calcLevenshtein(q, w);
-    if (q.length <= 4) return dist <= 1;
-    if (q.length <= 7) return dist <= 2;
-    return dist <= 3;
+    if (q.length <= 6) return dist <= 1; // Allows 1 typo (e.g. "assm" -> "assam"), ignores distant words like "sam"
+    return dist <= 2; // For long words (e.g. "rajastan" -> "rajasthan")
   });
 };
 
@@ -502,57 +503,60 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
   const allDestinations = useMemo(() => {
     const dests = new Set<string>();
-    const popular = ['Goa', 'Kerala', 'Manali', 'Kashmir', 'Dubai', 'Bali', 'Singapore', 'Maldives', 'Thailand', 'Europe', 'Gujarat', 'Rajasthan', 'Himachal Pradesh', 'Uttarakhand'];
-    popular.forEach(p => dests.add(p));
-    listings.forEach(l => {
+    
+    // 1. Standard Popular States & International Tourism Destinations
+    const coreDestinations = [
+      // Domestic States & Major Hubs
+      'Kerala', 'Rajasthan', 'Goa', 'Kashmir', 'Himachal Pradesh', 'Uttarakhand', 
+      'Assam', 'Meghalaya', 'Sikkim', 'Ladakh', 'Karnataka', 'Tamil Nadu', 
+      'Gujarat', 'Andaman', 'Maharashtra', 'Madhya Pradesh', 'Punjab', 'Uttar Pradesh',
+      'Manali', 'Shimla', 'Munnar', 'Udaipur', 'Jaipur', 'Jaisalmer', 'Srinagar', 
+      'Gulmarg', 'Pahalgam', 'Ooty', 'Coorg', 'Guwahati', 'Shillong', 'Darjeeling', 
+      'Rishikesh', 'Varanasi', 'Agra', 'Alleppey', 'Wayanad', 'Kovalam',
+      // International Top Destinations
+      'Dubai', 'Thailand', 'Bali', 'Singapore', 'Maldives', 'Vietnam', 'Sri Lanka', 
+      'Malaysia', 'Mauritius', 'Europe', 'Switzerland', 'Paris', 'Japan', 'Nepal'
+    ];
+    coreDestinations.forEach((p) => dests.add(p));
+
+    // 2. Clean State & Country Names from Approved Packages
+    listings.forEach((l) => {
+      if (l.approved === false) return;
+
       const addCleanedLocation = (raw: string) => {
         if (!raw) return;
-        raw.split(/,|\/|\band\b/i).forEach((part) => {
+        raw.split(/,|\/|\band\b|&/i).forEach((part) => {
           const trimmed = part.trim();
-          if (trimmed.length > 2 && !/package|tour|trip|holiday|deal|special/i.test(trimmed)) {
+          if (
+            trimmed.length >= 3 && 
+            trimmed.length <= 25 && 
+            !/[|():;0-9]/.test(trimmed) &&
+            !/package|tour|trip|holiday|deal|special|excursion|drop|pickup|hotel|resort|safari|airport|station|drive|transfer/i.test(trimmed)
+          ) {
             const formatted = trimmed.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
             dests.add(formatted);
           }
         });
       };
 
-      if (l.destination) addCleanedLocation(l.destination);
       if (l.stateName) addCleanedLocation(l.stateName);
-      if (l.countryName) addCleanedLocation(l.countryName);
-      if (l.stateNames && Array.isArray(l.stateNames)) {
-        l.stateNames.forEach((s: string) => addCleanedLocation(s));
-      }
-      if (l.countryNames && Array.isArray(l.countryNames)) {
-        l.countryNames.forEach((c: string) => addCleanedLocation(c));
-      }
-      if (l.itinerary && Array.isArray(l.itinerary)) {
-        l.itinerary.forEach((day: any) => {
-          const rawName = day.placeName;
-          if (rawName) {
-            const normalized = rawName
-              .replace(/[-–—]/g, ',')
-              .replace(/\bto\b/gi, ',')
-              .replace(/\b&\b/gi, ',')
-              .replace(/\band\b/gi, ',')
-              .replace(/\b\/\b/gi, ',');
-            
-            const noiseWords = /^(full|half|guided|scenic|enroute|en-route|leisure|free|optional|morning|afternoon|evening|today|start|end|return|back|arrival|departure|transfer|sightseeing|local|tour|airport|station|railway|hotel|resort|day|visit|trip|journey|welcome|tourist|spot|spots|excursion|drive|activities|stay|overnight)$/i;
-            
-            normalized.split(',').forEach((part: string) => {
-              let cleaned = part.trim();
-              cleaned = cleaned.replace(/^(at|from|in|to|for|via|by|towards)\s+/i, '').trim();
-              cleaned = cleaned.replace(/\s+(at|from|in|to|for|via|by|towards)$/i, '').trim();
-              if (cleaned && !noiseWords.test(cleaned)) {
-                const capitalized = cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-                dests.add(capitalized);
-              }
-            });
+      if (l.countryName && l.packageType === 'international') addCleanedLocation(l.countryName);
+      if (Array.isArray(l.stateNames)) l.stateNames.forEach((s: string) => addCleanedLocation(s));
+      if (Array.isArray(l.countryNames) && l.packageType === 'international') l.countryNames.forEach((c: string) => addCleanedLocation(c));
+      if (l.destination) addCleanedLocation(l.destination);
+      
+      // Clean major places covered (e.g. Munnar, Jaipur, Gulmarg)
+      if (Array.isArray(l.placesCovered)) {
+        l.placesCovered.forEach((p: any) => {
+          if (p?.name && typeof p.name === 'string') {
+            addCleanedLocation(p.name);
           }
         });
       }
     });
-    const blocklist = ['fdgdh', 'fdgh', 'test', 'asdf'];
-    return Array.from(dests).filter(d => typeof d === 'string' && d.length > 2 && !blocklist.includes(d.toLowerCase().trim()));
+
+    const blocklist = ['fdgdh', 'fdgh', 'test', 'asdf', 'india'];
+    return Array.from(dests).filter((d) => typeof d === 'string' && d.length >= 3 && !blocklist.includes(d.toLowerCase().trim()));
   }, [listings]);
 
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -4020,9 +4024,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 {/* Drawer Search Input */}
                 <div className="p-3 border-b border-slate-100">
                   <AutocompleteSearch
-                    placeholder="Search Holiday Destinations..."
-                    typewriterPrefix="Search "
-                    typewriter={["Gujarat", "Japan", "Rajasthan", "Kerala", "Goa"]}
+                    placeholder="Search for destination"
+                    typewriterPrefix="Search for "
+                    typewriter={["Rajasthan", "Kerala", "Kashmir", "Goa", "Himachal Pradesh", "Dubai", "Assam", "Thailand"]}
                     value={searchTerm}
                     onChange={(val) => setSearchTerm(val)}
                     onSelect={(val) => {
@@ -4255,9 +4259,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 </div>
                 <div className="relative w-full max-w-xl">
                   <AutocompleteSearch
-                    placeholder="Search your Holiday Destination"
+                    placeholder="Search for destination"
                     typewriterPrefix="Search for "
-                    typewriter={["Gujarat", "Japan", "Rajasthan", "Kerala", "Goa"]}
+                    typewriter={["Rajasthan", "Kerala", "Kashmir", "Goa", "Himachal Pradesh", "Dubai", "Assam", "Thailand"]}
                     value={searchTerm}
                     onChange={(val) => setSearchTerm(val)}
                     onSelect={(val) => {
@@ -4491,9 +4495,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             {mobileSearchOpen && (
               <div className="md:hidden px-4 pb-3 pt-1 border-t border-slate-100 bg-white/95">
                 <AutocompleteSearch
-                  placeholder="Search your Holiday Destination..."
+                  placeholder="Search for destination"
                   typewriterPrefix="Search for "
-                  typewriter={["Gujarat", "Japan", "Rajasthan", "Kerala", "Goa"]}
+                  typewriter={["Rajasthan", "Kerala", "Kashmir", "Goa", "Himachal Pradesh", "Dubai", "Assam", "Thailand"]}
                   value={searchTerm}
                   onChange={(val) => setSearchTerm(val)}
                   onSelect={(val) => {
@@ -4870,11 +4874,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 isFuzzySearchMatch(searchLower, inclusions) ||
                                 isFuzzySearchMatch(searchLower, agencyName) ||
                                 isFuzzySearchMatch(searchLower, places) ||
-                                isFuzzySearchMatch(searchLower, itineraryPlaces) ||
-                                isFuzzySearchMatch(searchLower, 'sightseeing') ||
-                                isFuzzySearchMatch(searchLower, 'transport') ||
-                                isFuzzySearchMatch(searchLower, 'hotel stay') ||
-                                isFuzzySearchMatch(searchLower, 'meal');
+                                isFuzzySearchMatch(searchLower, itineraryPlaces);
 
                               if (!matches) {
                                 return false;

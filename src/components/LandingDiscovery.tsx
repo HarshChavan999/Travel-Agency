@@ -563,8 +563,8 @@ export default function LandingDiscovery({
           />
 
           <section className="py-12 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
-            <div className="mb-8">
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+            <div className="text-center max-w-3xl mx-auto mb-10">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
                 Destination Stories
               </h2>
             </div>
@@ -786,16 +786,16 @@ export default function LandingDiscovery({
               </div>
             )}
 
-            {/* Row 3: Bottom Panoramic / Balanced Row (1 or 2 cards) */}
+            {/* Row 3: Bottom Panoramic / Balanced Row (1 to 3 cards) */}
             {bottomRemaining.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-6">
                 {bottomRemaining.map((exp) => {
-                  const colSpan = bottomRemaining.length === 1 ? 'md:col-span-12' : bottomRemaining.length === 2 ? 'md:col-span-6' : 'lg:col-span-4';
+                  const colSpan = bottomRemaining.length === 1 ? 'lg:col-span-12' : bottomRemaining.length === 2 ? 'lg:col-span-6' : 'lg:col-span-4';
                   return (
                     <div
                       key={exp.name}
                       onClick={() => setSearchTerm(exp.name)}
-                      className={`${colSpan} group cursor-pointer relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-xs hover:shadow-xl transition-all duration-300 h-52 sm:h-56 flex flex-col justify-end p-5 sm:p-6`}
+                      className={`${colSpan} group cursor-pointer relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 shadow-xs hover:shadow-xl transition-all duration-300 h-56 sm:h-64 flex flex-col justify-end p-5 sm:p-6`}
                     >
                       {exp.coverImage ? (
                         <img
@@ -811,30 +811,30 @@ export default function LandingDiscovery({
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/40 to-transparent opacity-85 group-hover:opacity-75 transition-opacity" />
 
                       <div className="absolute top-4 left-4 z-10">
-                        <span className="bg-slate-900/85 backdrop-blur-md text-white text-xs font-black px-3.5 py-1.5 rounded-full border border-white/20 shadow-xs flex items-center gap-2">
+                        <span className="bg-slate-900/85 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20 shadow-xs flex items-center gap-1.5">
                           {getExperienceIcon(exp.name)}
                           <span>{exp.packageCount} {exp.packageCount === 1 ? 'Package' : 'Packages'}</span>
                         </span>
                       </div>
 
-                      <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-                        <div>
-                          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-sm mb-0.5">
-                            {exp.name}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-slate-200/90 line-clamp-1">
-                            {EXPERIENCE_TAGLINES[exp.name] || 'Curated packages tailored for this travel style'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          {exp.startingPrice && (
-                            <p className="text-sm font-bold text-amber-300">
+                      <div className="relative z-10">
+                        <h3 className="text-lg sm:text-xl font-black text-white tracking-tight drop-shadow-sm mb-0.5 line-clamp-1">
+                          {exp.name}
+                        </h3>
+                        <p className="text-xs text-slate-200/90 line-clamp-1 mb-2.5">
+                          {EXPERIENCE_TAGLINES[exp.name] || 'Curated packages tailored for this travel style'}
+                        </p>
+                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                          {exp.startingPrice ? (
+                            <p className="text-xs sm:text-sm font-bold text-amber-300">
                               From ₹{exp.startingPrice.toLocaleString('en-IN')}
                             </p>
+                          ) : (
+                            <span className="text-xs text-slate-300">Verified Itineraries</span>
                           )}
-                          <span className="text-xs font-extrabold text-white bg-white/20 group-hover:bg-orange-500 px-4 py-2 rounded-full transition-all flex items-center gap-1 shadow-xs">
-                            <span>Explore Packages</span>
-                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                          <span className="text-[11px] sm:text-xs font-extrabold text-white bg-white/20 group-hover:bg-orange-500 px-3 py-1 rounded-full transition-all flex items-center gap-1 shadow-xs">
+                            <span>Explore</span>
+                            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                           </span>
                         </div>
                       </div>
