@@ -69,28 +69,78 @@ export async function POST(req: Request) {
       updatedAt: new Date()
     };
 
-    // Optionally update matching place in placesCovered if image is currently missing
-    if (updateMatchingPlaceCovered && Array.isArray(listingData.placesCovered) && imageUrl) {
-      const placesCovered = [...listingData.placesCovered];
+    // Keep placesCovered and front thumbnail in sync
+    if (Array.isArray(listingData.placesCovered)) {
+      const placesCovered = listingData.placesCovered.map((p: any) => ({ ...p }));
       const targetPlaceName = (placeName || currentDay.placeName || '').trim().toLowerCase();
+      let changed = false;
 
-      if (targetPlaceName) {
-        let changed = false;
-        for (let i = 0; i < placesCovered.length; i++) {
-          const p = placesCovered[i];
-          if (p.name && p.name.trim().toLowerCase() === targetPlaceName) {
-            if (!p.imageUrls || p.imageUrls.length === 0) {
+      if (finalImageUrls.length > 0) {
+        // Adding / Updating photo
+        if (targetPlaceName) {
+          for (let i = 0; i < placesCovered.length; i++) {
+            const p = placesCovered[i];
+            if (p.name && p.name.trim().toLowerCase() === targetPlaceName) {
               placesCovered[i] = {
                 ...p,
-                imageUrls: [imageUrl]
+                imageUrls: finalImageUrls
               };
               changed = true;
             }
           }
         }
-        if (changed) {
-          updatePayload.placesCovered = placesCovered;
+        // If Day 1, update front thumbnail
+        if (targetIndex === 0 && placesCovered.length > 0) {
+          placesCovered[0] = {
+            ...placesCovered[0],
+            imageUrls: finalImageUrls
+          };
+          changed = true;
         }
+      } else {
+        // Removing / Deleting photo
+        const oldDayUrls = [
+          ...(currentDay.imageUrls || []),
+          currentDay.imageUrl || ''
+        ].filter(Boolean);
+
+        for (let i = 0; i < placesCovered.length; i++) {
+          const p = placesCovered[i];
+          const isNameMatch = targetPlaceName && p.name && p.name.trim().toLowerCase() === targetPlaceName;
+          let pUrls: string[] = Array.isArray(p.imageUrls) ? [...p.imageUrls] : [];
+
+          if (isNameMatch) {
+            pUrls = [];
+            changed = true;
+          } else if (oldDayUrls.length > 0) {
+            const prevLen = pUrls.length;
+            pUrls = pUrls.filter(u => !oldDayUrls.some(ou => ou.split('?')[0].toLowerCase() === u.split('?')[0].toLowerCase()));
+            if (pUrls.length !== prevLen) changed = true;
+          }
+
+          placesCovered[i] = { ...p, imageUrls: pUrls };
+        }
+
+        // If front thumbnail was affected, sync with next available itinerary photo
+        if (targetIndex === 0 && placesCovered.length > 0) {
+          let nextValidPhoto: string | null = null;
+          for (const day of itinerary) {
+            const dUrls = Array.isArray(day.imageUrls) ? day.imageUrls : day.imageUrl ? [day.imageUrl] : [];
+            if (dUrls.length > 0) {
+              nextValidPhoto = dUrls[0];
+              break;
+            }
+          }
+          placesCovered[0] = {
+            ...placesCovered[0],
+            imageUrls: nextValidPhoto ? [nextValidPhoto] : []
+          };
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        updatePayload.placesCovered = placesCovered;
       }
     }
 

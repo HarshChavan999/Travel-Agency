@@ -1,6 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, type Firestore } from 'firebase/firestore';
 import { getDatabase, type Database } from 'firebase/database';
 
 let app: FirebaseApp | null = null;
@@ -21,8 +21,10 @@ function getFirebaseConfig() {
 }
 
 function initializeFirebaseApp() {
-  if (!app && typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-    app = initializeApp(getFirebaseConfig());
+  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+    if (!app) {
+      app = getApps().length > 0 ? getApps()[0] : initializeApp(getFirebaseConfig());
+    }
   }
 }
 
@@ -40,7 +42,15 @@ export const getDbInstance = (): Firestore | null => {
   if (!_db) {
     initializeFirebaseApp();
     if (app) {
-      _db = getFirestore(app);
+      try {
+        // Use long-polling to prevent 10s backend connection timeouts caused by WebChannel streaming
+        // issues with certain ISPs, VPNs, proxies, antivirus, or browser extensions
+        _db = initializeFirestore(app, {
+          experimentalForceLongPolling: true,
+        });
+      } catch {
+        _db = getFirestore(app);
+      }
     }
   }
   return _db;

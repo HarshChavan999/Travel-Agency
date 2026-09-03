@@ -437,27 +437,38 @@ export default function PackageDetailView({
       }
     };
 
-    // Priority 1: Primary package photos from placesCovered
-    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
-      listing.placesCovered.forEach((place: any) => {
-        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
-          place.imageUrls.forEach(addImage);
-        }
-      });
-    }
-
-    // Priority 2: Standalone photos (only if placesCovered had no images)
-    if (imagesSet.size === 0 && listing.photos && Array.isArray(listing.photos)) {
+    // 1. Primary dedicated photos if uploaded directly to package
+    if (listing.photos && Array.isArray(listing.photos)) {
       listing.photos.forEach(addImage);
     }
+    const dedicatedPhotoObj = Array.isArray(listing.placesCovered)
+      ? listing.placesCovered.find((p: any) => p?.id === 'photos')
+      : null;
+    if (dedicatedPhotoObj?.imageUrls && Array.isArray(dedicatedPhotoObj.imageUrls)) {
+      dedicatedPhotoObj.imageUrls.forEach(addImage);
+    }
 
-    // Priority 3: Itinerary day photos (only if neither placesCovered nor photos had images)
-    if (imagesSet.size === 0 && listing.itinerary && Array.isArray(listing.itinerary)) {
+    // 2. Front cover thumbnail from placesCovered[0]
+    if (Array.isArray(listing.placesCovered) && listing.placesCovered[0]?.imageUrls?.length > 0) {
+      listing.placesCovered[0].imageUrls.forEach(addImage);
+    }
+
+    // 3. Day-by-day itinerary photos (essential for showing all tour places)
+    if (listing.itinerary && Array.isArray(listing.itinerary)) {
       listing.itinerary.forEach((day: any) => {
         if (day?.imageUrls && Array.isArray(day.imageUrls)) {
           day.imageUrls.forEach(addImage);
         } else if (day?.imageUrl) {
           addImage(day.imageUrl);
+        }
+      });
+    }
+
+    // 4. Any remaining photos from placesCovered
+    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
+      listing.placesCovered.forEach((place: any) => {
+        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
+          place.imageUrls.forEach(addImage);
         }
       });
     }

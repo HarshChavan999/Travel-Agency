@@ -101,7 +101,6 @@ import {
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
-import { getFirestore } from 'firebase/firestore';
 import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
 
 const BUYER_QUICK_REPLIES = [

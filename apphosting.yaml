@@ -26,4 +26,6 @@ env:
     value: tripdm-images
   - variable: R2_PUBLIC_URL
     value: https://pub-72f938952ddd47cc95bd3efcf3b9419c.r2.dev
+  - variable: NEXT_PUBLIC_CLARITY_PROJECT_ID
+    value: yclfyeguxu
 

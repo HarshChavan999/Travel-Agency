@@ -644,21 +644,6 @@ export default function AdminBlogPhotoManager({
         source: 'Wikimedia Commons',
         license: 'Current Cover Photo'
       };
-    } else {
-      const known = findKnownBlogPhotos(blog, topics);
-      if (known.length > 0) {
-        initialSelected = {
-          id: `matched-${blog.id}`,
-          title: `Matched Destination Photo`,
-          thumbUrl: known[0],
-          fullUrl: known[0],
-          width: 1200,
-          height: 675,
-          source: 'Wikimedia Commons',
-          license: 'Auto-Matched Landmark Photo'
-        };
-        showToast(`⚡ Pre-selected photo from matching destination`, 'info');
-      }
     }
 
     setSelectedImage(initialSelected);
@@ -752,10 +737,6 @@ export default function AdminBlogPhotoManager({
       });
 
       setWikiResults(results);
-
-      if (!hasPreselected && results.length > 0) {
-        setSelectedImage(results[0]);
-      }
     } catch (err: any) {
       console.error('Search error:', err);
       showToast('Error searching images. Please try another query keyword.', 'error');
