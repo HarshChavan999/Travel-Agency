@@ -895,10 +895,10 @@ export default function PackageDetailView({
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: '#ffffff', fontFamily: "var(--font-inter, 'Inter', sans-serif)" }}>
+    <div className="min-h-screen pb-36 md:pb-12" style={{ background: '#ffffff', fontFamily: "var(--font-inter, 'Inter', sans-serif)" }}>
 
       {/* ─── HERO IMAGE SECTION ─────────────────────────────────── */}
-      <div className="relative w-full" style={{ height: '520px' }}>
+      <div className="relative w-full h-[400px] sm:h-[460px] md:h-[520px]">
         {allImages.length > 0 ? (
           <div className="absolute inset-0 overflow-hidden">
             {allImages.length === 1 ? (
@@ -936,7 +936,7 @@ export default function PackageDetailView({
             {/* Gradient overlay with top white shadow gradient without black top shadow */}
             <div
               className="absolute inset-0 z-10 pointer-events-none"
-              style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 20%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.65) 100%)' }}
+              style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 20%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.75) 100%)' }}
             />
           </div>
         ) : (
@@ -946,44 +946,54 @@ export default function PackageDetailView({
         )}
 
         {/* Hero content overlay */}
-        <div className="relative z-20 h-full flex flex-col justify-between px-6 pt-6 pb-5 max-w-7xl mx-auto">
+        <div className="relative z-20 h-full flex flex-col justify-between px-3.5 sm:px-6 pt-3.5 sm:pt-6 pb-4 sm:pb-5 max-w-7xl mx-auto">
           {/* Top row: breadcrumb + action buttons */}
-          <div className="flex items-center justify-between">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-1.5 text-xs text-white/80">
-              <button onClick={onBack} className="hover:text-white transition-colors flex items-center gap-1">
-                <Home className="h-3.5 w-3.5" /> Home
-              </button>
-              {breadcrumb.slice(1).map((part, i) => (
-                <React.Fragment key={i}>
-                  <ChevronRight className="h-3 w-3 text-white/50" />
-                  <span className={i === breadcrumb.length - 2 ? 'text-white font-medium' : 'hover:text-white cursor-pointer transition-colors'}>{part}</span>
-                </React.Fragment>
-              ))}
-            </nav>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            {/* Breadcrumb (Desktop) & Back Button */}
+            <div className="flex items-center gap-3">
               <button
                 onClick={onBack}
-                className="flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
+                className="flex items-center gap-1.5 text-white bg-black/40 hover:bg-black/60 active:scale-95 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold transition-all border border-white/25 shadow-sm"
+                aria-label="Go back"
               >
-                <ArrowLeft className="h-3.5 w-3.5" /> Back
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back</span>
               </button>
+
+              <nav className="hidden md:flex items-center gap-1.5 text-xs text-white/80">
+                <button onClick={onBack} className="hover:text-white transition-colors flex items-center gap-1">
+                  <Home className="h-3.5 w-3.5" /> Home
+                </button>
+                {breadcrumb.slice(1).map((part, i) => (
+                  <React.Fragment key={i}>
+                    <ChevronRight className="h-3 w-3 text-white/50" />
+                    <span className={i === breadcrumb.length - 2 ? 'text-white font-medium' : 'hover:text-white cursor-pointer transition-colors'}>{part}</span>
+                  </React.Fragment>
+                ))}
+              </nav>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {!isPreview && (
                 <>
                   <button
                     onClick={handleShare}
-                    className="flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
+                    className="flex items-center justify-center gap-1.5 text-white bg-black/40 hover:bg-black/60 active:scale-90 backdrop-blur-md p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium transition-all border border-white/25 shadow-sm min-w-[34px] min-h-[34px]"
+                    title="Share"
+                    aria-label="Share package"
                   >
-                    <Share2 className="h-3.5 w-3.5" /> Share
+                    <Share2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Share</span>
                   </button>
                   <button
                     onClick={() => onWishlist?.(listing.id)}
-                    className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isWishlisted ? 'bg-red-500/80 text-white border-red-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
+                    className={`flex items-center justify-center gap-1.5 backdrop-blur-md p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium transition-all border active:scale-90 shadow-sm min-w-[34px] min-h-[34px] ${isWishlisted ? 'bg-red-500 text-white border-red-400' : 'text-white bg-black/40 hover:bg-black/60 border-white/25'}`}
+                    title={isWishlisted ? 'Saved' : 'Save'}
+                    aria-label={isWishlisted ? 'Saved to wishlist' : 'Save to wishlist'}
                   >
-                    <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
-                    {isWishlisted ? 'Saved' : 'Save'}
+                    <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current text-white' : ''}`} />
+                    <span className="hidden sm:inline">{isWishlisted ? 'Saved' : 'Save'}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -1028,10 +1038,12 @@ export default function PackageDetailView({
                         }
                       }
                     }}
-                    className={`flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${isInComparison(listing.id) ? 'bg-blue-500/80 text-white border-blue-400' : 'text-white/90 hover:text-white bg-black/30 hover:bg-black/50 border-white/20'}`}
+                    className={`flex items-center justify-center gap-1.5 backdrop-blur-md p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium transition-all border active:scale-90 shadow-sm min-w-[34px] min-h-[34px] ${isInComparison(listing.id) ? 'bg-blue-500 text-white border-blue-400' : 'text-white bg-black/40 hover:bg-black/60 border-white/25'}`}
+                    title={isInComparison(listing.id) ? 'Comparing' : 'Compare'}
+                    aria-label={isInComparison(listing.id) ? 'Comparing package' : 'Compare package'}
                   >
-                    <Scale className="h-3.5 w-3.5" />
-                    {isInComparison(listing.id) ? 'Comparing' : 'Compare'}
+                    <Scale className="h-4 w-4" />
+                    <span className="hidden sm:inline">{isInComparison(listing.id) ? 'Comparing' : 'Compare'}</span>
                   </button>
                 </>
               )}
@@ -1040,11 +1052,9 @@ export default function PackageDetailView({
 
           {/* Bottom: title, tags, image indicators */}
           <div>
-
-
             {/* Location Tagline (if custom title is present) */}
             {listing.title && locationName && (
-              <div className="text-[12px] font-bold uppercase tracking-widest text-orange-400 mb-2" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+              <div className="text-[11px] sm:text-[12px] font-bold uppercase tracking-widest text-orange-400 mb-1.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
                 {locationName}
               </div>
             )}
@@ -1054,16 +1064,16 @@ export default function PackageDetailView({
               const match = detailTitle.match(/^(.*?)\s*(\(.*?\))\s*$/);
               if (match && match[1] && match[2]) {
                 return (
-                  <div className="mb-3">
+                  <div className="mb-2.5 sm:mb-3">
                     <h1
-                      className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight"
-                      style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+                      className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight"
+                      style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.6)' }}
                     >
                       {match[1].trim()}
                     </h1>
                     <div
-                      className="text-lg md:text-2xl lg:text-3xl font-semibold text-white/95 mt-1.5 leading-snug tracking-wide"
-                      style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
+                      className="text-base sm:text-xl md:text-2xl lg:text-3xl font-semibold text-white/95 mt-1 leading-snug tracking-wide"
+                      style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
                     >
                       {match[2].trim()}
                     </div>
@@ -1072,8 +1082,8 @@ export default function PackageDetailView({
               }
               return (
                 <h1
-                  className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight"
-                  style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+                  className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2.5 sm:mb-3 leading-tight"
+                  style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)", textShadow: '0 2px 10px rgba(0,0,0,0.6)' }}
                 >
                   {detailTitle}
                 </h1>
@@ -1081,37 +1091,37 @@ export default function PackageDetailView({
             })()}
 
             {/* Places, duration, rating row */}
-            <div className="flex items-center flex-wrap gap-3 text-white/90 text-sm mb-4">
-              <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20 font-semibold" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>
-                <MapPin className="h-3.5 w-3.5" />
+            <div className="flex items-center flex-wrap gap-2 sm:gap-3 text-white/90 text-xs mb-3 sm:mb-4">
+              <span className="flex items-center gap-1.5 text-[11px] sm:text-xs bg-black/40 backdrop-blur-md px-2.5 sm:px-3 py-1 rounded-full border border-white/20 font-semibold" style={{ fontFamily: "var(--font-playfair, 'Playfair Display', Georgia, serif)" }}>
+                <MapPin className="h-3.5 w-3.5 text-orange-400" />
                 {getDisplayPlaces().join(' · ') || 'Multiple Destinations'}
               </span>
-              <span className="flex items-center gap-1.5 text-xs bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
+              <span className="flex items-center gap-1.5 text-[11px] sm:text-xs bg-black/40 backdrop-blur-md px-2.5 sm:px-3 py-1 rounded-full border border-white/20">
                 <Clock className="h-3.5 w-3.5" />
                 {duration}D / {nights}N
               </span>
               {!isPreview && reviewsData.totalReviewsCount > 0 && (
-                <span className="flex items-center gap-1.5 text-xs bg-amber-500/80 backdrop-blur-sm px-3 py-1 rounded-full border border-amber-400/50">
+                <span className="flex items-center gap-1.5 text-[11px] sm:text-xs bg-amber-500/90 backdrop-blur-md px-2.5 sm:px-3 py-1 rounded-full border border-amber-400/50 font-medium">
                   <Star className="h-3.5 w-3.5 fill-current" />
                   {reviewsData.avgRating.toFixed(1)} · {reviewsData.totalReviewsCount} reviews
                 </span>
               )}
             </div>
 
-            {/* Image dot indicators */}
+            {/* Image dot indicators & View All Photos button */}
             {allImages.length > 1 && (
               <div className="flex items-center gap-2">
-                {allImages.map((_, idx) => (
+                {allImages.slice(0, 6).map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleDotClick(idx)}
-                    className={`transition-all duration-300 rounded-full ${idx === displayImageIndex ? 'w-6 h-2 bg-white' : 'w-2 h-2 bg-white/50 hover:bg-white/75'}`}
+                    className={`transition-all duration-300 rounded-full ${idx === displayImageIndex ? 'w-5 sm:w-6 h-1.5 sm:h-2 bg-white' : 'w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/50 hover:bg-white/75'}`}
                   />
                 ))}
-                <span className="text-white/60 text-xs ml-2">{displayImageIndex + 1} / {allImages.length}</span>
+                <span className="text-white/75 text-[11px] sm:text-xs ml-1 font-medium">{displayImageIndex + 1}/{allImages.length}</span>
                 <button
                   onClick={() => setShowAllPhotos(true)}
-                  className="ml-auto flex items-center gap-1.5 text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium transition-all border border-white/20"
+                  className="ml-auto flex items-center gap-1.5 text-white bg-black/40 hover:bg-black/60 active:scale-95 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all border border-white/25 shadow-sm"
                 >
                   <Camera className="h-3.5 w-3.5" /> View All ({allImages.length})
                 </button>
@@ -1125,17 +1135,17 @@ export default function PackageDetailView({
           <>
             <button
               onClick={handlePrev}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full p-2.5 transition-all border border-white/30 hover:scale-110 cursor-pointer"
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 bg-black/35 hover:bg-black/60 active:scale-90 backdrop-blur-md text-white rounded-full p-1.5 sm:p-2.5 transition-all border border-white/30 shadow-md cursor-pointer"
               aria-label="Previous image"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <button
               onClick={handleNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full p-2.5 transition-all border border-white/30 hover:scale-110 cursor-pointer"
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 bg-black/35 hover:bg-black/60 active:scale-90 backdrop-blur-md text-white rounded-full p-1.5 sm:p-2.5 transition-all border border-white/30 shadow-md cursor-pointer"
               aria-label="Next image"
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </>
         )}
@@ -1357,14 +1367,10 @@ export default function PackageDetailView({
                       console.log('Chat with Agency button clicked in PackageDetailView, listing:', listing);
                       onChat(listing);
                     }}
-                    className="w-full flex items-center justify-center gap-2.5 text-white font-bold py-3 text-sm transition-all hover:opacity-95 active:scale-[0.99] cursor-pointer border border-amber-300/40"
-                    style={{
-                      background: 'linear-gradient(135deg, #fb923c 0%, #ea580c 50%, #b45309 100%)',
-                      fontFamily: "'DM Sans', sans-serif",
-                      borderRadius: '6px',
-                      boxShadow: '0 4px 18px rgba(234, 88, 12, 0.35)'
-                    }}
+                    className="btn-wavy-chat w-full flex items-center justify-center gap-2.5 text-white font-bold py-3 text-sm cursor-pointer border border-amber-300/40 rounded-lg shadow-lg"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
+                    <MessageCircle className="h-4 w-4 icon-wavy" />
                     <span>Chat with Agency</span>
                   </button>
                 )}
@@ -1723,10 +1729,79 @@ export default function PackageDetailView({
         )}
       </div>
 
-      {/* ─── SCROLL-TRIGGERED FLOATING CHAT POPUP WITH AGENCY LOGO ───────────────────── */}
+      {/* ─── PERSISTENT MOBILE BOTTOM BAR (OFFERED BY + CHAT WITH AGENCY) ─────────── */}
+      {!isPreview && (
+        <div className="fixed bottom-0 left-0 right-0 z-[140] md:hidden bg-white/95 backdrop-blur-md border-t border-stone-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.15)] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {/* Top Row: Agency info & Price */}
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-full border border-stone-200 overflow-hidden shrink-0 bg-orange-50 flex items-center justify-center shadow-xs">
+                {(listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl || listing.agencyLogo || listing.logoUrl) ? (
+                  <img
+                    src={listing.agencyData?.logoUrl || listing.agencyData?.agencyLogo || listing.agencyData?.avatarUrl || listing.agencyLogo || listing.logoUrl}
+                    alt={listing.agencyName || 'Agency Logo'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <Building2 className="h-4 w-4 text-orange-500" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span
+                  className="text-[9px] uppercase tracking-[0.14em] font-extrabold text-stone-400 leading-none block mb-0.5"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  Offered By
+                </span>
+                <span
+                  className="font-bold text-gray-900 text-xs sm:text-sm leading-tight truncate block"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  {listing.agencyName || 'Travel Agency'}
+                </span>
+              </div>
+            </div>
+
+            {displayPrice && (
+              <div className="text-right shrink-0">
+                <span className="text-sm font-extrabold text-orange-600 block leading-tight">
+                  {currencySymbol}{displayPrice}
+                </span>
+                <span className="text-[9px] text-stone-500 block leading-none font-medium">/ person</span>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Row: Full-width Chat with Agency Button with Wavy Animation */}
+          <button
+            onClick={() => {
+              event({
+                action: 'chat_agent_click',
+                category: 'chat',
+                label: listing.agencyName || listing.title || listing.id,
+              });
+              if (onChat) {
+                onChat(listing);
+              } else {
+                window.location.href = `/?action=chat&agencyId=${listing.agencyId || listing.userId}&agencyName=${encodeURIComponent(listing.agencyName || 'Travel Agency')}`;
+              }
+            }}
+            className="btn-wavy-chat w-full flex items-center justify-center gap-2 text-white font-bold py-3 px-4 text-sm border border-amber-300/40 cursor-pointer rounded-xl"
+            style={{
+              fontFamily: "'DM Sans', sans-serif"
+            }}
+          >
+            <MessageCircle className="h-4 w-4 shrink-0 icon-wavy" />
+            <span className="tracking-wide">Chat with Agency</span>
+          </button>
+        </div>
+      )}
+
+      {/* ─── DESKTOP SCROLL-TRIGGERED FLOATING CHAT POPUP WITH AGENCY LOGO ───────────────────── */}
       {!isPreview && onChat && (
         <div
-          className={`fixed bottom-6 right-6 z-[150] transition-all duration-500 ease-out ${
+          className={`hidden md:block fixed bottom-6 right-6 z-[150] transition-all duration-500 ease-out ${
             showStickyBar ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-12 opacity-0 scale-90 pointer-events-none'
           }`}
         >
@@ -1739,11 +1814,7 @@ export default function PackageDetailView({
               });
               onChat(listing);
             }}
-            className="group flex items-center gap-3 text-white p-2 pr-5 border border-amber-300/50 shadow-[0_10px_30px_rgba(234,88,12,0.45)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
-            style={{
-              background: 'linear-gradient(135deg, #fb923c 0%, #ea580c 50%, #9a3412 100%)',
-              borderRadius: '6px'
-            }}
+            className="btn-wavy-chat group flex items-center gap-3 text-white p-2 pr-5 border border-amber-300/50 shadow-[0_10px_30px_rgba(234,88,12,0.45)] backdrop-blur-xl cursor-pointer rounded-lg"
           >
             {/* Agency Logo Avatar */}
             <div className="w-10 h-10 rounded border-2 border-white/90 bg-white shrink-0 flex items-center justify-center shadow-md overflow-hidden" style={{ borderRadius: '6px' }}>
@@ -1766,7 +1837,7 @@ export default function PackageDetailView({
               </span>
               <span className="text-xs font-black text-white flex items-center gap-1.5 leading-snug drop-shadow-sm">
                 <span>Chat with Agency</span>
-                <MessageCircle className="h-3.5 w-3.5 text-amber-200 group-hover:translate-x-0.5 transition-transform" />
+                <MessageCircle className="h-3.5 w-3.5 text-amber-200 group-hover:translate-x-0.5 transition-transform icon-wavy" />
               </span>
             </div>
           </button>

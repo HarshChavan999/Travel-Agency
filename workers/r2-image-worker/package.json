@@ -1,0 +1,15 @@
+{
+  "name": "r2-image-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker that serves images from the tripdm-images R2 bucket",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "types": "wrangler types && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1"
+  }
+}

@@ -1,0 +1,23 @@
+name = "r2-image-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+account_id = "25254d18b4d4d8443dba762481b12ebb"
+workers_dev = true
+
+# Routes are not bound to a custom domain unless configured.
+# The worker will be served at https://r2-image-worker.<your-subdomain>.workers.dev
+# or can be customized via the `routes` key below.
+# routes = [
+#   { pattern = "r2-tripdm.harshsingh.workers.dev/*", custom_domain = true }
+# ]
+
+# Local development secrets can be placed in .dev.vars (git-ignored)
+# in this same directory, e.g.:
+#   R2_ACCESS_KEY_ID=...
+#   R2_SECRET_ACCESS_KEY=...
+
+# Production R2 binding used by the worker to fetch/serve images.
+# The worker serves every R2 object at https://r2-image-worker.<subdomain>.workers.dev/{path}.
+[[r2_buckets]]
+binding = "TRIPDM_IMAGES"
+bucket_name = "tripdm-images"

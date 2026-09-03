@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
           metaDescription: fields.metaDescription?.stringValue || '',
           readTime: fields.readTime?.stringValue || '5 min read',
           content: fields.content?.stringValue || '',
+          photoPlaces: fields.photoPlaces?.arrayValue?.values?.map((v: any) => v.stringValue) || [],
         };
       });
 
@@ -130,6 +131,11 @@ export async function POST(request: NextRequest) {
         tags: {
           arrayValue: {
             values: (blogData.tags || []).map((tag: string) => ({ stringValue: tag })),
+          },
+        },
+        photoPlaces: {
+          arrayValue: {
+            values: (blogData.photoPlaces || []).map((p: string) => ({ stringValue: p })),
           },
         },
         author: { stringValue: blogData.author || 'TripDM Team' },
