@@ -22,7 +22,9 @@ import AuthModal from '@/components/AuthModal';
 import FilterSidebar from '@/components/FilterSidebar';
 import UserProfile from '@/components/UserProfile';
 import AdminCouponManagement from '@/components/AdminCouponManagement';
-import AdminDestinationStories from '@/components/AdminDestinationStories';
+
+import AdminItineraryPhotoManager from '@/components/AdminItineraryPhotoManager';
+import AdminBlogPhotoManager from '@/components/AdminBlogPhotoManager';
 import CheckoutModal from '@/components/CheckoutModal';
 import LandingDiscovery from '@/components/LandingDiscovery';
 import { useComparison } from '@/contexts/ComparisonContext';
@@ -93,7 +95,9 @@ import {
   Briefcase,
   Menu,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Image as ImageIcon,
+  BookOpen
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
@@ -399,6 +403,42 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
   const [chatSearchQuery, setChatSearchQuery] = useState<string>('');
   const [listings, setListings] = useState<any[]>(initialListings);
+
+  // ─── Admin Photo Manager helpers (merged from stash) ────────────────
+  const adminMissingItineraryPhotosCount = useMemo(() => {
+    let count = 0;
+    listings.forEach((pkg: any) => {
+      if (Array.isArray(pkg.itinerary)) {
+        pkg.itinerary.forEach((day: any) => {
+          const hasPhoto = !!(
+            (Array.isArray(day.imageUrls) && day.imageUrls.length > 0 && day.imageUrls[0]) ||
+            day.imageUrl
+          );
+          if (!hasPhoto) count++;
+        });
+      }
+    });
+    return count;
+  }, [listings]);
+
+  const [adminBlogs, setAdminBlogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (userData?.role === 'admin') {
+      fetch('/api/blog?all=true')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data.blogs)) {
+            setAdminBlogs(data.blogs);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [userData?.role]);
+
+  const adminMissingBlogPhotosCount = useMemo(() => {
+    return adminBlogs.filter((b: any) => !b.coverImage || b.coverImage.trim() === '').length;
+  }, [adminBlogs]);
   const [agencyListings, setAgencyListings] = useState<any[]>([]);
   const [newListing, setNewListing] = useState({
     title: '',
@@ -2772,6 +2812,40 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   <MessageSquare className="h-4 w-4" /> All Chats
                 </button>
                 <button
+                  onClick={() => setActiveSection('itinerary_photos')}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-between ${activeSection === 'itinerary_photos'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <ImageIcon className="h-4 w-4 text-indigo-500" />
+                    <span>Itinerary Photos</span>
+                  </div>
+                  {adminMissingItineraryPhotosCount > 0 && (
+                    <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">
+                      {adminMissingItineraryPhotosCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveSection('blog_photos')}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-between ${activeSection === 'blog_photos'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="h-4 w-4 text-blue-600" />
+                    <span>Blog Photos</span>
+                  </div>
+                  {adminMissingBlogPhotosCount > 0 && (
+                    <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">
+                      {adminMissingBlogPhotosCount}
+                    </span>
+                  )}
+                </button>
+                <button
                   onClick={() => setActiveSection('coupons')}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'coupons'
                       ? 'bg-blue-50 text-blue-700'
@@ -2780,15 +2854,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 >
                   <Tag className="h-4 w-4 text-orange-500" /> Coupons &amp; Discounts
                 </button>
-                <button
-                  onClick={() => setActiveSection('destination-stories')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${activeSection === 'destination-stories'
-                      ? 'bg-indigo-50 text-indigo-700 font-bold'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  <Sparkles className="h-4 w-4 text-indigo-600" /> Destination Stories AI
-                </button>
+
               </div>
             </nav>
           </div>
@@ -2805,8 +2871,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 {activeSection === 'manage_packages' && 'Manage Packages'}
                 {activeSection === 'settings' && 'Settings'}
                 {activeSection === 'chats' && 'All Chats'}
+                {activeSection === 'itinerary_photos' && 'Itinerary Photo Manager'}
+                {activeSection === 'blog_photos' && 'Blog Photo Manager'}
                 {activeSection === 'coupons' && 'Coupon & Discount Management'}
-                {activeSection === 'destination-stories' && 'Destination Stories AI Generator'}
+
               </h1>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">Welcome, {userData.name}</span>
@@ -3778,8 +3846,30 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             })()}
 
               {activeSection === 'chats' && <AdminChatViewer />}
+              {activeSection === 'itinerary_photos' && (
+                <AdminItineraryPhotoManager
+                  initialListings={listings}
+                  allAgencies={allAgencies}
+                  onListingUpdated={(updatedPkg) => {
+                    setListings((prev: any[]) =>
+                      prev.map((l: any) => (l.id === updatedPkg.id ? { ...l, ...updatedPkg } : l))
+                    );
+                  }}
+                />
+              )}
+              {activeSection === 'blog_photos' && (
+                <AdminBlogPhotoManager
+                  initialBlogs={adminBlogs}
+                  initialListings={listings}
+                  onBlogUpdated={(updatedBlog) => {
+                    setAdminBlogs((prev: any[]) =>
+                      prev.map((b: any) => (b.id === updatedBlog.id ? { ...b, ...updatedBlog } : b))
+                    );
+                  }}
+                />
+              )}
               {activeSection === 'coupons' && <AdminCouponManagement />}
-              {activeSection === 'destination-stories' && <AdminDestinationStories packages={listings} />}
+
               {activeSection === 'settings' && (
                 <div className="space-y-6">
                   <Card>
@@ -4516,7 +4606,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             }`}
             id="user-dashboard-scroll-container"
           >
-            <main className={`${(userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'chat' || userActiveSection === 'listings') ? 'w-full max-w-[1600px] mx-auto px-4 sm:px-8' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 h-full' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
+            <main className={`${userActiveSection === 'chat' ? 'w-full h-full flex-1 flex flex-col min-h-0 !p-0 !max-w-none' : (userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'listings') ? 'w-full max-w-[1600px] mx-auto px-4 sm:px-8' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? '' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
               {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && userActiveSection !== 'chat' && (
                 <div className="mb-6 mt-6 px-6 max-w-7xl mx-auto flex justify-between items-center border-b pb-4 border-gray-200">
@@ -7001,7 +7091,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   {agencyActiveSection === 'chat' && (
                     <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 min-w-0 w-full mb-6">
                       {/* Left Column: Conversations List */}
-                      <div className="w-full md:w-80 flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full">
+                      <div className={`w-full md:w-80 flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                         {/* Sidebar Header */}
                         <div className="p-4 border-b border-gray-150 bg-white shrink-0">
                           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -7093,7 +7183,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       </div>
 
                       {/* Right Column: Chat Content */}
-                      <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px] min-w-0 overflow-hidden">
+                      <div className={`flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px] min-w-0 overflow-hidden ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                         {selectedConversation ? (
                           <div className="flex flex-col h-full relative min-w-0 overflow-hidden">
                             {/* Conversation Header */}
@@ -7105,13 +7195,26 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 : null;
 
                               return (
-                                <div className="px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner">
+                                <div className="px-4 md:px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    {/* Mobile Back Button */}
+                                    <button
+                                      onClick={() => {
+                                        hasManuallyClosedChatRef.current = true;
+                                        setSelectedConversation(null);
+                                      }}
+                                      className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors flex items-center gap-1 font-semibold text-xs"
+                                      aria-label="Back to conversations"
+                                    >
+                                      <ChevronLeft className="h-4 w-4" />
+                                      <span className="hidden xs:inline">Back</span>
+                                    </button>
+
+                                    <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner shrink-0">
                                       {selectedConversation.userName ? selectedConversation.userName.slice(0, 2).toUpperCase() : 'US'}
                                     </div>
                                     <div>
-                                      <h4 className="font-bold text-xs text-gray-900">{selectedConversation.userName}</h4>
+                                      <h4 className="font-bold text-xs text-gray-900 truncate max-w-[140px] sm:max-w-none">{selectedConversation.userName}</h4>
                                       <span className="text-[9px] text-gray-500 font-medium flex items-center gap-2 mt-0.5">
                                         <span>Customer ID: {selectedConversation.userId.slice(0, 8)}</span>
                                         {daysRemaining !== null && (

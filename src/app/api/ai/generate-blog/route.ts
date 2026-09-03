@@ -313,6 +313,17 @@ Return ONLY a valid JSON object matching this schema:
 
   "callToAction": "Clear CTA paragraph inviting readers to customize their dream holiday with verified local operators on TripDM: https://tripdm.com",
   "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"],
+
+  "photoPlaces": [
+    "Specific photogenic landmark 1 (e.g. Kedarnath Temple Uttarakhand, Betaab Valley, Nainital Lake)",
+    "Specific photogenic landmark 2 (e.g. Mandakini River, Kempty Falls, Pangong Lake)",
+    "Specific photogenic landmark 3",
+    "Specific photogenic landmark 4",
+    "Specific photogenic landmark 5"
+  ],
+
+  "photoPlacesGuidance": "CRITICAL: If the blog is an advice, booking, packing, comparison, or travel tips article WITHOUT physical geographical tourist attractions, DO NOT output random English dictionary words or guide sentences. Instead, return clean curated aesthetic travel concepts like ['Travel Planning', 'Airplane Travel', 'Travel Luggage', 'Vacation Planning'] or an empty array [].",
+
   "relatedTopics": ["Related Topic Guide 1", "Related Topic Guide 2", "Related Topic Guide 3"]
 }
 
@@ -379,6 +390,7 @@ NOW GENERATE THE COMPLETE, ULTRA-HIGH-QUALITY JSON FOR: "${topic}"
         tags: fullData.tags || [],
         metaTitle: fullData.seo?.title || '',
         metaDescription: fullData.seo?.metaDescription || '',
+        photoPlaces: Array.isArray(fullData.photoPlaces) ? fullData.photoPlaces : (fullData.imageSearchQueries || []),
         _richData: fullData,
       };
 

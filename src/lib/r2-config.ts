@@ -9,15 +9,15 @@ const requiredVars = [
 const missingVars = requiredVars.filter((varName) => !process.env[varName]);
 
 if (missingVars.length > 0) {
-  throw new Error(
-    `❌ R2 configuration error: Missing environment variable(s): ${missingVars.join(', ')}. ` +
+  console.warn(
+    `⚠️ R2 configuration warning: Missing environment variable(s): ${missingVars.join(', ')}. ` +
     `These must be set in the production environment (deploy.sh / apphosting.yaml).`
   );
 }
 
-export const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
-export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID!;
-export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY!;
+export const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
+export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
+export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
 export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'tripdm-images';
 export const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://r2-tripdm.harshsingh.workers.dev';
 

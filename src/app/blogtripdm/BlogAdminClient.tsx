@@ -435,6 +435,7 @@ export default function BlogAdminClient() {
         blogData.schema = JSON.stringify(aiRichData.schema || {});
         blogData.relatedTopics = aiRichData.relatedTopics || [];
         blogData.tableOfContents = aiRichData.article?.tableOfContents || [];
+        blogData.photoPlaces = aiRichData.photoPlaces || aiRichData.imageSearchQueries || [];
       }
 
       const docRef = doc(db, 'blogs', docId);
@@ -876,6 +877,7 @@ Auli Snowfall & Skiing Guide | auli ropeway, best snowfall month, cost | https:/
               blogData.schema = JSON.stringify(richData.schema || {});
               blogData.relatedTopics = richData.relatedTopics || [];
               blogData.tableOfContents = richData.article?.tableOfContents || [];
+              blogData.photoPlaces = richData.photoPlaces || richData.imageSearchQueries || d?.photoPlaces || [];
             }
 
             await setDoc(doc(db, 'blogs', docId), blogData, { merge: true });

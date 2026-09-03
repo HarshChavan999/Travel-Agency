@@ -43,3 +43,9 @@ next-env.d.ts
 # firebase admin keys
 /firebase-admin-key*.json
 /travel-agent-management-*.json
+
+# cloudflare / wrangler
+.wrangler/
+.dev.vars
+workers/**/.dev.vars
+workers/**/node_modules/

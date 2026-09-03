@@ -8,7 +8,13 @@
     "build": "next build",
     "start": "next start",
     "start:custom": "NODE_ENV=production node server.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "worker:dev": "wrangler dev --config workers/r2-image-worker/wrangler.toml",
+    "worker:deploy": "wrangler deploy --config workers/r2-image-worker/wrangler.toml",
+    "worker:tail": "wrangler tail --config workers/r2-image-worker/wrangler.toml",
+    "worker:types": "wrangler types --config workers/r2-image-worker/wrangler.toml && tsc --noEmit --project workers/r2-image-worker/tsconfig.json",
+    "r2:list": "wrangler r2 bucket list",
+    "delete-odisha-images": "node scripts/delete-odisha-package-images.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
@@ -52,6 +58,7 @@
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tw-animate-css": "^1.4.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.128.0"
   }
 }
