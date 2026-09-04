@@ -257,10 +257,10 @@ export default function LandingDiscovery({
 
                 <div
                   id={`rail-${sec.id}`}
-                  className="flex gap-6 overflow-x-auto pb-4 pt-1 scrollbar-hide snap-x scroll-smooth w-full"
+                  className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 pt-1 scrollbar-hide snap-x snap-mandatory scroll-smooth w-full"
                 >
                   {sec.listings.map((pkg) => (
-                    <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0 flex flex-col h-full self-stretch">
+                    <div key={pkg.id} className="w-full min-w-full sm:w-[calc(50%-12px)] sm:min-w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] lg:min-w-[calc(33.333%-16px)] snap-start shrink-0 flex flex-col h-full self-stretch">
                       <ListingCard
                         listing={pkg}
                         onView={onView}
@@ -313,6 +313,18 @@ export default function LandingDiscovery({
             const heroDest = destinations[0];
             const otherDests = destinations.slice(1);
 
+            const currentRegionIndex = regionalDestinations.findIndex((g) => g.id === activeGroup.id);
+            const hasPrev = currentRegionIndex > 0;
+            const hasNext = currentRegionIndex < regionalDestinations.length - 1;
+            const prevRegion = hasPrev ? regionalDestinations[currentRegionIndex - 1] : null;
+            const nextRegion = hasNext ? regionalDestinations[currentRegionIndex + 1] : null;
+
+            // Representative package cover image from this active region
+            const bannerImage =
+              heroDest?.coverImage ||
+              destinations.find((d) => d.coverImage)?.coverImage ||
+              null;
+
             return (
               <section className="py-10 px-4 sm:px-8 lg:px-12 w-full max-w-[1600px] mx-auto border-b border-slate-100">
                 {/* Section Header */}
@@ -325,20 +337,117 @@ export default function LandingDiscovery({
                   </p>
                 </div>
 
-                {/* Region Selector Simple Text Tabs */}
-                <div className="flex items-center justify-start sm:justify-center gap-6 sm:gap-8 overflow-x-auto pb-1 pt-1 scrollbar-hide mb-8 w-full border-b border-slate-100">
+                {/* Mobile: Elegant Slightly Faded Package Image Banner with Big Region Text & Navigation Arrow */}
+                <div className="sm:hidden relative w-full rounded-2xl overflow-hidden mb-6 shadow-md border border-slate-200/80 bg-slate-950 transition-all duration-500">
+                  {/* Package background photo */}
+                  {bannerImage ? (
+                    <img
+                      src={bannerImage}
+                      alt={activeGroup.label}
+                      className="absolute inset-0 w-full h-full object-cover opacity-75 transition-all duration-700"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950" />
+                  )}
+
+                  {/* Elegant fade gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/40 backdrop-blur-[1px]" />
+
+                  {/* Banner Content */}
+                  <div className="relative z-10 p-5 flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-sm">{activeGroup.icon}</span>
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-400">
+                          {activeGroup.totalPackages > 0 ? `${activeGroup.totalPackages} Packages` : 'Region'}
+                        </span>
+                      </div>
+                      <h3
+                        className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md leading-tight"
+                        style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}
+                      >
+                        {activeGroup.label}
+                      </h3>
+                      <p className="text-[11px] text-slate-300/90 font-medium mt-0.5 truncate max-w-[210px]">
+                        {activeGroup.subtitle || 'Handpicked holiday destinations'}
+                      </p>
+                    </div>
+
+                    {/* Navigation: Right arrow (and left) with boundary checks (no left on 1st, no right on last) */}
+                    {regionalDestinations.length > 1 && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {hasPrev && prevRegion && (
+                          <button
+                            onClick={() => setActiveRegionId(prevRegion.id)}
+                            aria-label={`Previous region: ${prevRegion.label}`}
+                            className={!hasNext
+                              ? "flex items-center gap-1.5 pl-2 pr-3 py-1.5 rounded-full bg-white/25 hover:bg-white/35 active:scale-95 text-white backdrop-blur-md border border-white/30 font-bold text-xs shadow-md transition-all cursor-pointer group"
+                              : "w-8 h-8 rounded-full bg-black/35 hover:bg-black/55 active:scale-90 text-white backdrop-blur-md border border-white/20 flex items-center justify-center transition-all cursor-pointer shadow-xs"
+                            }
+                          >
+                            <div className={!hasNext ? "w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-xs group-hover:-translate-x-0.5 transition-transform" : ""}>
+                              <ChevronLeft className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+                            {!hasNext && (
+                              <span className="text-[11px] font-bold text-white tracking-wide max-w-[130px] truncate">
+                                {prevRegion.label}
+                              </span>
+                            )}
+                          </button>
+                        )}
+
+                        {hasNext && nextRegion && (
+                          <button
+                            onClick={() => setActiveRegionId(nextRegion.id)}
+                            aria-label={`Next region: ${nextRegion.label}`}
+                            className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-white/25 hover:bg-white/35 active:scale-95 text-white backdrop-blur-md border border-white/30 font-bold text-xs shadow-md transition-all cursor-pointer group"
+                          >
+                            <span className="text-[11px] font-bold text-white tracking-wide max-w-[130px] truncate">
+                              {nextRegion.label}
+                            </span>
+                            <div className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-transform">
+                              <ChevronRight className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Region Progress Indicator Dots */}
+                  {regionalDestinations.length > 1 && (
+                    <div className="relative z-10 px-5 pb-3 flex items-center gap-1.5">
+                      {regionalDestinations.map((r, idx) => (
+                        <button
+                          key={r.id}
+                          onClick={() => setActiveRegionId(r.id)}
+                          className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                            idx === currentRegionIndex
+                              ? 'w-6 bg-orange-400'
+                              : 'w-1.5 bg-white/30 hover:bg-white/50'
+                          }`}
+                          aria-label={`Go to ${r.label}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop: Classic Underlined Text Tabs */}
+                <div className="hidden sm:flex items-center justify-center gap-6 sm:gap-8 overflow-x-auto pb-1 pt-1 scrollbar-hide mb-8 w-full border-b border-slate-100">
                   {regionalDestinations.map((group) => {
                     const isActive = activeRegionId === group.id;
                     return (
                       <button
                         key={group.id}
                         onClick={() => setActiveRegionId(group.id)}
-                        className={`pb-3 text-sm sm:text-base font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 relative ${
+                        className={`pb-3 text-sm sm:text-base font-bold transition-all duration-200 cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 relative ${
                           isActive
                             ? 'text-slate-900 font-black'
                             : 'text-slate-400 hover:text-slate-700'
                         }`}
                       >
+                        <span className="text-base">{group.icon}</span>
                         <span>{group.label}</span>
                         {isActive && (
                           <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-orange-500 rounded-full" />
@@ -374,8 +483,8 @@ export default function LandingDiscovery({
 
                         {/* Top Badges */}
                         <div className="relative z-10 flex items-center justify-between gap-2">
-                          <span className="bg-orange-500 text-white text-[11px] font-black px-3 py-1 rounded-full shadow-xs flex items-center gap-1">
-                            <span>🔥 Most Popular in {activeGroup.shortLabel}</span>
+                          <span className="bg-orange-500 text-white text-[11px] font-black px-3 py-1 rounded-full shadow-xs flex items-center gap-1 shrink-0 whitespace-nowrap">
+                            <span>🔥 Most Popular</span>
                           </span>
                           <span className="bg-slate-900/80 backdrop-blur-md text-white text-xs font-black px-3 py-1 rounded-full border border-white/20 shadow-xs">
                             {heroDest.packageCount} {heroDest.packageCount === 1 ? 'Package' : 'Packages'}
@@ -881,10 +990,10 @@ export default function LandingDiscovery({
 
           <div
             id={`rail-${rail.id}`}
-            className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x scroll-smooth w-full"
+            className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory scroll-smooth w-full"
           >
             {rail.listings.map((pkg) => (
-              <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0 flex flex-col h-full self-stretch">
+              <div key={pkg.id} className="w-full min-w-full sm:w-[calc(50%-12px)] sm:min-w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] lg:min-w-[calc(33.333%-16px)] snap-start shrink-0 flex flex-col h-full self-stretch">
                 <ListingCard
                   listing={pkg}
                   onView={onView}
@@ -935,10 +1044,10 @@ export default function LandingDiscovery({
 
           <div
             id="rail-recently-added"
-            className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x scroll-smooth w-full"
+            className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory scroll-smooth w-full"
           >
             {recentlyAdded.map((pkg) => (
-              <div key={pkg.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-[350px] max-w-[380px] snap-start shrink-0 flex flex-col h-full self-stretch">
+              <div key={pkg.id} className="w-full min-w-full sm:w-[calc(50%-12px)] sm:min-w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] lg:min-w-[calc(33.333%-16px)] snap-start shrink-0 flex flex-col h-full self-stretch">
                 <ListingCard
                   listing={pkg}
                   onView={onView}
