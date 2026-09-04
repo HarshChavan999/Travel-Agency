@@ -4153,16 +4153,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                   {/* Direct Agency Portal Redirect Card for Mobile Drawer */}
                   {user && userData && userData.role === 'agency' && (
-                    <div className="mt-3 pt-3 border-t border-amber-500/20">
+                    <div className="mt-3 pt-3 border-t border-gray-200">
                       <a
                         href="/agencytripdm"
-                        className="w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-[0.98]"
+                        className="w-full flex items-center justify-between p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-semibold transition-all"
                       >
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4" />
+                          <Building2 className="h-4 w-4 text-gray-600" />
                           <span>Go to Agency Portal</span>
                         </div>
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
                       </a>
                     </div>
                   )}
@@ -4502,12 +4502,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     {userData.role === 'agency' && (
                       <a
                         href="/agencytripdm"
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-sm hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5 shrink-0"
+                        className="cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 text-gray-800 hover:text-gray-900 hover:opacity-80 shrink-0"
                         title="Go to Agency Portal"
                       >
-                        <Building2 className="h-3.5 w-3.5" />
+                        <Building2 className="h-4 w-4 text-gray-600" />
                         <span>Agency Portal</span>
-                        <ChevronRight className="h-3 w-3" />
                       </a>
                     )}
                     {userData.role === 'admin' && (
@@ -4654,10 +4653,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     {userData.role === 'agency' && (
                       <a
                         href="/agencytripdm"
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm transition-all shrink-0"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200 transition-all shrink-0"
                         title="Go to Agency Portal"
                       >
-                        <Building2 className="h-3.5 w-3.5" />
+                        <Building2 className="h-3.5 w-3.5 text-gray-600" />
                         <span>Portal</span>
                       </a>
                     )}
@@ -6780,10 +6779,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 <div className="pt-2 mt-2 border-t border-gray-100">
                   <a
                     href="/"
-                    className="w-full text-left px-3 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-3 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                    className="w-full text-left px-3 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                     title="Navigate back to Landing Page"
                   >
-                    <Globe className="h-4 w-4 text-orange-500" />
+                    <Globe className="h-4 w-4 text-gray-500" />
                     <span>Back to Website</span>
                   </a>
                 </div>
@@ -6837,11 +6836,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               <div className="flex items-center space-x-4">
                 <a
                   href="/"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800 border border-orange-200 shadow-sm transition-all duration-150"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 border border-gray-200 shadow-sm transition-all"
                   title="View Landing Page Website"
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  <Globe className="h-3.5 w-3.5 text-orange-500" />
+                  <ArrowLeft className="h-3.5 w-3.5 text-gray-500" />
+                  <Globe className="h-3.5 w-3.5 text-gray-500" />
                   <span>Back to Website</span>
                 </a>
                 <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData?.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>

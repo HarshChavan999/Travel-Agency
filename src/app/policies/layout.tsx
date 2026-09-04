@@ -376,9 +376,9 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
                 {userData.role === 'agency' && (
                   <a
                     href="/agencytripdm"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-sm transition-all"
+                    className="cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 text-gray-800 hover:text-gray-900 hover:opacity-80 shrink-0"
                   >
-                    <Briefcase className="h-3.5 w-3.5" />
+                    <Briefcase className="h-4 w-4 text-gray-600" />
                     <span>Agency Portal</span>
                   </a>
                 )}

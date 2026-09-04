@@ -99,31 +99,31 @@ export const REGION_METADATA: Record<string, { label: string; shortLabel: string
   north: {
     label: 'North India',
     shortLabel: 'North India',
-    icon: '🏔️',
+    icon: '',
     subtitle: 'Himalayas, Royal Heritage & Mountain Valleys',
   },
   south: {
     label: 'South India',
     shortLabel: 'South India',
-    icon: '🌴',
+    icon: '',
     subtitle: 'Serene Backwaters, Ancient Temples & Coastlines',
   },
   east_northeast: {
     label: 'East & North-East India',
     shortLabel: 'East & North-East India',
-    icon: '🌿',
+    icon: '',
     subtitle: 'Lush Hills, Living Roots, Tea Gardens & Culture',
   },
   west_central: {
     label: 'West & Central India',
     shortLabel: 'West & Central India',
-    icon: '🏰',
+    icon: '',
     subtitle: 'Historic Forts, Wildlife Safaris & Coastal Escapes',
   },
   international: {
     label: 'International',
     shortLabel: 'International',
-    icon: '✈️',
+    icon: '',
     subtitle: 'Iconic Global Getaways, Tropical Islands & Wonders',
   },
 };

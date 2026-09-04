@@ -282,16 +282,18 @@ export default function PackageClientView({ listing }: { listing: any }) {
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-300" />
                 </a>
-                <a
-                  href="/agencytripdm"
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                >
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="h-4 w-4 text-indigo-500" />
-                    <span>For Travel Agencies</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-slate-300" />
-                </a>
+                {userData?.role === 'agency' && (
+                  <a
+                    href="/agencytripdm"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Briefcase className="h-4 w-4 text-slate-500" />
+                      <span>For Travel Agencies</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-300" />
+                  </a>
+                )}
                 <a
                   href="/policies/conditions-of-use"
                   className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
@@ -358,9 +360,9 @@ export default function PackageClientView({ listing }: { listing: any }) {
                 {userData.role === 'agency' && (
                   <a
                     href="/agencytripdm"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-sm transition-all"
+                    className="cursor-pointer transition-all text-xs font-semibold flex items-center gap-1.5 text-slate-700 hover:text-slate-900 px-2.5 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
                   >
-                    <Briefcase className="h-3.5 w-3.5" />
+                    <Briefcase className="h-3.5 w-3.5 text-slate-500" />
                     <span className="hidden sm:inline">Agency Portal</span>
                   </a>
                 )}

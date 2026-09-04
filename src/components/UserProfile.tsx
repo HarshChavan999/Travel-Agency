@@ -163,10 +163,10 @@ export default function UserProfile({
                   {userData?.role === 'agency' && (
                     <a
                       href="/agencytripdm"
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold rounded-full shadow-md transition-all hover:scale-105"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-full border border-white/20 backdrop-blur-xs transition-all"
                     >
-                      <Briefcase className="w-3.5 h-3.5" />
-                      <span>Open Agency Dashboard →</span>
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Agency Portal →</span>
                     </a>
                   )}
                  </div>
@@ -188,13 +188,13 @@ export default function UserProfile({
                 <div>
                   <a
                     href="/agencytripdm"
-                    className="w-full flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs shadow-md transition-all duration-200"
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-sm text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200 transition-all duration-200"
                   >
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="w-4 h-4" />
-                      <span>Go to Agency Portal</span>
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-5 h-5 text-slate-500" />
+                      <span>Agency Portal</span>
                     </div>
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
                   </a>
                 </div>
               )}
@@ -322,35 +322,6 @@ export default function UserProfile({
                     <Button onClick={handleSaveProfile} disabled={savingProfile} className="rounded-sm font-bold px-8 bg-orange-400 hover:bg-orange-500 text-white border-none shadow-md">
                       {savingProfile ? 'Saving...' : 'Save Changes'}
                     </Button>
-                  </div>
-                )}
-
-                {/* Agency Partner Account Section (Only visible to verified agencies) */}
-                {userData?.role === 'agency' && (
-                  <div className="mt-8 pt-6 border-t border-gray-100">
-                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-5 border border-orange-200/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-3.5">
-                        <div className="p-2.5 bg-orange-500 text-white rounded-lg shadow-sm shrink-0">
-                          <Briefcase className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-sm text-gray-900">
-                            Travel Agency Partner Account
-                          </h4>
-                          <p className="text-xs text-gray-600 mt-0.5 max-w-md">
-                            Manage your travel packages, respond to travelers, and review booking leads directly in your agency portal.
-                          </p>
-                        </div>
-                      </div>
-                      <a
-                        href="/agencytripdm"
-                        className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all shrink-0 flex items-center gap-1.5"
-                      >
-                        <Building2 className="w-4 h-4" />
-                        <span>Open Agency Portal</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </a>
-                    </div>
                   </div>
                 )}
               </div>
