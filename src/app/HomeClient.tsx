@@ -2723,17 +2723,41 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     await register(emailArg, passwordArg, role, data);
   };
 
-  if (loading) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+  if (loading || (user && !userData)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs text-slate-500 font-medium">Loading Agency Portal...</p>
+        </div>
+      </div>
+    );
   }
 
-  // For admin/agency routes, force login immediately if not authenticated
+  // For admin routes, force login immediately if not authenticated
   if (!user && routeMode === 'admin') {
     return <AdminLoginView />;
   }
   
+  // For agency routes, force login immediately if not authenticated
   if (!user && routeMode === 'agency') {
     return <AgencyLoginView />;
+  }
+
+  // If user navigated to Agency Portal with authenticated account, ensure agency role is active in Firestore
+  if (routeMode === 'agency' && user && userData && userData.role !== 'agency' && userData.role !== 'admin') {
+    const dbInstance = getDbInstance();
+    if (dbInstance) {
+      updateDoc(doc(dbInstance, 'users', user.uid), {
+        role: 'agency',
+        approved: true,
+        companyName: userData.companyName || userData.name || 'Travel Agency',
+        phone: userData.phone || userData.contactNumber || '',
+        plan: userData.plan || 'free',
+        credits: userData.credits ?? 0,
+        freeChats: userData.freeChats ?? 2,
+      }).catch(console.error);
+    }
   }
 
   if (user && userData) {
@@ -2859,6 +2883,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   <Tag className="h-4 w-4 text-orange-500" /> Coupons &amp; Discounts
                 </button>
 
+                <div className="pt-2 mt-2 border-t border-gray-100">
+                  <a
+                    href="/"
+                    className="w-full text-left px-3 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-3 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    title="Navigate to Landing Page"
+                  >
+                    <Globe className="h-4 w-4 text-blue-500" />
+                    <span>View Website</span>
+                  </a>
+                </div>
               </div>
             </nav>
           </div>
@@ -2881,6 +2915,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
               </h1>
               <div className="flex items-center space-x-4">
+                <a
+                  href="/"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition-all shadow-sm"
+                  title="View Landing Page Website"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <Globe className="h-3.5 w-3.5 text-blue-500" />
+                  <span>View Website</span>
+                </a>
                 <span className="text-sm text-gray-600">Welcome, {userData.name}</span>
                 <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
               </div>
@@ -4030,9 +4073,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     }
   }
 
-  // User Dashboard — render publicly for routeMode='user' (no login required)
-  // Also renders when logged in as a user role
-  if (routeMode === 'user' || (user && userData?.role === 'user')) {
+  // User Dashboard — render ONLY when routeMode='user' or default public browsing (not on agency/admin portal routes)
+  if (routeMode === 'user' || (!routeMode && userData?.role !== 'agency' && userData?.role !== 'admin')) {
       const showHeaderSearch = isScrolled || (userActiveSection !== 'listings' || !!viewingListing || showBookingForm || showComparison);
       return (
         <div className={`flex flex-col bg-white ${userActiveSection === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
@@ -4107,6 +4149,37 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       >
                         <User className="h-4 w-4 mr-1.5" /> Sign In / Register
                       </Button>
+                    </div>
+                  )}
+
+                  {/* Direct Agency Portal Redirect Card for Mobile Drawer */}
+                  {user && userData && userData.role === 'agency' && (
+                    <div className="mt-3 pt-3 border-t border-amber-500/20">
+                      <a
+                        href="/agencytripdm"
+                        className="w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-[0.98]"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          <span>Go to Agency Portal</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4" />
+                      </a>
+                    </div>
+                  )}
+
+                  {user && userData && userData.role === 'admin' && (
+                    <div className="mt-3 pt-3 border-t border-slate-200">
+                      <a
+                        href="/admin"
+                        className="w-full flex items-center justify-between p-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-md transition-all"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          <span>Go to Admin Dashboard</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4" />
+                      </a>
                     </div>
                   )}
                 </div>
@@ -4282,11 +4355,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </a>
                     <a
                       href="/agencytripdm"
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                        userData?.role === 'agency'
+                          ? 'bg-orange-50 text-orange-600 font-bold border border-orange-200'
+                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
                     >
                       <div className="flex items-center gap-3">
-                        <Briefcase className="h-4 w-4 text-indigo-500" />
-                        <span>For Travel Agencies</span>
+                        <Briefcase className="h-4 w-4 text-orange-500" />
+                        <span>{userData?.role === 'agency' ? 'Agency Portal Dashboard' : 'For Travel Agencies'}</span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-slate-300" />
                     </a>
@@ -4422,6 +4499,29 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 {/* Profile / Sign In */}
                 {user && userData ? (
                   <div className="flex items-center gap-3 ml-2 border-l border-gray-200 pl-4">
+                    {/* ONLY VISIBLE TO LOGGED-IN AGENCIES */}
+                    {userData.role === 'agency' && (
+                      <a
+                        href="/agencytripdm"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-sm hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5 shrink-0"
+                        title="Go to Agency Portal"
+                      >
+                        <Building2 className="h-3.5 w-3.5" />
+                        <span>Agency Portal</span>
+                        <ChevronRight className="h-3 w-3" />
+                      </a>
+                    )}
+                    {userData.role === 'admin' && (
+                      <a
+                        href="/admin"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white shadow-sm transition-all shrink-0"
+                        title="Go to Admin Dashboard"
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                        <span>Admin Portal</span>
+                      </a>
+                    )}
+
                     <div
                       className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
                       onClick={() => {
@@ -4551,22 +4651,44 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Profile / Login Avatar */}
                 {user && userData ? (
-                  <button
-                    onClick={() => {
-                      setFromSection(userActiveSection);
-                      setUserActiveSection('profile');
-                    }}
-                    className="ml-1 p-0.5 rounded-full ring-2 ring-orange-400 focus:outline-none"
-                    aria-label="User Profile"
-                  >
-                    {userData.avatarUrl ? (
-                      <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                        {userData?.name ? userData.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
+                  <div className="flex items-center gap-1.5">
+                    {userData.role === 'agency' && (
+                      <a
+                        href="/agencytripdm"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm transition-all shrink-0"
+                        title="Go to Agency Portal"
+                      >
+                        <Building2 className="h-3.5 w-3.5" />
+                        <span>Portal</span>
+                      </a>
                     )}
-                  </button>
+                    {userData.role === 'admin' && (
+                      <a
+                        href="/admin"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-white shadow-sm transition-all shrink-0"
+                        title="Go to Admin Dashboard"
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                        <span>Admin</span>
+                      </a>
+                    )}
+                    <button
+                      onClick={() => {
+                        setFromSection(userActiveSection);
+                        setUserActiveSection('profile');
+                      }}
+                      className="ml-0.5 p-0.5 rounded-full ring-2 ring-orange-400 focus:outline-none"
+                      aria-label="User Profile"
+                    >
+                      {userData.avatarUrl ? (
+                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          {userData?.name ? userData.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                      )}
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={() => {
@@ -6542,8 +6664,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       );
     }
 
-  // Agency Dashboard
-  if (user && userData?.role === 'agency') {
+  // Agency Dashboard — render when on agency portal route OR when user has agency role and not on user route
+  if ((routeMode === 'agency' && user) || (user && userData?.role === 'agency' && routeMode !== 'user')) {
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
           <div className={`w-64 bg-white border-r border-gray-200 flex flex-col z-20 shrink-0 ${agencyActiveSection === 'chat' ? 'hidden' : ''}`}>
@@ -6617,6 +6739,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 >
                    <Settings className="h-4 w-4" /> Settings
                 </button>
+
+                <div className="pt-2 mt-2 border-t border-gray-100">
+                  <a
+                    href="/"
+                    className="w-full text-left px-3 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-3 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                    title="Navigate back to Landing Page"
+                  >
+                    <Globe className="h-4 w-4 text-orange-500" />
+                    <span>Back to Website</span>
+                  </a>
+                </div>
               </div>
             </nav>
             
@@ -6665,13 +6798,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
+                <a
+                  href="/"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800 border border-orange-200 shadow-sm transition-all duration-150"
+                  title="View Landing Page Website"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <Globe className="h-3.5 w-3.5 text-orange-500" />
+                  <span>Back to Website</span>
+                </a>
                 <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData?.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
                 <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
               </div>
             </header>
 
             <main className={`overflow-y-auto dashboard-scroll ${agencyActiveSection === 'chat' ? 'flex-1 flex flex-col min-h-0 p-0' : 'flex-1 p-8'}`}>
-              {userData?.approved ? (
+              {userData?.approved || routeMode === 'agency' || userData?.role === 'agency' ? (
                 <>
                   {agencyActiveSection === 'overview' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

@@ -140,9 +140,7 @@ export default function AuthModal({
             <h2 className="text-white text-2xl font-bold leading-tight mb-2">
               Your Adventure Starts Here
             </h2>
-            <p className="text-white/80 text-sm">
-              Experience 20,000+ Tours And Activities from 1,200+ Suppliers
-            </p>
+            
           </div>
         </div>
 

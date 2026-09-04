@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   MapPin, CheckCircle, Pencil, Save, Camera, 
   Shield, Users, Plus, Phone, Briefcase, User, ChevronRight,
-  Heart, Scale, MessageSquare
+  Heart, Scale, MessageSquare, Building2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -159,7 +159,16 @@ export default function UserProfile({
                 </h1>
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-gray-200 mb-4 font-medium">
                   <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-orange-400" /> {userData?.city || realLocation || 'Locating...'}</span>
-                  <span className="flex items-center gap-1.5 opacity-80">Explorer • Adventure Lover</span>
+                  <span className="flex items-center gap-1.5 opacity-80">{userData?.role === 'agency' ? 'Verified Travel Agency Partner' : 'Explorer • Adventure Lover'}</span>
+                  {userData?.role === 'agency' && (
+                    <a
+                      href="/agencytripdm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold rounded-full shadow-md transition-all hover:scale-105"
+                    >
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>Open Agency Dashboard →</span>
+                    </a>
+                  )}
                  </div>
               </div>
             </div>
@@ -174,6 +183,22 @@ export default function UserProfile({
           {/* LEFT SIDEBAR: NAVIGATION */}
           <div className="lg:col-span-1">
             <div className="bg-white border border-[#E5E7EB] rounded-sm shadow-sm p-4 sticky top-24 space-y-6">
+              {/* Agency Direct Portal Redirect in Sidebar */}
+              {userData?.role === 'agency' && (
+                <div>
+                  <a
+                    href="/agencytripdm"
+                    className="w-full flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      <span>Go to Agency Portal</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
+
               <div>
               
                 <nav className="space-y-1.5">
@@ -297,6 +322,35 @@ export default function UserProfile({
                     <Button onClick={handleSaveProfile} disabled={savingProfile} className="rounded-sm font-bold px-8 bg-orange-400 hover:bg-orange-500 text-white border-none shadow-md">
                       {savingProfile ? 'Saving...' : 'Save Changes'}
                     </Button>
+                  </div>
+                )}
+
+                {/* Agency Partner Account Section (Only visible to verified agencies) */}
+                {userData?.role === 'agency' && (
+                  <div className="mt-8 pt-6 border-t border-gray-100">
+                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-5 border border-orange-200/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3.5">
+                        <div className="p-2.5 bg-orange-500 text-white rounded-lg shadow-sm shrink-0">
+                          <Briefcase className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-gray-900">
+                            Travel Agency Partner Account
+                          </h4>
+                          <p className="text-xs text-gray-600 mt-0.5 max-w-md">
+                            Manage your travel packages, respond to travelers, and review booking leads directly in your agency portal.
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href="/agencytripdm"
+                        className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all shrink-0 flex items-center gap-1.5"
+                      >
+                        <Building2 className="w-4 h-4" />
+                        <span>Open Agency Portal</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>

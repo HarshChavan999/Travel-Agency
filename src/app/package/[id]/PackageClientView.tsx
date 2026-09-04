@@ -355,6 +355,15 @@ export default function PackageClientView({ listing }: { listing: any }) {
 
             {user && userData ? (
               <div className="flex items-center gap-2 sm:gap-3">
+                {userData.role === 'agency' && (
+                  <a
+                    href="/agencytripdm"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-sm transition-all"
+                  >
+                    <Briefcase className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Agency Portal</span>
+                  </a>
+                )}
                 <div
                   className="flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-orange-500 text-slate-800"
                   onClick={() => router.push('/?section=profile')}
