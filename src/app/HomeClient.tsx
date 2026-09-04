@@ -4335,7 +4335,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   {/* Location Display */}
                   <div className="pt-2 px-1">
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-150">
-                      <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                      <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                       <span className="font-medium truncate">Delivery Pincode: <strong>{pincode}</strong></span>
                     </div>
                   </div>
@@ -4443,8 +4443,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               {/* Right Links */}
               <div className="flex items-center gap-5 shrink-0 pl-4">
                 {/* Location */}
-                <div className="flex items-center gap-1.5 text-gray-700 select-none mr-1">
-                  <MapPin className="h-4 w-4 text-orange-500" />
+                <div className="flex items-center gap-1.5 text-slate-700 select-none mr-1">
+                  <MapPin className="h-4 w-4 text-slate-600" />
                   <div className="flex flex-col leading-[1.1]">
                     <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
                   </div>
@@ -4452,16 +4452,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Compare */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 ${showComparison ? 'text-orange-500 font-semibold' : 'text-gray-800 hover:text-orange-500'}`}
+                  className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 select-none"
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('listings');
                     setShowComparison(true);
                   }}
                 >
-                  <Scale className="h-4 w-4 text-gray-600" /> Compare
+                  <Scale className="h-4 w-4 text-slate-600" /> Compare
                   {comparisonList.length > 0 && (
-                    <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full ml-0.5">
+                    <span className="bg-slate-900 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full ml-0.5">
                       {comparisonList.length}
                     </span>
                   )}
@@ -4469,16 +4469,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Wishlist */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 ${userActiveSection === 'wishlist' ? 'text-orange-500 font-semibold' : 'text-gray-800 hover:text-orange-500'}`}
+                  className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 select-none"
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('wishlist');
                     setShowComparison(false);
                   }}
                 >
-                  <Heart className="h-4 w-4 text-gray-600" /> Wishlist
+                  <Heart className="h-4 w-4 text-slate-600" /> Wishlist
                   {wishlist.length > 0 && (
-                    <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full ml-0.5">
+                    <span className="bg-slate-900 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full ml-0.5">
                       {wishlist.length}
                     </span>
                   )}
@@ -4486,13 +4486,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                 {/* Messages */}
                 <span
-                  className={`cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 ${userActiveSection === 'chat' ? 'text-orange-500 font-semibold' : 'text-gray-800 hover:text-orange-500'}`}
+                  className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 select-none"
                   onClick={() => {
                     setFromSection(userActiveSection);
                     setUserActiveSection('chat');
                   }}
                 >
-                  <MessageSquare className="h-4 w-4 text-gray-600" /> Messages
+                  <MessageSquare className="h-4 w-4 text-slate-600" /> Messages
                 </span>
 
                 {/* Profile / Sign In */}
@@ -4502,17 +4502,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     {userData.role === 'agency' && (
                       <a
                         href="/agencytripdm"
-                        className="cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 text-gray-800 hover:text-gray-900 hover:opacity-80 shrink-0"
+                        className="cursor-pointer text-[15px] font-medium flex items-center gap-1.5 text-slate-800 shrink-0"
                         title="Go to Agency Portal"
                       >
-                        <Building2 className="h-4 w-4 text-gray-600" />
+                        <Building2 className="h-4 w-4 text-slate-600" />
                         <span>Agency Portal</span>
                       </a>
                     )}
                     {userData.role === 'admin' && (
                       <a
                         href="/admin"
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white shadow-sm transition-all shrink-0"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-white shadow-sm shrink-0"
                         title="Go to Admin Dashboard"
                       >
                         <Shield className="h-3.5 w-3.5" />
@@ -4521,16 +4521,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     )}
 
                     <div
-                      className={`flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium hover:text-orange-400 ${userActiveSection === 'profile' ? 'text-orange-500' : 'text-gray-800'}`}
+                      className="flex items-center gap-2 cursor-pointer text-[15px] font-medium text-slate-800"
                       onClick={() => {
                         setFromSection(userActiveSection);
                         setUserActiveSection('profile');
                       }}
                     >
                       {userData.avatarUrl ? (
-                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover ring-1 ring-orange-300" />
+                        <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200" />
                       ) : (
-                        <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200">
+                        <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-slate-600 border border-gray-200">
                           <User className="h-4 w-4" />
                         </div>
                       )}
@@ -4538,7 +4538,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                     
                     <span
-                      className="text-[13px] text-gray-500 hover:text-orange-500 cursor-pointer"
+                      className="text-[13px] text-slate-600 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         signOut();
@@ -4550,9 +4550,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 ) : (
                   <span
                     onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                    className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-gray-600 flex items-center gap-1.5 ml-2 border-l border-gray-200 pl-4"
+                    className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 ml-2 border-l border-gray-200 pl-4"
                   >
-                    <User className="h-4 w-4 text-gray-700" /> Login
+                    <User className="h-4 w-4 text-slate-600" /> Login
                   </span>
                 )}
               </div>
@@ -4564,7 +4564,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => setMobileMenuOpen(true)}
-                  className="p-2 -ml-1 text-slate-700 hover:text-orange-500 hover:bg-slate-100 active:bg-slate-200 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  className="p-2 -ml-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300"
                   aria-label="Open navigation menu"
                 >
                   <Menu className="h-6 w-6" />
@@ -4591,9 +4591,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 {/* Search Toggle Icon */}
                 <button
                   onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
-                  className={`p-2 rounded-xl transition-colors ${
-                    mobileSearchOpen ? 'bg-orange-50 text-orange-600' : 'text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
                   aria-label="Search destinations"
                 >
                   <Search className="h-5 w-5" />
@@ -4606,12 +4604,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setUserActiveSection('listings');
                     setShowComparison(true);
                   }}
-                  className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-colors relative"
+                  className="p-2 text-slate-700 hover:bg-slate-100 rounded-xl transition-colors relative"
                   aria-label="Compare packages"
                 >
                   <Scale className="h-5 w-5" />
                   {comparisonList.length > 0 && (
-                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
+                    <span className="absolute top-1 right-1 bg-slate-900 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
                       {comparisonList.length}
                     </span>
                   )}
@@ -4624,12 +4622,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setUserActiveSection('wishlist');
                     setShowComparison(false);
                   }}
-                  className="p-2 text-slate-600 hover:text-rose-500 hover:bg-slate-100 rounded-xl transition-colors relative"
+                  className="p-2 text-slate-700 hover:bg-slate-100 rounded-xl transition-colors relative"
                   aria-label="View wishlist"
                 >
                   <Heart className="h-5 w-5" />
                   {wishlist.length > 0 && (
-                    <span className="absolute top-1 right-1 bg-rose-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
+                    <span className="absolute top-1 right-1 bg-slate-900 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
                       {wishlist.length}
                     </span>
                   )}
@@ -4641,7 +4639,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     setFromSection(userActiveSection);
                     setUserActiveSection('chat');
                   }}
-                  className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="p-2 text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
                   aria-label="View messages"
                 >
                   <MessageSquare className="h-5 w-5" />
@@ -6728,61 +6726,77 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               <div className="space-y-1">
                 <button
                   onClick={() => setAgencyActiveSection('listings')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'listings'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-3 cursor-pointer ${
+                    agencyActiveSection === 'listings'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.01]'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent hover:border-slate-200/50'
+                  }`}
+                  style={{ borderRadius: '6px' }}
                 >
-                  <ClipboardList className="h-4 w-4" /> Listings
+                  <ClipboardList className={`h-4 w-4 ${agencyActiveSection === 'listings' ? 'text-white' : 'text-slate-500'}`} />
+                  <span>Listings</span>
                 </button>
 
                 <button
                   onClick={() => setAgencyActiveSection('chat')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'chat'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-3 cursor-pointer ${
+                    agencyActiveSection === 'chat'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.01]'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent hover:border-slate-200/50'
+                  }`}
+                  style={{ borderRadius: '6px' }}
                 >
-                  <MessageSquare className="h-4 w-4" /> Customer Chat
+                  <MessageSquare className={`h-4 w-4 ${agencyActiveSection === 'chat' ? 'text-white' : 'text-slate-500'}`} />
+                  <span>Customer Chat</span>
                 </button>
 
                 <button
                   onClick={() => setAgencyActiveSection('credits')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'credits'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-3 cursor-pointer ${
+                    agencyActiveSection === 'credits'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.01]'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent hover:border-slate-200/50'
+                  }`}
+                  style={{ borderRadius: '6px' }}
                 >
-                  <CreditCard className="h-4 w-4" /> Plan & Credits
+                  <CreditCard className={`h-4 w-4 ${agencyActiveSection === 'credits' ? 'text-white' : 'text-slate-500'}`} />
+                  <span>Plan & Credits</span>
                 </button>
 
                 <button
                   onClick={() => setAgencyActiveSection('transactions')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'transactions'
-                      ? 'bg-orange-50 text-orange-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-3 cursor-pointer ${
+                    agencyActiveSection === 'transactions'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.01]'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent hover:border-slate-200/50'
+                  }`}
+                  style={{ borderRadius: '6px' }}
                 >
-                  <ClipboardList className="h-4 w-4" /> Transactions
+                  <ClipboardList className={`h-4 w-4 ${agencyActiveSection === 'transactions' ? 'text-white' : 'text-slate-500'}`} />
+                  <span>Transactions</span>
                 </button>
 
                 <button
                   onClick={() => setAgencyActiveSection('settings')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${agencyActiveSection === 'settings'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-3 cursor-pointer ${
+                    agencyActiveSection === 'settings'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.01]'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent hover:border-slate-200/50'
+                  }`}
+                  style={{ borderRadius: '6px' }}
                 >
-                   <Settings className="h-4 w-4" /> Settings
+                  <Settings className={`h-4 w-4 ${agencyActiveSection === 'settings' ? 'text-white' : 'text-slate-500'}`} />
+                  <span>Settings</span>
                 </button>
 
-                <div className="pt-2 mt-2 border-t border-gray-100">
+                <div className="pt-2 mt-2 border-t border-slate-200/60">
                   <a
                     href="/"
-                    className="w-full text-left px-3 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    className="w-full text-left px-3.5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-3 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent hover:border-slate-200/50"
+                    style={{ borderRadius: '6px' }}
                     title="Navigate back to Landing Page"
                   >
-                    <Globe className="h-4 w-4 text-gray-500" />
+                    <Globe className="h-4 w-4 text-slate-500" />
                     <span>Back to Website</span>
                   </a>
                 </div>
@@ -6790,19 +6804,20 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
             </nav>
             
             {userData?.approved && (
-              <div className="p-4 border-t border-gray-200 bg-gray-50/50">
+              <div className="p-4 border-t border-slate-200/70 bg-slate-50/50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">
-                      Plan: <span className="text-blue-600">{userData?.plan || 'Free'}</span>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">
+                      Plan: <span className="text-orange-600 font-extrabold">{userData?.plan || 'Free'}</span>
                     </p>
-                    <p className="text-xs font-semibold text-gray-900">
+                    <p className="text-xs font-bold text-slate-900">
                       {`${userData?.credits ?? 0} Credits`}
                     </p>
                   </div>
                   <button
                     onClick={() => setAgencyActiveSection('credits')}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                    className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 px-3 py-1.5 rounded-md shadow-xs border border-amber-400/40 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                    style={{ borderRadius: '6px' }}
                   >
                     Upgrade
                   </button>
@@ -6836,15 +6851,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               <div className="flex items-center space-x-4">
                 <a
                   href="/"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 border border-gray-200 shadow-sm transition-all"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold bg-white/90 text-slate-700 hover:bg-white hover:text-slate-900 border border-slate-200/80 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02] transition-all duration-200"
+                  style={{ borderRadius: '6px' }}
                   title="View Landing Page Website"
                 >
-                  <ArrowLeft className="h-3.5 w-3.5 text-gray-500" />
-                  <Globe className="h-3.5 w-3.5 text-gray-500" />
+                  <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+                  <Globe className="h-3.5 w-3.5 text-slate-500" />
                   <span>Back to Website</span>
                 </a>
                 <span className="text-sm text-gray-600 flex items-center gap-1">Status: {userData?.approved ? <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" /> Approved</span> : <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-600" /> Pending</span>}</span>
-                <Button variant="outline" size="sm" onClick={signOut}>Sign Out</Button>
+                <button
+                  onClick={signOut}
+                  className="px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold bg-white/90 text-slate-700 hover:bg-red-50 hover:text-red-600 border border-slate-200/80 hover:border-red-200 hover:shadow-sm hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                  style={{ borderRadius: '6px' }}
+                >
+                  Sign Out
+                </button>
               </div>
             </header>
 
@@ -6853,11 +6875,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                 <>
                   {agencyActiveSection === 'overview' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                      <Card>
+                      <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden" style={{ borderRadius: '6px' }}>
                         <CardContent className="p-6">
                           <div className="flex items-center">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Users className="h-6 w-6 text-blue-600" />
+                            <div className="p-2 bg-amber-50 border border-amber-200/60 rounded-md" style={{ borderRadius: '6px' }}>
+                              <Users className="h-6 w-6 text-amber-600" />
                             </div>
                             <div className="ml-4">
                               <p className="text-sm font-medium text-gray-600">Total Agencies</p>
@@ -6867,11 +6889,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </CardContent>
                       </Card>
 
-                      <Card>
+                      <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden" style={{ borderRadius: '6px' }}>
                         <CardContent className="p-6">
                           <div className="flex items-center">
-                            <div className="p-2 bg-green-100 rounded-lg">
-                              <CheckCircle className="h-6 w-6 text-green-600" />
+                            <div className="p-2 bg-emerald-50 border border-emerald-200/60 rounded-md" style={{ borderRadius: '6px' }}>
+                              <CheckCircle className="h-6 w-6 text-emerald-600" />
                             </div>
                             <div className="ml-4">
                               <p className="text-sm font-medium text-gray-600">Approved Agencies</p>
@@ -6881,11 +6903,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </CardContent>
                       </Card>
 
-                      <Card>
+                      <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden" style={{ borderRadius: '6px' }}>
                         <CardContent className="p-6">
                           <div className="flex items-center">
-                            <div className="p-2 bg-yellow-100 rounded-lg">
-                              <Clock className="h-6 w-6 text-yellow-600" />
+                            <div className="p-2 bg-amber-50 border border-amber-200/60 rounded-md" style={{ borderRadius: '6px' }}>
+                              <Clock className="h-6 w-6 text-amber-600" />
                             </div>
                             <div className="ml-4">
                               <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
@@ -6900,21 +6922,24 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   {agencyActiveSection === 'listings' && (
                     <div className="space-y-6">
                       {/* Navigation Buttons */}
-                      <div className="flex gap-4 mb-6">
-                        <Button
-                          variant={(!showListingForm && !showBulkUpload) ? 'default' : 'outline'}
+                      <div className="flex flex-wrap gap-3 mb-6">
+                        <button
                           onClick={() => {
                             setShowListingForm(false);
                             setShowBulkUpload(false);
                             setEditingListing(null);
                             setViewingListing(null);
                           }}
-                          className="flex items-center gap-2"
+                          className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
+                            (!showListingForm && !showBulkUpload)
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                              : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                          }`}
+                          style={{ borderRadius: '6px' }}
                         >
                           <ClipboardList className="h-4 w-4" /> My Listings
-                        </Button>
-                        <Button
-                          variant={showListingForm ? 'default' : 'outline'}
+                        </button>
+                        <button
                           onClick={() => {
                             const currentPlan = userData?.plan || 'free';
                             const maxListings = currentPlan === 'free' ? 2 : currentPlan === 'starter' ? 10 : currentPlan === 'premium' ? 50 : 10000;
@@ -6927,12 +6952,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             setEditingListing(null);
                             setViewingListing(null);
                           }}
-                          className="flex items-center gap-2"
+                          className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
+                            showListingForm
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                              : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                          }`}
+                          style={{ borderRadius: '6px' }}
                         >
                           <Plus className="h-4 w-4" /> New Listing
-                        </Button>
-                        <Button
-                          variant={showBulkUpload ? 'default' : 'outline'}
+                        </button>
+                        <button
                           onClick={() => {
                             const currentPlan = userData?.plan || 'free';
                             const maxListings = currentPlan === 'free' ? 2 : currentPlan === 'starter' ? 10 : currentPlan === 'premium' ? 50 : 10000;
@@ -6945,10 +6974,15 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             setEditingListing(null);
                             setViewingListing(null);
                           }}
-                          className="flex items-center gap-2"
+                          className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
+                            showBulkUpload
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                              : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                          }`}
+                          style={{ borderRadius: '6px' }}
                         >
                           <Upload className="h-4 w-4" /> Bulk Import CSV
-                        </Button>
+                        </button>
                       </div>
 
                       {/* New Listing Form */}
@@ -7005,94 +7039,95 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                       {/* My Listings */}
                       {!showListingForm && !showBulkUpload && !viewingListing && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <Palmtree className="mr-2 h-6 w-6 text-blue-600" />
+                        <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden w-full" style={{ borderRadius: '8px' }}>
+                          <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-6">
+                            <CardTitle className="flex items-center text-xl font-bold text-gray-900">
+                              <Palmtree className="mr-2 h-6 w-6 text-amber-600" />
                               Your Travel Listings
                             </CardTitle>
-                            <CardDescription>
+                            <CardDescription className="text-gray-500 text-xs mt-1">
                               Manage your travel packages and destinations
                             </CardDescription>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="p-6">
                             <div className="space-y-4">
                               {agencyListings.length === 0 ? (
-                                <div className="text-center py-8">
-                                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <ClipboardList className="h-8 w-8 text-blue-600" />
+                                <div className="text-center py-12">
+                                  <div className="w-16 h-16 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center mx-auto mb-4" style={{ borderRadius: '6px' }}>
+                                    <ClipboardList className="h-8 w-8 text-amber-600" />
                                   </div>
-                                  <h3 className="text-lg font-semibold mb-2">No Listings Yet</h3>
-                                  <p className="text-gray-600 mb-4">
+                                  <h3 className="text-lg font-bold text-gray-900 mb-2">No Listings Yet</h3>
+                                  <p className="text-gray-500 text-xs mb-4 max-w-sm mx-auto leading-relaxed">
                                     Create your first travel package to start attracting customers.
                                   </p>
-                                  <Button
+                                  <button
                                     onClick={() => {
                                       setShowListingForm(true);
                                       setShowBulkUpload(false);
                                       setEditingListing(null);
                                     }}
-                                    className="flex items-center gap-2"
+                                    className="px-5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 inline-flex items-center gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]"
+                                    style={{ borderRadius: '6px' }}
                                   >
                                     <Plus className="h-4 w-4" /> Create Your First Listing
-                                  </Button>
+                                  </button>
                                 </div>
                               ) : (
                                 agencyListings.map((listing) => (
-                                  <div key={listing.id} className="flex items-center justify-between p-4 border rounded-lg">
+                                  <div key={listing.id} className="flex items-center justify-between p-4 bg-white border border-slate-200/80 hover:border-amber-300 hover:shadow-xs transition-all duration-200 rounded-md" style={{ borderRadius: '6px' }}>
                                     <div className="flex items-center space-x-4">
-                                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <Palmtree className="h-6 w-6 text-blue-600" />
+                                      <div className="w-12 h-12 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center shrink-0" style={{ borderRadius: '6px' }}>
+                                        <Palmtree className="h-6 w-6 text-amber-600" />
                                       </div>
                                       <div>
-                                        <h3 className="font-semibold">{listing.title}</h3>
+                                        <h3 className="font-bold text-gray-900 text-sm">{listing.title}</h3>
                                         {listing.packageType && (
-                                          <p className="text-sm text-gray-600 mb-1 font-semibold">
+                                          <p className="text-xs text-slate-600 mb-1 font-semibold">
                                             {listing.packageType === 'international' ? ' International' : ' Domestic'}
                                             {listing.packageType === 'international' && listing.countryName && ` • ${listing.countryName}`}
                                             {listing.packageType === 'domestic' && listing.stateName && ` • ${listing.stateName}`}
                                           </p>
                                         )}
-                                        <p className="text-sm text-gray-600">
+                                        <p className="text-xs text-gray-500">
                                           {listing.itinerary?.length || 0} days • {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || listing.price || 'N/A'}
-                                          <span className={`ml-2 px-2 py-1 rounded-full text-xs ${listing.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                            }`}>
+                                          <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold border ${listing.approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                            }`} style={{ borderRadius: '4px' }}>
                                             {listing.approved ? 'Approved' : 'Pending'}
                                           </span>
                                         </p>
                                         {listing.placesCovered && listing.placesCovered.length > 0 && (
-                                          <p className="text-xs text-gray-500 mt-1">
+                                          <p className="text-[11px] text-gray-400 mt-1">
                                             Places: {listing.placesCovered.map((place: any) => place.name).join(', ')}
                                           </p>
                                         )}
                                       </div>
                                     </div>
                                     <div className="flex space-x-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
+                                      <button
                                         onClick={() => handleViewListing(listing)}
+                                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                        style={{ borderRadius: '6px' }}
                                       >
                                         Preview
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
+                                      </button>
+                                      <button
                                         onClick={() => {
                                           setShowListingForm(true);
                                           setShowBulkUpload(false);
                                           setEditingListing(listing);
                                         }}
+                                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                        style={{ borderRadius: '6px' }}
                                       >
                                         Edit
-                                      </Button>
-                                      <Button
-                                        variant="destructive"
-                                        size="sm"
+                                      </button>
+                                      <button
                                         onClick={() => handleDeleteListing(listing.id)}
+                                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                        style={{ borderRadius: '6px' }}
                                       >
                                         Delete
-                                      </Button>
+                                      </button>
                                     </div>
                                   </div>
                                 ))
@@ -7115,13 +7150,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   )}
 
                   {agencyActiveSection === 'bookings' && (
-                    <div className="space-y-6">
+                    <div className="space-y-6 w-full">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <Card>
+                        <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden" style={{ borderRadius: '6px' }}>
                           <CardContent className="p-6">
                             <div className="flex items-center">
-                              <div className="p-2 bg-blue-100 rounded-lg">
-                                <Calendar className="h-6 w-6 text-blue-600" />
+                              <div className="p-2 bg-amber-50 border border-amber-200/60 rounded-md" style={{ borderRadius: '6px' }}>
+                                <Calendar className="h-6 w-6 text-amber-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Total Bookings</p>
@@ -7131,11 +7166,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </CardContent>
                         </Card>
 
-                        <Card>
+                        <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden" style={{ borderRadius: '6px' }}>
                           <CardContent className="p-6">
                             <div className="flex items-center">
-                              <div className="p-2 bg-yellow-100 rounded-lg">
-                                <Clock className="h-6 w-6 text-yellow-600" />
+                              <div className="p-2 bg-amber-50 border border-amber-200/60 rounded-md" style={{ borderRadius: '6px' }}>
+                                <Clock className="h-6 w-6 text-amber-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Pending</p>
@@ -7145,11 +7180,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </CardContent>
                         </Card>
 
-                        <Card>
+                        <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden" style={{ borderRadius: '6px' }}>
                           <CardContent className="p-6">
                             <div className="flex items-center">
-                              <div className="p-2 bg-green-100 rounded-lg">
-                                <CheckCircle className="h-6 w-6 text-green-600" />
+                              <div className="p-2 bg-emerald-50 border border-emerald-200/60 rounded-md" style={{ borderRadius: '6px' }}>
+                                <CheckCircle className="h-6 w-6 text-emerald-600" />
                               </div>
                               <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Confirmed</p>
@@ -7160,41 +7195,41 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </Card>
                       </div>
 
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center">
-                            <Calendar className="mr-2 h-6 w-6 text-blue-600" />
+                      <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden w-full" style={{ borderRadius: '8px' }}>
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-6">
+                          <CardTitle className="flex items-center text-xl font-bold text-gray-900">
+                            <Calendar className="mr-2 h-6 w-6 text-amber-600" />
                             Recent Bookings
                           </CardTitle>
-                          <CardDescription>
+                          <CardDescription className="text-xs text-gray-500 mt-1">
                             Manage customer bookings and inquiries
                           </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-6">
                           {agencyBookings.length === 0 ? (
                             <div className="text-center py-12">
-                              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Calendar className="h-8 w-8 text-blue-600" />
+                              <div className="w-16 h-16 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center mx-auto mb-4" style={{ borderRadius: '6px' }}>
+                                <Calendar className="h-8 w-8 text-amber-600" />
                               </div>
-                              <h3 className="text-lg font-semibold mb-2">No Bookings Yet</h3>
-                              <p className="text-gray-600 mb-4">
+                              <h3 className="text-lg font-bold text-gray-900 mb-2">No Bookings Yet</h3>
+                              <p className="text-gray-500 text-xs mb-4 max-w-sm mx-auto leading-relaxed">
                                 When customers book your travel packages, they will appear here for you to manage.
                               </p>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-xs text-gray-400">
                                 You can confirm bookings, communicate with customers, and track payments.
                               </p>
                             </div>
                           ) : (
                             <div className="space-y-4">
                               {agencyBookings.map((booking) => (
-                                <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
+                                <div key={booking.id} className="flex items-center justify-between p-4 bg-white border border-slate-200/80 hover:border-amber-300 hover:shadow-xs transition-all duration-200 rounded-md" style={{ borderRadius: '6px' }}>
                                   <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                      <User className="h-6 w-6 text-blue-600" />
+                                    <div className="w-12 h-12 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center shrink-0" style={{ borderRadius: '6px' }}>
+                                      <User className="h-6 w-6 text-amber-600" />
                                     </div>
                                     <div>
-                                      <h3 className="font-semibold">{booking.userName}</h3>
-                                      <p className="text-sm text-gray-600">
+                                      <h3 className="font-bold text-gray-900 text-sm">{booking.userName}</h3>
+                                      <p className="text-xs text-slate-600 mb-0.5 font-medium">
                                         {booking.listingTitle} • {booking.travelers} traveler{booking.travelers > 1 ? 's' : ''} • ${booking.totalAmount}
                                       </p>
                                       <p className="text-xs text-gray-500">
@@ -7216,32 +7251,29 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     </div>
                                   </div>
                                   <div className="flex flex-col items-end space-y-2">
-                                    <span className={`px-2 py-1 rounded-full text-xs ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                          'bg-red-100 text-red-800'
-                                      }`}>
+                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${booking.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                        booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                          'bg-red-50 text-red-700 border-red-200'
+                                      }`} style={{ borderRadius: '4px' }}>
                                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                                     </span>
                                     <div className="flex space-x-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
+                                      <button
                                         onClick={() => {
-                                          // TODO: Implement booking details modal
                                           alert(`Booking Details:\n\n${booking.specialRequests || 'No special requests'}\n\nPreferences: ${booking.preferences.join(', ') || 'None'}`);
                                         }}
+                                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                        style={{ borderRadius: '6px' }}
                                       >
                                         Details
-                                      </Button>
+                                      </button>
                                       {booking.status === 'pending' && (
-                                        <Button
-                                          size="sm"
+                                        <button
                                           onClick={async () => {
                                             try {
                                               const dbInstance = getDbInstance();
                                               if (!dbInstance) return;
                                               await updateDoc(doc(dbInstance, 'bookings', booking.id), { status: 'confirmed' });
-                                              // Refresh bookings
                                               const updatedBookings = agencyBookings.map(b =>
                                                 b.id === booking.id ? { ...b, status: 'confirmed' } : b
                                               );
@@ -7252,9 +7284,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                               alert('Failed to confirm booking. Please try again.');
                                             }
                                           }}
+                                          className="px-3 py-1.5 rounded-md text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                          style={{ borderRadius: '6px' }}
                                         >
                                           Confirm
-                                        </Button>
+                                        </button>
                                       )}
                                     </div>
                                   </div>
@@ -7575,12 +7609,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                           {`${userData?.credits ?? 0} Credits`}
                                         </p>
                                       </div>
-                                      <Button
+                                      <button
                                         onClick={() => unlockCustomerChat(selectedConversation.userId, selectedConversation.userName)}
-                                        className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 border-none"
+                                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-semibold px-4 py-2 rounded-md transition-all duration-200 shadow-md shadow-amber-500/25 border border-amber-400/50 flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
+                                        style={{ borderRadius: '6px' }}
                                       >
                                         <Sparkles className="h-4 w-4" /> Unlock to Reply
-                                      </Button>
+                                      </button>
                                     </div>
                                   </div>
                                 </div>
@@ -7608,32 +7643,32 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     const planCount = txList.filter((tx: any) => tx.type === 'plan-change').length;
                     const topupCount = txList.filter((tx: any) => tx.type === 'top-up').length;
                     return (
-                      <div className="space-y-5">
+                      <div className="space-y-5 w-full">
                         {/* Page Title */}
                         <div className="flex items-center justify-between">
                           <div>
-                            <h2 className="text-lg font-bold text-gray-900">Billing &amp; Transactions</h2>
+                            <h2 className="text-xl font-bold text-gray-900">Billing &amp; Transactions</h2>
                             <p className="text-xs text-gray-500 mt-0.5">All payments made on your TripDM account</p>
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-400 border border-gray-200 bg-white rounded-lg px-3 py-1.5">
-                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 border border-slate-200/80 bg-white rounded-md px-3 py-1.5 shadow-xs" style={{ borderRadius: '6px' }}>
+                            <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                             Secured by Razorpay
                           </div>
                         </div>
 
                         {/* Summary Cards */}
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="bg-white border border-gray-200 rounded-xl p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white border border-slate-200/80 rounded-md p-4 shadow-xs" style={{ borderRadius: '6px' }}>
                             <p className="text-[11px] text-gray-500 font-medium mb-1">Total Transactions</p>
                             <p className="text-2xl font-bold text-gray-900">{txList.length}</p>
                             <p className="text-[10px] text-gray-400 mt-1">All time</p>
                           </div>
-                          <div className="bg-white border border-gray-200 rounded-xl p-4">
+                          <div className="bg-white border border-slate-200/80 rounded-md p-4 shadow-xs" style={{ borderRadius: '6px' }}>
                             <p className="text-[11px] text-gray-500 font-medium mb-1">Total Amount Paid</p>
                             <p className="text-2xl font-bold text-gray-900">₹{totalPaid.toLocaleString('en-IN')}</p>
                             <p className="text-[10px] text-gray-400 mt-1">{planCount} upgrade{planCount !== 1 ? 's' : ''} · {topupCount} top-up{topupCount !== 1 ? 's' : ''}</p>
                           </div>
-                          <div className="bg-white border border-gray-200 rounded-xl p-4">
+                          <div className="bg-white border border-slate-200/80 rounded-md p-4 shadow-xs" style={{ borderRadius: '6px' }}>
                             <p className="text-[11px] text-gray-500 font-medium mb-1">Current Plan</p>
                             <p className="text-2xl font-bold text-gray-900 capitalize">{userData?.plan || 'Free'}</p>
                             <p className="text-[10px] text-gray-400 mt-1">{userData?.credits ?? 0} credits remaining</p>
@@ -7641,21 +7676,25 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </div>
 
                         {/* Table */}
-                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-white border border-slate-200/80 rounded-md overflow-hidden shadow-xs" style={{ borderRadius: '8px' }}>
                           {/* Table Header Bar */}
-                          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                            <p className="text-xs font-semibold text-gray-700">Transaction History</p>
+                          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                            <p className="text-xs font-bold text-gray-800">Transaction History</p>
                             <p className="text-[11px] text-gray-400">{txList.length} record{txList.length !== 1 ? 's' : ''}</p>
                           </div>
 
                           {txList.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                <ClipboardList className="w-6 h-6 text-gray-400" />
+                              <div className="w-12 h-12 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center mb-3" style={{ borderRadius: '6px' }}>
+                                <ClipboardList className="w-6 h-6 text-amber-600" />
                               </div>
                               <p className="text-sm font-semibold text-gray-700 mb-1">No transactions yet</p>
                               <p className="text-xs text-gray-400 mb-4">Payments will appear here after your first purchase.</p>
-                              <button onClick={() => setAgencyActiveSection('credits')} className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                              <button
+                                onClick={() => setAgencyActiveSection('credits')}
+                                className="px-4 py-2 rounded-md text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02] transition-all duration-200 inline-flex items-center gap-1.5 cursor-pointer"
+                                style={{ borderRadius: '6px' }}
+                              >
                                 View Plans &amp; Credits →
                               </button>
                             </div>
@@ -7663,7 +7702,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             <div className="overflow-x-auto">
                               <table className="w-full text-sm">
                                 <thead>
-                                  <tr className="border-b border-gray-100">
+                                  <tr className="border-b border-slate-100 bg-slate-50/30">
                                     <th className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Date</th>
                                     <th className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Description</th>
                                     <th className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Type</th>
@@ -7672,7 +7711,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     <th className="text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Status</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50">
+                                <tbody className="divide-y divide-gray-50 text-xs">
                                   {txList.map((tx: any, idx: number) => {
                                     const isPlan = tx.type === 'plan-change';
                                     const isTopUp = tx.type === 'top-up';
@@ -7680,7 +7719,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     const payId = tx.razorpay_payment_id || tx.id || '';
                                     const shortId = payId ? payId.slice(-12).toUpperCase() : `TXN-${String(idx + 1).padStart(4, '0')}`;
                                     return (
-                                      <tr key={tx.id || idx} className="hover:bg-gray-50 transition-colors">
+                                      <tr key={tx.id || idx} className="hover:bg-gray-50/70 transition-colors">
                                         {/* Date */}
                                         <td className="px-5 py-3.5 whitespace-nowrap">
                                           <p className="text-xs font-medium text-gray-900">{date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
@@ -7701,7 +7740,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                               : isTopUp
                                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                               : 'bg-blue-50 text-blue-700 border-blue-200'
-                                          }`}>
+                                          }`} style={{ borderRadius: '4px' }}>
                                             {isPlan ? 'Plan Upgrade' : isTopUp ? 'Credit Top-up' : 'Credit'}
                                           </span>
                                         </td>
@@ -7719,8 +7758,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         </td>
                                         {/* Status */}
                                         <td className="px-5 py-3.5 text-center">
-                                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
-                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md" style={{ borderRadius: '4px' }}>
+                                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                                             Paid
                                           </span>
                                         </td>
@@ -7734,11 +7773,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                           {/* Table Footer */}
                           {txList.length > 0 && (
-                            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
                               <p className="text-[11px] text-gray-400">Showing {txList.length} of {txList.length} transactions · Amounts in INR</p>
                               <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                                <svg className="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                                Payments verified
+                                <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                <span>Secured by Razorpay</span>
                               </div>
                             </div>
                           )}
@@ -7748,10 +7787,10 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   })()}
 
                   {agencyActiveSection === 'settings' && (
-                    <Card className="bg-white border border-gray-200 shadow-md rounded-3xl overflow-hidden">
-                      <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-6 md:p-8">
+                    <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden w-full" style={{ borderRadius: '8px' }}>
+                      <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-6 md:p-8">
                         <CardTitle className="flex items-center text-xl font-bold text-gray-900">
-                          <Settings className="mr-2.5 h-6 w-6 text-gray-700" />
+                          <Settings className="mr-2.5 h-6 w-6 text-amber-600" />
                           Profile Branding & Contact Information
                         </CardTitle>
                         <CardDescription className="text-xs text-gray-500 mt-1">
@@ -7760,8 +7799,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       </CardHeader>
                       <CardContent className="p-6 md:p-8 space-y-8">
                         {/* Agency Logo Upload Section */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
-                          <div className="w-24 h-24 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-md p-6 flex flex-col md:flex-row items-center gap-6 shadow-xs" style={{ borderRadius: '6px' }}>
+                          <div className="w-20 h-20 bg-white rounded-md border border-slate-200/80 shadow-xs flex items-center justify-center overflow-hidden shrink-0" style={{ borderRadius: '6px' }}>
                             {(agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo) && !agencyLogoError ? (
                               <img
                                 src={agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo}
@@ -7778,8 +7817,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             <p className="text-xs text-gray-500 mt-1 max-w-lg leading-relaxed">
                               Upload a clean, professional company logo to stand out in travel listings and customer chats. We recommend a high-resolution PNG or JPG.
                             </p>
-                            <label className="mt-4 inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl border border-gray-200 shadow-sm cursor-pointer transition-all">
-                              <span className="flex items-center gap-1.5"><Upload className="h-4 w-4" /> Upload New Logo</span>
+                            <label
+                              className="mt-4 inline-flex items-center gap-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 text-xs font-semibold px-4 py-2 rounded-md border border-slate-200/80 shadow-xs cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:border-slate-300"
+                              style={{ borderRadius: '6px' }}
+                            >
+                              <span className="flex items-center gap-1.5"><Upload className="h-4 w-4 text-amber-600" /> Upload New Logo</span>
                               <input
                                 type="file"
                                 accept="image/*"
@@ -7797,7 +7839,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               id="agencyName"
                               value={agencyCompanyName}
                               onChange={(e) => setAgencyCompanyName(e.target.value)}
-                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-orange-400 shadow-sm"
+                              className="bg-white border-gray-200 text-gray-800 rounded-md p-3.5 text-sm focus-visible:ring-orange-400 shadow-xs"
+                              style={{ borderRadius: '6px' }}
                             />
                           </div>
                           <div>
@@ -7806,7 +7849,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               id="contactEmail"
                               value={agencyContactEmail}
                               onChange={(e) => setAgencyContactEmail(e.target.value)}
-                              className="bg-white border-gray-200 text-gray-800 rounded-2xl p-3.5 text-sm focus-visible:ring-orange-400 shadow-sm"
+                              className="bg-white border-gray-200 text-gray-800 rounded-md p-3.5 text-sm focus-visible:ring-orange-400 shadow-xs"
+                              style={{ borderRadius: '6px' }}
                             />
                           </div>
                         </div>
@@ -7815,27 +7859,28 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           <Label htmlFor="description" className="text-xs font-semibold text-gray-600 mb-1.5 block">Agency Description & Specialization</Label>
                           <textarea
                             id="description"
-                            className="w-full p-4 border border-gray-200 rounded-2xl text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 shadow-sm"
+                            className="w-full p-4 border border-gray-200 rounded-md text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 shadow-xs"
                             rows={4}
                             value={agencyDescription}
                             onChange={(e) => setAgencyDescription(e.target.value)}
                             placeholder="Tell travelers about your agency's expertise, popular tour packages, and premium services..."
+                            style={{ borderRadius: '6px' }}
                           />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {/* Default Inclusions */}
-                          <div className="space-y-4 bg-white p-5 border border-gray-150 rounded-2xl shadow-sm">
+                          <div className="space-y-4 bg-white p-5 border border-slate-200/80 rounded-md shadow-xs" style={{ borderRadius: '6px' }}>
                             <div className="flex justify-between items-center border-b border-gray-100 pb-2.5">
                               <Label className="text-xs font-bold text-gray-800 uppercase tracking-wider block">Default Inclusions</Label>
-                              <Button
+                              <button
                                 type="button"
-                                size="sm"
                                 onClick={() => setAgencyDefaultInclusions(prev => [...prev, ''])}
-                                className="h-7 px-2.5 text-[11px] rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100 font-semibold shadow-xs flex items-center gap-1"
+                                className="h-7 px-2.5 text-[11px] rounded-md bg-white border border-slate-200/80 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 font-semibold shadow-xs flex items-center gap-1 transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                                style={{ borderRadius: '6px' }}
                               >
-                                <Plus className="h-3.5 w-3.5" /> Add Option
-                              </Button>
+                                <Plus className="h-3.5 w-3.5 text-amber-600" /> Add Option
+                              </button>
                             </div>
                             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                               {agencyDefaultInclusions.map((item, index) => (
@@ -7851,17 +7896,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         return updated;
                                       });
                                     }}
-                                    className="flex-1 bg-gray-50/50 border-gray-200 text-gray-800 rounded-xl text-xs h-9 focus-visible:ring-orange-400"
+                                    className="flex-1 bg-gray-50/50 border-gray-200 text-gray-800 rounded-md text-xs h-9 focus-visible:ring-orange-400"
+                                    style={{ borderRadius: '6px' }}
                                   />
-                                  <Button
+                                  <button
                                     type="button"
-                                    variant="destructive"
-                                    size="icon"
                                     onClick={() => setAgencyDefaultInclusions(prev => prev.filter((_, i) => i !== index))}
-                                    className="h-9 w-9 shrink-0 rounded-xl"
+                                    className="h-9 w-9 shrink-0 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 flex items-center justify-center transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                                    style={{ borderRadius: '6px' }}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
+                                  </button>
                                 </div>
                               ))}
                               {agencyDefaultInclusions.length === 0 && (
@@ -7871,17 +7916,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           </div>
 
                           {/* Default Exclusions */}
-                          <div className="space-y-4 bg-white p-5 border border-gray-150 rounded-2xl shadow-sm">
+                          <div className="space-y-4 bg-white p-5 border border-slate-200/80 rounded-md shadow-xs" style={{ borderRadius: '6px' }}>
                             <div className="flex justify-between items-center border-b border-gray-100 pb-2.5">
                               <Label className="text-xs font-bold text-gray-800 uppercase tracking-wider block">Default Exclusions</Label>
-                              <Button
+                              <button
                                 type="button"
-                                size="sm"
                                 onClick={() => setAgencyDefaultExclusions(prev => [...prev, ''])}
-                                className="h-7 px-2.5 text-[11px] rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100 font-semibold shadow-xs flex items-center gap-1"
+                                className="h-7 px-2.5 text-[11px] rounded-md bg-white border border-slate-200/80 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 font-semibold shadow-xs flex items-center gap-1 transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                                style={{ borderRadius: '6px' }}
                               >
-                                <Plus className="h-3.5 w-3.5" /> Add Option
-                              </Button>
+                                <Plus className="h-3.5 w-3.5 text-amber-600" /> Add Option
+                              </button>
                             </div>
                             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                               {agencyDefaultExclusions.map((item, index) => (
@@ -7897,17 +7942,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         return updated;
                                       });
                                     }}
-                                    className="flex-1 bg-gray-50/50 border-gray-200 text-gray-800 rounded-xl text-xs h-9 focus-visible:ring-orange-400"
+                                    className="flex-1 bg-gray-50/50 border-gray-200 text-gray-800 rounded-md text-xs h-9 focus-visible:ring-orange-400"
+                                    style={{ borderRadius: '6px' }}
                                   />
-                                  <Button
+                                  <button
                                     type="button"
-                                    variant="destructive"
-                                    size="icon"
                                     onClick={() => setAgencyDefaultExclusions(prev => prev.filter((_, i) => i !== index))}
-                                    className="h-9 w-9 shrink-0 rounded-xl"
+                                    className="h-9 w-9 shrink-0 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 flex items-center justify-center transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                                    style={{ borderRadius: '6px' }}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
+                                  </button>
                                 </div>
                               ))}
                               {agencyDefaultExclusions.length === 0 && (
@@ -7919,40 +7964,41 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                         <div>
                           <h3 className="text-sm font-bold text-gray-900 mb-3">Notification Preferences</h3>
-                          <div className="space-y-3 bg-gray-50/70 border border-gray-150 rounded-2xl p-5">
+                          <div className="space-y-3 bg-slate-50/70 border border-slate-200/80 rounded-md p-5 shadow-xs" style={{ borderRadius: '6px' }}>
                             <label className="flex items-center gap-3 cursor-pointer">
-                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-orange-400" defaultChecked />
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-400" defaultChecked />
                               <span className="text-xs font-semibold text-gray-700">Email notifications for new user bookings & inquiries</span>
                             </label>
                             <label className="flex items-center gap-3 cursor-pointer">
-                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-orange-400" defaultChecked />
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-400" defaultChecked />
                               <span className="text-xs font-semibold text-gray-700">SMS notifications for urgent customer chat messages</span>
                             </label>
                             <label className="flex items-center gap-3 cursor-pointer">
-                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-orange-400" />
+                              <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-400" />
                               <span className="text-xs font-semibold text-gray-700">Marketing emails, seasonal promotions & platform updates</span>
                             </label>
                           </div>
                         </div>
 
                         <div className="pt-2 flex justify-end">
-                          <Button
+                          <button
                             onClick={handleSaveAgencySettings}
                             disabled={savingAgencySettings}
-                            className="bg-orange-400 hover:bg-orange-500 text-white text-xs font-bold px-6 py-3 rounded-2xl shadow-md transition-all h-auto"
+                            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-md shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            style={{ borderRadius: '6px' }}
                           >
                             {savingAgencySettings ? 'Saving Settings...' : 'Save All Settings'}
-                          </Button>
+                          </button>
                         </div>
                       </CardContent>
                     </Card>
                   )}
 
                   {agencyActiveSection === 'credits' && (
-                    <Card id="plans-and-credits-card" className="bg-white border border-gray-200 shadow-md rounded-3xl overflow-hidden">
-                      <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-6 md:p-8">
+                    <Card id="plans-and-credits-card" className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden w-full" style={{ borderRadius: '8px' }}>
+                      <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-6 md:p-8">
                         <CardTitle className="flex items-center text-xl font-bold text-gray-900">
-                          <CreditCard className="mr-2.5 h-6 w-6 text-gray-700" />
+                          <CreditCard className="mr-2.5 h-6 w-6 text-amber-600" />
                           Plan & Message Credits
                         </CardTitle>
                         <CardDescription className="text-xs text-gray-500 mt-1">
@@ -7961,13 +8007,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       </CardHeader>
                       <CardContent className="p-6 md:p-8 space-y-8">
                         {/* Hero Header */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
-                          <div className="w-24 h-24 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-md p-6 flex flex-col md:flex-row items-center gap-6 shadow-xs" style={{ borderRadius: '6px' }}>
+                          <div className="w-20 h-20 bg-white rounded-md border border-slate-200/80 shadow-xs flex items-center justify-center overflow-hidden shrink-0" style={{ borderRadius: '6px' }}>
                             <CreditCard className="h-8 w-8 text-slate-400" />
                           </div>
                           <div className="flex-1 text-center md:text-left">
-                            <div className="inline-flex items-center gap-1.5 bg-white text-slate-800 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-xl border border-gray-200 shadow-sm mb-3">
-                              <CreditCard className="w-3.5 h-3.5 mr-1 text-blue-600" /> Billing & Subscription Control Panel
+                            <div className="inline-flex items-center gap-1.5 bg-white text-slate-800 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-md border border-slate-200/80 shadow-xs mb-3" style={{ borderRadius: '6px' }}>
+                              <CreditCard className="w-3.5 h-3.5 mr-1 text-amber-600" /> Billing & Subscription Control Panel
                             </div>
                             <h3 className="text-sm font-bold text-gray-900">
                               Premium Reply Credits
@@ -7980,14 +8026,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                         {/* Current Plan Summary Card & Stats */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className="md:col-span-1 bg-white border border-gray-200 shadow-sm rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+                          <div className="md:col-span-1 bg-white border border-slate-200/80 shadow-xs rounded-md p-5 relative overflow-hidden flex flex-col justify-between" style={{ borderRadius: '6px' }}>
                             <div>
                               <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Plan</h3>
-                                <Badge className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${userData?.plan === 'premium' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                <Badge className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${userData?.plan === 'premium' ? 'bg-purple-100 text-purple-700 border-purple-200' :
                                     userData?.plan === 'starter' ? 'bg-amber-100 text-amber-700 border-amber-200' :
                                       'bg-blue-100 text-blue-700 border-blue-200'
-                                  }`}>
+                                  }`} style={{ borderRadius: '4px' }}>
                                   {userData?.plan || 'Free'} Plan
                                 </Badge>
                               </div>
@@ -7998,7 +8044,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   </p>
                                   <p className="text-[10px] text-gray-500 mt-0.5">Cycle balance remaining</p>
                                 </div>
-                                <div className="border-t pt-3 space-y-1.5 text-[11px]">
+                                <div className="border-t border-slate-100 pt-3 space-y-1.5 text-[11px]">
                                   <div className="flex justify-between">
                                     <span className="text-gray-500">Cycle Ends</span>
                                     <span className="font-semibold text-gray-800">July 16, 2026</span>
@@ -8016,7 +8062,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
                           {/* Quick Stats Grid */}
                           <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-center justify-between">
+                            <div className="bg-white border border-slate-200/80 shadow-xs rounded-md p-4 flex items-center justify-between" style={{ borderRadius: '6px' }}>
                               <div className="space-y-0.5">
                                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Per Reply Cost</p>
                                 <h4 className="text-sm font-bold text-gray-900">
@@ -8029,12 +8075,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   Deducted per unlock
                                 </p>
                               </div>
-                              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-lg">
+                              <div className="w-10 h-10 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center text-amber-600 text-lg" style={{ borderRadius: '6px' }}>
                                 <MessageSquare className="w-5 h-5" />
                               </div>
                             </div>
 
-                            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-center justify-between">
+                            <div className="bg-white border border-slate-200/80 shadow-xs rounded-md p-4 flex items-center justify-between" style={{ borderRadius: '6px' }}>
                               <div className="space-y-0.5">
                                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Transactions</p>
                                 <h4 className="text-sm font-bold text-gray-900">
@@ -8042,7 +8088,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 </h4>
                                 <p className="text-[10px] text-gray-500 leading-snug">Logs of top-ups & usage</p>
                               </div>
-                              <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-lg">
+                              <div className="w-10 h-10 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center text-amber-600 text-lg" style={{ borderRadius: '6px' }}>
                                 <ClipboardList className="w-5 h-5" />
                               </div>
                             </div>
@@ -8050,36 +8096,36 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </div>
 
                         {/* Developer Testing Panel inside Dashboard */}
-                        <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
-                          <h4 className="text-xs font-bold text-orange-850 flex items-center gap-1.5 mb-1.5">
-                            <Wrench className="w-4 h-4 mr-1.5 text-orange-600" /> Developer Billing & Credits Simulator
+                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-md p-4 shadow-xs" style={{ borderRadius: '6px' }}>
+                          <h4 className="text-xs font-bold text-orange-800 flex items-center gap-1.5 mb-1.5">
+                            <Wrench className="w-4 h-4 mr-1.5 text-amber-600" /> Developer Billing & Credits Simulator
                           </h4>
                           <p className="text-[10px] text-orange-700 mb-3 leading-relaxed">
                             Use these controls to simulate plan resets, add credits, and verify unlock behavior. Changes reflect in Firebase Firestore immediately.
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            <Button
+                            <button
                               onClick={() => simulateResetCredits('free')}
-                              variant="outline"
-                            className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-blue-700 py-1.5 h-auto"
+                              className="bg-white hover:bg-slate-50 text-[11px] border border-slate-200/80 font-semibold rounded-md text-blue-700 py-1.5 px-3 shadow-xs hover:border-slate-300 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                              style={{ borderRadius: '6px' }}
                             >
                               Reset to Free
-                            </Button>
-                            <Button
+                            </button>
+                            <button
                               onClick={() => simulateResetCredits('starter')}
-                              variant="outline"
-                            className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-amber-700 py-1.5 h-auto"
+                              className="bg-white hover:bg-slate-50 text-[11px] border border-slate-200/80 font-semibold rounded-md text-amber-700 py-1.5 px-3 shadow-xs hover:border-slate-300 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                              style={{ borderRadius: '6px' }}
                             >
                               Reset to Starter
-                            </Button>
-                            <Button
+                            </button>
+                            <button
                               onClick={() => simulateResetCredits('premium')}
-                              variant="outline"
-                            className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-purple-705 py-1.5 h-auto"
+                              className="bg-white hover:bg-slate-50 text-[11px] border border-slate-200/80 font-semibold rounded-md text-purple-700 py-1.5 px-3 shadow-xs hover:border-slate-300 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                              style={{ borderRadius: '6px' }}
                             >
                               Reset to Premium
-                            </Button>
-                            <Button
+                            </button>
+                            <button
                               onClick={async () => {
                                 if (!user || !userData) return;
                                 const currentCredits = userData.credits || 0;
@@ -8097,11 +8143,11 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 });
                                 alert('Simulated: Added 500 Credits');
                               }}
-                              variant="outline"
-                            className="bg-white hover:bg-gray-100 text-[10px] border-gray-300 font-semibold rounded-xl text-green-750 py-1.5 h-auto"
+                              className="bg-white hover:bg-slate-50 text-[11px] border border-slate-200/80 font-semibold rounded-md text-emerald-700 py-1.5 px-3 shadow-xs hover:border-slate-300 hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                              style={{ borderRadius: '6px' }}
                             >
                               +500 Credits
-                            </Button>
+                            </button>
                           </div>
                         </div>
 
@@ -8109,24 +8155,24 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         <div id="plans-comparison-grid" className="pt-2">
                           <div className="mb-4">
                             <h2 className="text-base font-bold text-gray-900 mb-0.5">Subscription Plans</h2>
-                            <p className="text-[11px] text-gray-505">Select the perfect tier to unlock and respond to traveler inquiries. Upgrade or downgrade anytime.</p>
+                            <p className="text-[11px] text-gray-500">Select the perfect tier to unlock and respond to traveler inquiries. Upgrade or downgrade anytime.</p>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Free Plan */}
-                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-free ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-orange-400' : 'border-gray-200'
-                              }`}>
+                            <div className={`bg-white border rounded-md p-4 shadow-xs flex flex-col justify-between plan-card-hover ${userData?.plan === 'free' || !userData?.plan ? 'ring-2 ring-amber-500 border-amber-400' : 'border-slate-200/80'
+                              }`} style={{ borderRadius: '6px' }}>
                               <div>
                                 <div className="mb-2">
-                                  <span className="text-[8px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-full">Basic Tier</span>
+                                  <span className="text-[8px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200" style={{ borderRadius: '4px' }}>Basic Tier</span>
                                 </div>
                                 <h3 className="text-sm font-bold text-gray-900 mb-0.5">Free Plan</h3>
                                 <div className="flex items-baseline gap-1 my-1.5">
                                   <span className="text-lg font-extrabold text-gray-900">₹0</span>
                                   <span className="text-[9px] text-gray-500 font-medium">/ year</span>
                                 </div>
-                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Perfect for simple search and quick traveler responses.</p>
-                                <ul className="space-y-2 text-[10px] text-gray-600 border-t pt-3 mb-4">
+                                <p className="text-[10px] text-gray-500 mb-4 leading-relaxed">Perfect for simple search and quick traveler responses.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-600 border-t border-slate-100 pt-3 mb-4">
                                   <li className="flex items-center gap-1.5">
                                     <span className="text-green-500 font-bold">✓</span>
                                     <span><strong>2 Listings</strong></span>
@@ -8137,32 +8183,34 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   </li>
                                 </ul>
                               </div>
-                              <Button
+                              <button
                                 onClick={() => upgradePlan('free')}
                                 disabled={userData?.plan === 'free' || !userData?.plan}
-                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'free' || !userData?.plan
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
-                                  }`}
+                                className={`w-full text-xs font-semibold py-2.5 rounded-md transition-all duration-200 flex items-center justify-center cursor-pointer ${
+                                  userData?.plan === 'free' || !userData?.plan
+                                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]'
+                                }`}
+                                style={{ borderRadius: '6px' }}
                               >
                                 {userData?.plan === 'free' || !userData?.plan ? 'Current Plan' : 'Select Free Plan'}
-                              </Button>
+                              </button>
                             </div>
 
                             {/* Standard Plan */}
-                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-starter ${userData?.plan === 'starter' ? 'ring-2 ring-amber-500' : 'border-gray-200'
-                              }`}>
+                            <div className={`bg-white border rounded-md p-4 shadow-xs flex flex-col justify-between plan-card-hover ${userData?.plan === 'starter' ? 'ring-2 ring-amber-500 border-amber-400' : 'border-slate-200/80'
+                              }`} style={{ borderRadius: '6px' }}>
                               <div>
                                 <div className="mb-2 flex justify-between items-center">
-                                  <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-full">Most Popular</span>
+                                  <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200" style={{ borderRadius: '4px' }}>Most Popular</span>
                                 </div>
                                 <h3 className="text-sm font-bold text-gray-900 mb-0.5">Standard Plan</h3>
                                 <div className="flex items-baseline gap-1 my-1.5">
                                   <span className="text-lg font-extrabold text-gray-900">₹{pricingConfig.starterPrice.toLocaleString('en-IN')}</span>
                                   <span className="text-[9px] text-gray-500 font-medium">/ year</span>
                                 </div>
-                                <p className="text-[10px] text-gray-650 mb-4 leading-relaxed">Best for active agencies replying to holiday inquiries.</p>
-                                <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
+                                <p className="text-[10px] text-gray-500 mb-4 leading-relaxed">Best for active agencies replying to holiday inquiries.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-600 border-t border-slate-100 pt-3 mb-4">
                                   <li className="flex items-center gap-1.5">
                                     <span className="text-green-500 font-bold">✓</span>
                                     <span><strong>10 Listings</strong></span>
@@ -8173,32 +8221,34 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   </li>
                                 </ul>
                               </div>
-                              <Button
+                              <button
                                 onClick={() => openUpgradeCheckout('starter')}
                                 disabled={userData?.plan === 'starter'}
-                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'starter'
-                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
-                                  }`}
+                                className={`w-full text-xs font-semibold py-2.5 rounded-md transition-all duration-200 flex items-center justify-center cursor-pointer ${
+                                  userData?.plan === 'starter'
+                                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]'
+                                }`}
+                                style={{ borderRadius: '6px' }}
                               >
                                 {userData?.plan === 'starter' ? 'Current Plan' : 'Upgrade to Standard'}
-                              </Button>
+                              </button>
                             </div>
 
                             {/* Premium Plan */}
-                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'premium' ? 'ring-2 ring-purple-500' : 'border-gray-200'
-                              }`}>
+                            <div className={`bg-white border rounded-md p-4 shadow-xs flex flex-col justify-between plan-card-hover ${userData?.plan === 'premium' ? 'ring-2 ring-purple-500 border-purple-400' : 'border-slate-200/80'
+                              }`} style={{ borderRadius: '6px' }}>
                               <div>
                                 <div className="mb-2">
-                                  <span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest bg-purple-50 px-2.5 py-0.5 rounded-full">Power User</span>
+                                  <span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest bg-purple-50 px-2.5 py-0.5 rounded-md border border-purple-200" style={{ borderRadius: '4px' }}>Power User</span>
                                 </div>
                                 <h3 className="text-sm font-bold text-gray-900 mb-0.5">Premium Plan</h3>
                                 <div className="flex items-baseline gap-1 my-1.5">
                                   <span className="text-lg font-extrabold text-gray-900">₹{pricingConfig.premiumPrice.toLocaleString('en-IN')}</span>
                                   <span className="text-[9px] text-gray-500 font-medium">/ year</span>
                                 </div>
-                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">For frequent high-volume agency messaging needs.</p>
-                                <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
+                                <p className="text-[10px] text-gray-500 mb-4 leading-relaxed">For frequent high-volume agency messaging needs.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-600 border-t border-slate-100 pt-3 mb-4">
                                   <li className="flex items-center gap-1.5">
                                     <span className="text-green-500 font-bold">✓</span>
                                     <span><strong>50 Listings</strong></span>
@@ -8209,32 +8259,34 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   </li>
                                 </ul>
                               </div>
-                              <Button
+                              <button
                                 onClick={() => openUpgradeCheckout('premium')}
                                 disabled={userData?.plan === 'premium'}
-                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'premium'
-                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
-                                  }`}
+                                className={`w-full text-xs font-semibold py-2.5 rounded-md transition-all duration-200 flex items-center justify-center cursor-pointer ${
+                                  userData?.plan === 'premium'
+                                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]'
+                                }`}
+                                style={{ borderRadius: '6px' }}
                               >
                                 {userData?.plan === 'premium' ? 'Current Plan' : 'Upgrade to Premium'}
-                              </Button>
+                              </button>
                             </div>
                             
                             {/* VIP Plan */}
-                            <div className={`bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between plan-card-hover glow-premium ${userData?.plan === 'vip' ? 'ring-2 ring-rose-500' : 'border-gray-200'
-                              }`}>
+                            <div className={`bg-white border rounded-md p-4 shadow-xs flex flex-col justify-between plan-card-hover ${userData?.plan === 'vip' ? 'ring-2 ring-rose-500 border-rose-400' : 'border-slate-200/80'
+                              }`} style={{ borderRadius: '6px' }}>
                               <div>
                                 <div className="mb-2">
-                                  <span className="text-[8px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-2.5 py-0.5 rounded-full">Elite Tier</span>
+                                  <span className="text-[8px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-200" style={{ borderRadius: '4px' }}>Elite Tier</span>
                                 </div>
                                 <h3 className="text-sm font-bold text-gray-900 mb-0.5">VIP Plan</h3>
                                 <div className="flex items-baseline gap-1 my-1.5">
                                   <span className="text-lg font-extrabold text-gray-900">₹{pricingConfig.vipPrice.toLocaleString('en-IN')}</span>
                                   <span className="text-[9px] text-gray-500 font-medium">/ year</span>
                                 </div>
-                                <p className="text-[10px] text-gray-605 mb-4 leading-relaxed">Ultimate package for top agencies wanting maximum visibility.</p>
-                                <ul className="space-y-2 text-[10px] text-gray-655 border-t pt-3 mb-4">
+                                <p className="text-[10px] text-gray-500 mb-4 leading-relaxed">Ultimate package for top agencies wanting maximum visibility.</p>
+                                <ul className="space-y-2 text-[10px] text-gray-600 border-t border-slate-100 pt-3 mb-4">
                                   <li className="flex items-center gap-1.5">
                                     <span className="text-green-500 font-bold">✓</span>
                                     <span><strong>Unlimited Listings</strong></span>
@@ -8245,16 +8297,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   </li>
                                 </ul>
                               </div>
-                              <Button
+                              <button
                                 onClick={() => openUpgradeCheckout('vip')}
                                 disabled={userData?.plan === 'vip'}
-                                className={`w-full text-[10px] font-bold py-2.5 rounded-xl ${userData?.plan === 'vip'
-                                    ? 'bg-gray-105 text-gray-400 cursor-not-allowed hover:bg-gray-100 border-none'
-                                    : 'bg-orange-400 hover:bg-orange-500 text-white'
-                                  }`}
+                                className={`w-full text-xs font-semibold py-2.5 rounded-md transition-all duration-200 flex items-center justify-center cursor-pointer ${
+                                  userData?.plan === 'vip'
+                                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]'
+                                }`}
+                                style={{ borderRadius: '6px' }}
                               >
                                 {userData?.plan === 'vip' ? 'Current Plan' : 'Upgrade to VIP'}
-                              </Button>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -8262,18 +8316,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         {/* Link to dedicated Transactions page */}
                         <div
                           onClick={() => setAgencyActiveSection('transactions')}
-                          className="flex items-center justify-between bg-slate-50 border border-slate-200 hover:border-orange-300 hover:bg-orange-50 rounded-2xl p-5 cursor-pointer transition-all group"
+                          className="flex items-center justify-between bg-slate-50 border border-slate-200/80 hover:border-amber-300 hover:bg-amber-50/50 rounded-md p-5 cursor-pointer transition-all group shadow-xs"
+                          style={{ borderRadius: '6px' }}
                         >
                           <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-orange-100 group-hover:bg-orange-200 rounded-xl flex items-center justify-center transition-colors">
-                              <ClipboardList className="w-5 h-5 text-orange-600" />
+                            <div className="w-10 h-10 bg-amber-100 group-hover:bg-amber-200 rounded-md flex items-center justify-center transition-colors" style={{ borderRadius: '6px' }}>
+                              <ClipboardList className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
                               <p className="text-sm font-bold text-gray-900">Payment History</p>
                               <p className="text-[11px] text-gray-500">{(userData?.creditHistory || []).length} transaction{(userData?.creditHistory || []).length !== 1 ? 's' : ''} · Plan upgrades & credit top-ups</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-orange-600 group-hover:translate-x-1 transition-transform">
+                          <div
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-white border border-slate-200/80 text-amber-600 shadow-xs group-hover:bg-amber-500 group-hover:text-white group-hover:border-amber-500 transition-all duration-200"
+                            style={{ borderRadius: '6px' }}
+                          >
                             View All →
                           </div>
                         </div>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Upload, ClipboardList, X } from 'lucide-react';
+import { Plus, Trash2, Upload, ClipboardList, X, Globe, Palmtree } from 'lucide-react';
 import { getDbInstance } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 
@@ -703,28 +703,27 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Modern Header */}
-        <div className="flex flex-col gap-2 mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-            <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl shadow-sm">
-              <ClipboardList className="h-6 w-6" />
-            </div>
-            {initialData ? 'Edit Travel Package' : 'Create New Travel Package'}
-          </h1>
-          <p className="text-slate-500 text-base">
-            Fill in all the details below to configure your travel package listing.
-          </p>
-        </div>
+    <div className="w-full space-y-6">
+      {/* Modern Header */}
+      <div className="flex flex-col gap-2 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+          <div className="p-2.5 bg-amber-50 text-orange-600 rounded-md shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+            <ClipboardList className="h-6 w-6" />
+          </div>
+          {initialData ? 'Edit Travel Package' : 'Create New Travel Package'}
+        </h1>
+        <p className="text-slate-500 text-sm sm:text-base">
+          Fill in all the details below to configure your travel package listing.
+        </p>
+      </div>
 
-        {/* Form Container */}
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-10 space-y-12">
+      {/* Form Container */}
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-10 space-y-12" style={{ borderRadius: '8px' }}>
 
             {/* 1. Package Title */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
                   1
                 </div>
                 <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Title</h3>
@@ -736,10 +735,11 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                   control={control}
                   rules={{ required: 'Package title is required' }}
                   render={({ field }) => (
-                    <Input
+                    <input
                       id="title"
                       placeholder="e.g., 5 Days / 4 Nights Honeymoon Package in Exotic Kerala"
-                      className="w-full flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                      className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                      style={{ borderRadius: '6px' }}
                       {...field}
                     />
                   )}
@@ -753,37 +753,43 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
             {/* 2. Package Type */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      2
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Type</h3>
-  </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                  2
+                </div>
+                <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Type</h3>
+              </div>
               <Controller
                 name="packageType"
                 control={control}
                 render={({ field }) => (
                   <div className="space-y-4">
-                    <div className="flex gap-4">
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          value="international"
-                          checked={field.value === 'international'}
-                          onChange={(e) => field.onChange(e.target.value)}
-                          className="form-radio h-4 w-4 text-blue-600"
-                        />
-                        <span>International</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          value="domestic"
-                          checked={field.value === 'domestic'}
-                          onChange={(e) => field.onChange(e.target.value)}
-                          className="form-radio h-4 w-4 text-blue-600"
-                        />
-                        <span>Domestic</span>
-                      </label>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => field.onChange('international')}
+                        className={`px-5 py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer ${
+                          field.value === 'international'
+                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                            : 'bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                        }`}
+                        style={{ borderRadius: '6px' }}
+                      >
+                        <Globe className="h-4 w-4" />
+                        International
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => field.onChange('domestic')}
+                        className={`px-5 py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer ${
+                          field.value === 'domestic'
+                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                            : 'bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                        }`}
+                        style={{ borderRadius: '6px' }}
+                      >
+                        <Palmtree className="h-4 w-4" />
+                        Domestic
+                      </button>
                     </div>
 
                     {field.value === 'international' && (
@@ -794,14 +800,14 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                         {countryNames.length > 0 && (
                           <div className="flex flex-wrap gap-2 mb-2">
                             {countryNames.map((c: string, idx: number) => (
-                              <div key={idx} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-200 shadow-sm">
+                              <div key={idx} className="flex items-center gap-1.5 bg-orange-50 text-orange-900 px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold border border-orange-200 shadow-xs" style={{ borderRadius: '6px' }}>
                                 {c}
                                 <button
                                   type="button"
                                   onClick={() => removeCountry(c)}
-                                  className="hover:bg-blue-200 rounded-full p-0.5 transition-colors focus:outline-none"
+                                  className="hover:bg-orange-200/70 rounded p-0.5 transition-colors focus:outline-none cursor-pointer"
                                 >
-                                  <X className="h-3 w-3" />
+                                  <X className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             ))}
@@ -810,7 +816,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
 
                         {/* Input with Dropdown */}
                         <div className="relative">
-                          <Input
+                          <input
                             id="countrySearch"
                             placeholder="Type to search and add countries..."
                             value={countryInput}
@@ -827,16 +833,17 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                                 }
                               }
                             }}
-                            className="w-full flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                            className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                            style={{ borderRadius: '6px' }}
                           />
                           
                           {isCountryDropdownOpen && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto mt-1">
+                            <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto mt-1" style={{ borderRadius: '6px' }}>
                               {filteredCountries.length > 0 ? (
                                 filteredCountries.map((c) => (
                                   <div
                                     key={c}
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    className="px-4 py-2.5 hover:bg-orange-50/60 hover:text-orange-950 cursor-pointer text-sm font-medium transition-colors"
                                     onClick={() => addCountry(c)}
                                   >
                                     {c}
@@ -845,7 +852,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                               ) : (
                                 countryInput.trim() && (
                                   <div
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-blue-600 font-medium flex items-center gap-2"
+                                    className="px-4 py-2.5 hover:bg-orange-50/60 cursor-pointer text-sm text-orange-600 font-semibold flex items-center gap-2"
                                     onClick={() => addCountry(countryInput)}
                                   >
                                     <Plus className="h-4 w-4" /> Add "{countryInput}"
@@ -866,14 +873,14 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                         {stateNames.length > 0 && (
                           <div className="flex flex-wrap gap-2 mb-2">
                             {stateNames.map((s: string, idx: number) => (
-                              <div key={idx} className="flex items-center gap-1 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium border border-green-200 shadow-sm">
+                              <div key={idx} className="flex items-center gap-1.5 bg-orange-50 text-orange-900 px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold border border-orange-200 shadow-xs" style={{ borderRadius: '6px' }}>
                                 {s}
                                 <button
                                   type="button"
                                   onClick={() => removeState(s)}
-                                  className="hover:bg-green-200 rounded-full p-0.5 transition-colors focus:outline-none"
+                                  className="hover:bg-orange-200/70 rounded p-0.5 transition-colors focus:outline-none cursor-pointer"
                                 >
-                                  <X className="h-3 w-3" />
+                                  <X className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             ))}
@@ -882,7 +889,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
 
                         {/* Input with Dropdown */}
                         <div className="relative">
-                          <Input
+                          <input
                             id="stateSearch"
                             placeholder="Type to search and add states..."
                             value={stateInput}
@@ -899,16 +906,17 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                                 }
                               }
                             }}
-                            className="w-full flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                            className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                            style={{ borderRadius: '6px' }}
                           />
                           
                           {isStateDropdownOpen && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto mt-1">
+                            <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto mt-1" style={{ borderRadius: '6px' }}>
                               {filteredStates.length > 0 ? (
                                 filteredStates.map((s) => (
                                   <div
                                     key={s}
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    className="px-4 py-2.5 hover:bg-orange-50/60 hover:text-orange-950 cursor-pointer text-sm font-medium transition-colors"
                                     onClick={() => addState(s)}
                                   >
                                     {s}
@@ -917,7 +925,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                               ) : (
                                 stateInput.trim() && (
                                   <div
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-green-600 font-medium flex items-center gap-2"
+                                    className="px-4 py-2.5 hover:bg-orange-50/60 cursor-pointer text-sm text-orange-600 font-semibold flex items-center gap-2"
                                     onClick={() => addState(stateInput)}
                                   >
                                     <Plus className="h-4 w-4" /> Add "{stateInput}"
@@ -938,15 +946,17 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="h-4 w-1 rounded-full bg-blue-500"></div>
-    <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Pick-up Location</h3>
-  </div>
+                  <div className="h-4 w-1 rounded-full bg-orange-500"></div>
+                  <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Pick-up Location</h3>
+                </div>
                 <Controller
                   name="pickUpLocation"
                   control={control}
                   render={({ field }) => (
-                    <Input
+                    <input
                       placeholder="e.g., Delhi Airport, Mumbai Central"
+                      className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                      style={{ borderRadius: '6px' }}
                       {...field}
                     />
                   )}
@@ -954,15 +964,17 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="h-4 w-1 rounded-full bg-blue-500"></div>
-    <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Drop Location</h3>
-  </div>
+                  <div className="h-4 w-1 rounded-full bg-orange-500"></div>
+                  <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Drop Location</h3>
+                </div>
                 <Controller
                   name="dropLocation"
                   control={control}
                   render={({ field }) => (
-                    <Input
+                    <input
                       placeholder="e.g., Delhi Airport, Mumbai Central"
+                      className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                      style={{ borderRadius: '6px' }}
                       {...field}
                     />
                   )}
@@ -1053,74 +1065,96 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
             </div>
             */}
 
-            {/* 4. Tour Category */}
+            {/* 3. Tour Category */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      3
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Tour Category</h3>
-  </div>
-<Controller
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                  3
+                </div>
+                <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Tour Category</h3>
+              </div>
+              <Controller
                 name="tourCategories"
                 control={control}
                 render={({ field }) => (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {tourCategories.map((category) => (
-                      <label key={category} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                        <input
-                          type="checkbox"
-                          checked={(field.value || []).includes(category)}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            const currentCategories = field.value || [];
-                            const newCategories = checked
-                              ? [...currentCategories, category]
-                              : currentCategories.filter((c: string) => c !== category);
-                            field.onChange(newCategories);
-                          }}
-                          className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
-                        />
-                        <span>{category}</span>
-                      </label>
-                    ))}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {tourCategories.map((category) => {
+                      const isSelected = (field.value || []).includes(category);
+                      return (
+                        <label
+                          key={category}
+                          className={`flex items-center space-x-2.5 p-3 border rounded-md cursor-pointer transition-all duration-200 ${
+                            isSelected
+                              ? 'bg-orange-50/80 border-orange-300 text-orange-950 shadow-xs'
+                              : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
+                          }`}
+                          style={{ borderRadius: '6px' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const currentCategories = field.value || [];
+                              const newCategories = checked
+                                ? [...currentCategories, category]
+                                : currentCategories.filter((c: string) => c !== category);
+                              field.onChange(newCategories);
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400 accent-orange-500 cursor-pointer"
+                          />
+                          <span className="text-sm font-semibold">{category}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
               />
             </div>
 
-            {/* 4. Hotel & Meal Details */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 4 & 5. Hotel & Meal Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      4
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Hotel Type</h3>
-  </div>
-<Controller
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                    4
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Hotel Type</h3>
+                </div>
+                <Controller
                   name="hotelTypes"
                   control={control}
                   render={({ field }) => (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {hotelTypes.map((type) => (
-                        <label key={type.value} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            checked={(field.value || []).includes(type.value)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              const currentTypes = field.value || [];
-                              const newTypes = checked
-                                ? [...currentTypes, type.value]
-                                : currentTypes.filter((t: string) => t !== type.value);
-                              field.onChange(newTypes);
-                            }}
-                            className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
-                          />
-                          <span>{type.label}</span>
-                        </label>
-                      ))}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {hotelTypes.map((type) => {
+                        const isSelected = (field.value || []).includes(type.value);
+                        return (
+                          <label
+                            key={type.value}
+                            className={`flex items-center space-x-2.5 p-3 border rounded-md cursor-pointer transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-orange-50/80 border-orange-300 text-orange-950 shadow-xs'
+                                : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
+                            }`}
+                            style={{ borderRadius: '6px' }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                const currentTypes = field.value || [];
+                                const newTypes = checked
+                                  ? [...currentTypes, type.value]
+                                  : currentTypes.filter((t: string) => t !== type.value);
+                                field.onChange(newTypes);
+                              }}
+                              className="h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400 accent-orange-500 cursor-pointer"
+                            />
+                            <span className="text-sm font-semibold">{type.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                 />
@@ -1128,11 +1162,11 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      5
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Meal Plan</h3>
-  </div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                    5
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Meal Plan</h3>
+                </div>
                 <Controller
                   name="mealPlan"
                   control={control}
@@ -1153,44 +1187,48 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
 
                     return (
                       <div className="space-y-3">
-                        {/* {(isNoMealSelected || isAllMealsSelected) && (
-                          <div className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center justify-between">
-                            <span>
-                              {isNoMealSelected ? '"No Meal"' : '"All Meals"'} is selected. Other meal plans are hidden. Uncheck to view all meal options.
-                            </span>
-                          </div>
-                        )} */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {visiblePlans.map((plan) => (
-                            <label key={plan.value} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={currentPlans.includes(plan.value)}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  let newPlans: string[] = [];
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {visiblePlans.map((plan) => {
+                            const isSelected = currentPlans.includes(plan.value);
+                            return (
+                              <label
+                                key={plan.value}
+                                className={`flex items-center space-x-2.5 p-3 border rounded-md cursor-pointer transition-all duration-200 ${
+                                  isSelected
+                                    ? 'bg-orange-50/80 border-orange-300 text-orange-950 shadow-xs'
+                                    : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                                style={{ borderRadius: '6px' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    let newPlans: string[] = [];
 
-                                  if (checked) {
-                                    if (plan.value === 'no-meal') {
-                                      newPlans = ['no-meal'];
-                                    } else if (plan.value === 'all-meals') {
-                                      newPlans = ['all-meals'];
+                                    if (checked) {
+                                      if (plan.value === 'no-meal') {
+                                        newPlans = ['no-meal'];
+                                      } else if (plan.value === 'all-meals') {
+                                        newPlans = ['all-meals'];
+                                      } else {
+                                        const filtered = currentPlans.filter(
+                                          (p) => p !== 'no-meal' && p !== 'all-meals'
+                                        );
+                                        newPlans = [...filtered, plan.value];
+                                      }
                                     } else {
-                                      const filtered = currentPlans.filter(
-                                        (p) => p !== 'no-meal' && p !== 'all-meals'
-                                      );
-                                      newPlans = [...filtered, plan.value];
+                                      newPlans = currentPlans.filter((p) => p !== plan.value);
                                     }
-                                  } else {
-                                    newPlans = currentPlans.filter((p) => p !== plan.value);
-                                  }
-                                  field.onChange(newPlans);
-                                }}
-                                className="h-4 w-4 rounded border border-gray-300 bg-white checked:bg-orange-400 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-colors"
-                              />
-                              <span>{plan.label}</span>
-                            </label>
-                          ))}
+                                    field.onChange(newPlans);
+                                  }}
+                                  className="h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400 accent-orange-500 cursor-pointer"
+                                />
+                                <span className="text-sm font-semibold">{plan.label}</span>
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -1203,58 +1241,66 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      6
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Itinerary Builder</h3>
-  </div>
-                <Button type="button" onClick={addItineraryDay} className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                    6
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Itinerary Builder</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={addItineraryDay}
+                  className="px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]"
+                  style={{ borderRadius: '6px' }}
+                >
                   <Plus className="h-4 w-4" />
                   Add Day
-                </Button>
+                </button>
               </div>
 
               {itinerary.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                  <p className="text-gray-500">No itinerary days added yet. Click "Add Day" to start.</p>
+                <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-md bg-slate-50/50" style={{ borderRadius: '6px' }}>
+                  <p className="text-slate-500 text-sm">No itinerary days added yet. Click "Add Day" to start.</p>
                 </div>
               ) : (
                 itinerary.map((day, index) => (
-                  <Card key={day.id} className="border-l-4 border-green-400">
+                  <Card key={day.id} className="border-l-4 border-l-amber-500 border-slate-200 rounded-md shadow-xs bg-white" style={{ borderRadius: '6px' }}>
                     <CardContent className="p-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-medium">Day {day.day}</h4>
-                        <Button
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                        <h4 className="font-semibold text-slate-800">Day {day.day}</h4>
+                        <button
                           type="button"
-                          variant="destructive"
-                          size="sm"
                           onClick={() => removeItineraryDay(index)}
-                          className="flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer flex items-center gap-1"
+                          style={{ borderRadius: '6px' }}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-3.5 w-3.5" />
                           Remove
-                        </Button>
+                        </button>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor={`dayPlace-${index}`}>Place Name</Label>
-                          <Input
+                          <input
                             id={`dayPlace-${index}`}
                             placeholder="Enter place name for this day"
                             value={day.placeName}
                             onChange={(e) => updateItineraryDay(index, 'placeName', e.target.value)}
+                            className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                            style={{ borderRadius: '6px' }}
                           />
                         </div>
                         
                         <div className="space-y-2">
                           <Label htmlFor={`dayDescription-${index}`}>Description</Label>
-                          <Textarea
+                          <textarea
                             id={`dayDescription-${index}`}
                             placeholder="Describe what will happen on this day..."
                             value={day.description}
                             onChange={(e) => updateItineraryDay(index, 'description', e.target.value)}
                             rows={3}
+                            className="w-full rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                            style={{ borderRadius: '6px' }}
                           />
                         </div>
 
@@ -1262,7 +1308,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                         <div className="space-y-2">
                           <Label>Place Photos</Label>
                           <div className="space-y-2">
-                            <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:bg-gray-50 cursor-pointer relative transition-all">
+                            <div className="border border-dashed border-slate-300 rounded-md p-3 text-center hover:bg-slate-50 cursor-pointer relative transition-all" style={{ borderRadius: '6px' }}>
                               <input
                                 type="file"
                                 multiple
@@ -1274,14 +1320,14 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                                 }}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                               />
-                              <Upload className="h-5 w-5 mx-auto text-gray-400 mb-1" />
-                              <span className="text-xs font-medium text-gray-700 block">Click to upload photos</span>
+                              <Upload className="h-5 w-5 mx-auto text-slate-400 mb-1" />
+                              <span className="text-xs font-medium text-slate-700 block">Click to upload photos</span>
                             </div>
 
                             {((day.imageUrls?.length || 0) + (day.images?.length || 0)) > 0 && (
-                              <div className="flex flex-wrap gap-1.5 border p-1.5 rounded-lg bg-gray-50/50 max-h-24 overflow-y-auto">
+                              <div className="flex flex-wrap gap-1.5 border border-slate-200 p-1.5 rounded-md bg-slate-50/50 max-h-24 overflow-y-auto" style={{ borderRadius: '6px' }}>
                                 {day.imageUrls?.map((url, idx) => (
-                                  <div key={`day-existing-${idx}`} className="relative h-10 w-10 rounded overflow-hidden border bg-white group shadow-sm shrink-0">
+                                  <div key={`day-existing-${idx}`} className="relative h-10 w-10 rounded-md overflow-hidden border border-slate-200 bg-white group shadow-xs shrink-0" style={{ borderRadius: '6px' }}>
                                     <img src={url} alt={`Place ${idx + 1}`} className="w-full h-full object-cover" />
                                     <button
                                       type="button"
@@ -1289,7 +1335,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                                         const updatedUrls = (day.imageUrls || []).filter((_, i) => i !== idx);
                                         updateItineraryDay(index, 'imageUrls', updatedUrls);
                                       }}
-                                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                     >
                                       <Trash2 className="h-3 w-3 text-white" />
                                     </button>
@@ -1299,7 +1345,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                                 {day.images?.map((file, idx) => {
                                   const previewUrl = URL.createObjectURL(file);
                                   return (
-                                    <div key={`day-new-${idx}`} className="relative h-10 w-10 rounded overflow-hidden border bg-white group shadow-sm shrink-0">
+                                    <div key={`day-new-${idx}`} className="relative h-10 w-10 rounded-md overflow-hidden border border-slate-200 bg-white group shadow-xs shrink-0" style={{ borderRadius: '6px' }}>
                                       <img src={previewUrl} alt={`New place ${idx + 1}`} className="w-full h-full object-cover" />
                                       <button
                                         type="button"
@@ -1307,7 +1353,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                                           const updatedFiles = (day.images || []).filter((_, i) => i !== idx);
                                           updateItineraryDay(index, 'images', updatedFiles);
                                         }}
-                                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                       >
                                         <Trash2 className="h-3 w-3 text-white" />
                                       </button>
@@ -1325,42 +1371,40 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               )}
             </div>
 
-
-
-            {/* 8. Package Duration */}
+            {/* 7. Package Duration */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      7
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Duration</h3>
-  </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                  7
+                </div>
+                <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Package Duration</h3>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Duration Summary</Label>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-600 mb-2">Calculated from itinerary:</div>
-                    <div className="flex justify-between font-medium">
+                  <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-md" style={{ borderRadius: '6px' }}>
+                    <div className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Calculated from itinerary:</div>
+                    <div className="flex justify-between font-semibold text-sm text-slate-800">
                       <span>Total Days:</span>
-                      <span>{itinerary.length}</span>
+                      <span className="text-orange-600 font-bold">{itinerary.length} Days</span>
                     </div>
-                    <div className="flex justify-between font-medium">
+                    <div className="flex justify-between font-semibold text-sm text-slate-800 mt-1">
                       <span>Total Nights:</span>
-                      <span>{itinerary.length > 0 ? itinerary.length - 1 : 0}</span>
+                      <span className="text-orange-600 font-bold">{itinerary.length > 0 ? itinerary.length - 1 : 0} Nights</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 9. Starting Price */}
+            {/* 8. Starting Price */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      8
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Starting Price</h3>
-  </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                  8
+                </div>
+                <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Starting Price</h3>
+              </div>
               <Controller
                 name="cost"
                 control={control}
@@ -1368,7 +1412,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cost">Starting Price (per person)</Label>
-                      <Input
+                      <input
                         id="cost"
                         type="number"
                         placeholder="Enter starting price"
@@ -1376,6 +1420,8 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                         onChange={(e) => field.onChange(e.target.value)}
                         min="0"
                         step="0.01"
+                        className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                        style={{ borderRadius: '6px' }}
                       />
                     </div>
                   </div>
@@ -1383,29 +1429,29 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               />
             </div>
 
-            {/* 8. Category Classification Details */}
+            {/* 9. Category Classification Details */}
             <div className="grid grid-cols-1 gap-6">
               {/* Experience Type */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      9
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Experience Type</h3>
-  </div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                    9
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Experience Type</h3>
+                </div>
                 <div className="space-y-3" ref={experienceDropdownRef}>
                   {/* Selected Badges */}
                   {experienceType.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {experienceType.map((exp: string, idx: number) => (
-                        <div key={idx} className="flex items-center gap-1 bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium border border-orange-200 shadow-sm">
+                        <div key={idx} className="flex items-center gap-1.5 bg-orange-50 text-orange-900 px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold border border-orange-200 shadow-xs" style={{ borderRadius: '6px' }}>
                           {exp}
                           <button
                             type="button"
                             onClick={() => removeExperience(exp)}
-                            className="hover:bg-orange-200 rounded-full p-0.5 transition-colors focus:outline-none"
+                            className="hover:bg-orange-200/70 rounded p-0.5 transition-colors focus:outline-none cursor-pointer"
                           >
-                            <X className="h-3 w-3" />
+                            <X className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       ))}
@@ -1414,7 +1460,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
 
                   {/* Input with Dropdown */}
                   <div className="relative">
-                    <Input
+                    <input
                       placeholder="Type to add or search..."
                       value={experienceInput}
                       onChange={(e) => setExperienceInput(e.target.value)}
@@ -1427,16 +1473,17 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                           }
                         }
                       }}
-                      className="w-full"
+                      className="w-full flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                      style={{ borderRadius: '6px' }}
                     />
                     
                     {isExperienceDropdownOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto" style={{ borderRadius: '6px' }}>
                         {filteredExperiences.length > 0 ? (
                           filteredExperiences.map((exp) => (
                             <div
                               key={exp}
-                              className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm transition-colors"
+                              className="px-4 py-2.5 hover:bg-orange-50/60 hover:text-orange-950 cursor-pointer text-sm font-medium transition-colors"
                               onClick={() => addExperience(exp)}
                             >
                               {exp}
@@ -1445,7 +1492,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                         ) : (
                           experienceInput.trim() && (
                             <div
-                              className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm text-orange-600 transition-colors flex items-center gap-2"
+                              className="px-4 py-2.5 hover:bg-orange-50/60 cursor-pointer text-sm text-orange-600 font-semibold transition-colors flex items-center gap-2"
                               onClick={() => addExperience(experienceInput)}
                             >
                               <Plus className="h-4 w-4" /> Add "{experienceInput}"
@@ -1453,7 +1500,7 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                           )
                         )}
                         {filteredExperiences.length === 0 && !experienceInput.trim() && (
-                          <div className="px-4 py-2 text-sm text-gray-500 italic">No more options</div>
+                          <div className="px-4 py-2 text-sm text-slate-500 italic">No more options</div>
                         )}
                       </div>
                     )}
@@ -1467,18 +1514,19 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               {/* Season Getaways */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      10
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Seasonal Escapes</h3>
-  </div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                    10
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Seasonal Escapes</h3>
+                </div>
                 <Controller
                   name="season"
                   control={control}
                   render={({ field }) => (
                     <select
                       {...field}
-                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                      className="flex h-11 w-full items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-xs cursor-pointer"
+                      style={{ borderRadius: '6px' }}
                     >
                       <option value="">Select season</option>
                       <option value="summer">Summer Retreat (May - Jul)</option>
@@ -1494,18 +1542,19 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               {/* Festive & Event Specials */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 font-bold text-sm shadow-sm border border-blue-100">
-      11
-    </div>
-    <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Festive & Event Specials</h3>
-  </div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 text-orange-600 font-bold text-sm shadow-xs border border-orange-100" style={{ borderRadius: '6px' }}>
+                    11
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Festive & Event Specials</h3>
+                </div>
                 <Controller
                   name="eventType"
                   control={control}
                   render={({ field }) => (
                     <select
                       {...field}
-                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                      className="flex h-11 w-full items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 hover:bg-slate-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-xs cursor-pointer"
+                      style={{ borderRadius: '6px' }}
                     >
                       <option value="">Select festival/event</option>
                       <option value="new-year">New Year & Christmas Specials</option>
@@ -1524,29 +1573,34 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
                   <h3 className="text-lg font-semibold">12. Inclusions</h3>
-                  <Button type="button" size="sm" onClick={addInclusion} className="flex items-center gap-1">
-                    <Plus className="h-3 w-3" /> Add Item
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={addInclusion}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-sm border border-amber-400/50 hover:scale-[1.02]"
+                    style={{ borderRadius: '6px' }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Item
+                  </button>
                 </div>
                 <div className="space-y-2">
                   {inclusions.map((item, index) => (
                     <div key={`inclusion-${index}`} className="flex items-center gap-2">
-                      <Input
+                      <input
                         placeholder="e.g. 3 Star hotel stay, daily breakfast..."
                         value={item}
                         onChange={(e) => updateInclusion(index, e.target.value)}
-                        className="flex-1"
+                        className="flex-1 flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                        style={{ borderRadius: '6px' }}
                       />
-                      <Button
+                      <button
                         type="button"
-                        variant="destructive"
-                        size="icon"
                         onClick={() => removeInclusion(index)}
                         disabled={inclusions.length <= 1 && item === ''}
-                        className="h-10 w-10 shrink-0"
+                        className="h-10 w-10 shrink-0 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ borderRadius: '6px' }}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1556,29 +1610,34 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
                   <h3 className="text-lg font-semibold">13. Exclusions</h3>
-                  <Button type="button" size="sm" onClick={addExclusion} className="flex items-center gap-1">
-                    <Plus className="h-3 w-3" /> Add Item
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={addExclusion}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-sm border border-amber-400/50 hover:scale-[1.02]"
+                    style={{ borderRadius: '6px' }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Item
+                  </button>
                 </div>
                 <div className="space-y-2">
                   {exclusions.map((item, index) => (
                     <div key={`exclusion-${index}`} className="flex items-center gap-2">
-                      <Input
+                      <input
                         placeholder="e.g. Laundry, personal tips, flights..."
                         value={item}
                         onChange={(e) => updateExclusion(index, e.target.value)}
-                        className="flex-1"
+                        className="flex-1 flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-xs"
+                        style={{ borderRadius: '6px' }}
                       />
-                      <Button
+                      <button
                         type="button"
-                        variant="destructive"
-                        size="icon"
                         onClick={() => removeExclusion(index)}
                         disabled={exclusions.length <= 1 && item === ''}
-                        className="h-10 w-10 shrink-0"
+                        className="h-10 w-10 shrink-0 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ borderRadius: '6px' }}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1601,9 +1660,8 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
               </div>
               
               <div className="flex gap-4">
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => {
                     if (onCancel) {
                       onCancel();
@@ -1611,20 +1669,22 @@ export default function AgencyListingForm({ agencyId, onSuccess, onCancel, initi
                       window.history.back();
                     }
                   }}
+                  className="px-5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]"
+                  style={{ borderRadius: '6px' }}
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-orange-400 hover:bg-orange-500"
+                  className="px-6 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+                  style={{ borderRadius: '6px' }}
                 >
                   {isSubmitting ? 'Submitting...' : initialData ? 'Update Listing' : 'Submit for Approval'}
-                </Button>
+                </button>
               </div>
             </div>
-                  </form>
-      </div>
+          </form>
     </div>
   );
 }

@@ -387,35 +387,35 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
   const validCount = parsedListings.filter(l => l.isValid).length;
 
   return (
-    <div className="space-y-6">
-      <Card className="border border-gray-200 shadow-sm rounded-3xl overflow-hidden bg-white">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50/30 border-b border-gray-100 p-6">
+    <div className="space-y-6 w-full">
+      <Card className="border border-slate-200/80 shadow-xs rounded-md overflow-hidden bg-white w-full" style={{ borderRadius: '8px' }}>
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-2xl font-extrabold text-gray-900 flex items-center gap-2">
-                <FileSpreadsheet className="h-7 w-7 text-blue-600" />
+              <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <FileSpreadsheet className="h-6 w-6 text-amber-600" />
                 Bulk Import Packages
               </CardTitle>
-              <CardDescription className="text-gray-600 text-sm mt-1">
+              <CardDescription className="text-gray-500 text-xs mt-1">
                 Upload hundreds of travel listings in seconds from a Google Sheet (CSV format)
               </CardDescription>
             </div>
             
-            <Button
+            <button
               type="button"
-              variant="outline"
               onClick={handleDownloadTemplate}
-              className="flex items-center gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-semibold rounded-2xl py-5 px-4 shadow-sm transition-all"
+              className="flex items-center gap-2 border border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 font-semibold rounded-md py-2.5 px-4 shadow-xs transition-all duration-200 hover:scale-[1.02] text-xs sm:text-sm cursor-pointer"
+              style={{ borderRadius: '6px' }}
             >
-              <FileDown className="h-4 w-4" />
+              <FileDown className="h-4 w-4 text-amber-600" />
               Download CSV Template
-            </Button>
+            </button>
           </div>
         </CardHeader>
         
         <CardContent className="p-6 space-y-6">
           {errorMessage && (
-            <Alert variant="destructive" className="rounded-2xl border-red-200 bg-red-50 text-red-900">
+            <Alert variant="destructive" className="rounded-md border-red-200 bg-red-50 text-red-900" style={{ borderRadius: '6px' }}>
               <AlertTriangle className="h-5 w-5 text-red-600" />
               <AlertTitle className="font-bold">Error</AlertTitle>
               <AlertDescription>{errorMessage}</AlertDescription>
@@ -423,7 +423,7 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
           )}
 
           {/* Upload Area */}
-          <div className="border-2 border-dashed border-gray-300 rounded-3xl p-8 text-center hover:border-blue-500 transition-colors bg-gray-50/50 flex flex-col items-center justify-center gap-4 relative">
+          <div className="border-2 border-dashed border-slate-300 hover:border-amber-400 rounded-md p-8 text-center transition-colors bg-slate-50/50 flex flex-col items-center justify-center gap-4 relative" style={{ borderRadius: '8px' }}>
             <input
               type="file"
               accept=".csv"
@@ -432,16 +432,16 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
               disabled={isParsing || isUploading}
             />
             
-            <div className="p-4 bg-white rounded-full shadow-sm border border-gray-100">
+            <div className="p-3.5 bg-white rounded-md shadow-xs border border-slate-200/80" style={{ borderRadius: '6px' }}>
               {isParsing ? (
-                <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                <Loader2 className="h-7 w-7 text-amber-600 animate-spin" />
               ) : (
-                <Upload className="h-8 w-8 text-blue-600" />
+                <Upload className="h-7 w-7 text-amber-600" />
               )}
             </div>
             
             <div>
-              <p className="font-bold text-gray-800 text-base">
+              <p className="font-bold text-gray-800 text-sm">
                 {fileName ? fileName : 'Choose a CSV file or drag it here'}
               </p>
               <p className="text-xs text-gray-500 mt-1">
@@ -452,16 +452,16 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
 
           {/* Upload Progress */}
           {isUploading && (
-            <div className="space-y-3 bg-blue-50/50 border border-blue-100 rounded-3xl p-5">
-              <div className="flex justify-between items-center text-sm font-bold text-blue-900">
+            <div className="space-y-3 bg-amber-50/40 border border-amber-200/60 rounded-md p-5 shadow-xs" style={{ borderRadius: '6px' }}>
+              <div className="flex justify-between items-center text-sm font-bold text-slate-800">
                 <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
                   Uploading packages to database...
                 </span>
                 <span>{uploadProgress}%</span>
               </div>
-              <Progress value={uploadProgress} className="h-2.5 bg-blue-100 rounded-full" />
-              <div className="flex justify-between text-xs text-blue-700 font-semibold mt-1">
+              <Progress value={uploadProgress} className="h-2 bg-amber-100 rounded-md" />
+              <div className="flex justify-between text-xs text-slate-600 font-semibold mt-1">
                 <span>Total Items: {uploadStats.total}</span>
                 <span>Success: {uploadStats.success}</span>
                 <span>Failed: {uploadStats.failed}</span>
@@ -472,17 +472,17 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
           {/* Summary stats after parsing */}
           {parsedListings.length > 0 && !isUploading && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col">
+              <div className="p-4 rounded-md bg-slate-50/80 border border-slate-200/80 flex flex-col shadow-xs" style={{ borderRadius: '6px' }}>
                 <span className="text-xs font-semibold text-gray-500">Total Packages Found</span>
                 <span className="text-2xl font-extrabold text-gray-950 mt-1">{parsedListings.length}</span>
               </div>
-              <div className="p-4 rounded-2xl bg-green-50 border border-green-100 flex flex-col">
-                <span className="text-xs font-semibold text-green-600">Valid & Ready to Import</span>
-                <span className="text-2xl font-extrabold text-green-700 mt-1">{validCount}</span>
+              <div className="p-4 rounded-md bg-emerald-50/80 border border-emerald-200/80 flex flex-col shadow-xs" style={{ borderRadius: '6px' }}>
+                <span className="text-xs font-semibold text-emerald-700">Valid & Ready to Import</span>
+                <span className="text-2xl font-extrabold text-emerald-800 mt-1">{validCount}</span>
               </div>
-              <div className="p-4 rounded-2xl bg-yellow-50 border border-yellow-100 flex flex-col">
-                <span className="text-xs font-semibold text-yellow-600">Errors & Warnings Found</span>
-                <span className="text-2xl font-extrabold text-yellow-700 mt-1">{totalErrors}</span>
+              <div className="p-4 rounded-md bg-amber-50/80 border border-amber-200/80 flex flex-col shadow-xs" style={{ borderRadius: '6px' }}>
+                <span className="text-xs font-semibold text-amber-700">Errors & Warnings Found</span>
+                <span className="text-2xl font-extrabold text-amber-800 mt-1">{totalErrors}</span>
               </div>
             </div>
           )}
@@ -491,34 +491,35 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
           {parsedListings.length > 0 && !isUploading && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="font-extrabold text-gray-800 text-lg">Packages Preview</h3>
+                <h3 className="font-extrabold text-gray-800 text-base">Packages Preview</h3>
                 {validCount > 0 && (
-                  <Button
+                  <button
                     type="button"
                     onClick={handleBulkUpload}
-                    className="bg-orange-400 hover:bg-orange-500 text-white font-extrabold px-6 py-5 rounded-2xl shadow-md transition-all flex items-center gap-2"
+                    className="px-5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]"
+                    style={{ borderRadius: '6px' }}
                   >
-                    <CheckCircle className="h-5 w-5" />
+                    <CheckCircle className="h-4 w-4" />
                     Upload {validCount} Valid Packages
-                  </Button>
+                  </button>
                 )}
               </div>
 
-              <div className="border border-gray-200 rounded-3xl overflow-hidden">
+              <div className="border border-slate-200/80 rounded-md overflow-hidden shadow-xs" style={{ borderRadius: '6px' }}>
                 <div className="max-h-96 overflow-y-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50 text-xs font-bold text-gray-500 border-b border-gray-200">
-                        <th className="p-4 w-12 text-center">Row</th>
-                        <th className="p-4">Package Title</th>
-                        <th className="p-4">Destination</th>
-                        <th className="p-4">Type</th>
-                        <th className="p-4">Price (INR)</th>
-                        <th className="p-4">Days</th>
-                        <th className="p-4">Status</th>
+                      <tr className="bg-slate-50 text-xs font-bold text-gray-500 border-b border-slate-200/80">
+                        <th className="p-3.5 w-12 text-center">Row</th>
+                        <th className="p-3.5">Package Title</th>
+                        <th className="p-3.5">Destination</th>
+                        <th className="p-3.5">Type</th>
+                        <th className="p-3.5">Price (INR)</th>
+                        <th className="p-3.5">Days</th>
+                        <th className="p-3.5">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 text-sm">
+                    <tbody className="divide-y divide-gray-100 text-xs">
                       {parsedListings.map((listing) => {
                         const destinationName = listing.data.packageType === 'international'
                           ? listing.data.countryName
@@ -527,20 +528,20 @@ export default function BulkUploadForm({ agencyId, onSuccess }: BulkUploadFormPr
                         return (
                           <React.Fragment key={listing.rowNum}>
                             <tr className={`hover:bg-gray-50/50 ${!listing.isValid ? 'bg-red-50/20' : ''}`}>
-                              <td className="p-4 text-center font-semibold text-gray-500">{listing.rowNum}</td>
-                              <td className="p-4 font-bold text-gray-900 max-w-xs truncate" title={listing.data.title}>{listing.data.title}</td>
-                              <td className="p-4 font-medium text-gray-700">{destinationName || <span className="text-red-500">Missing Destination</span>}</td>
-                              <td className="p-4 capitalize text-gray-600">{listing.data.packageType}</td>
-                              <td className="p-4 font-semibold text-gray-800">₹{listing.data.cost}</td>
-                              <td className="p-4 font-medium text-gray-600">{listing.data.itinerary.length} Days</td>
-                              <td className="p-4">
+                              <td className="p-3.5 text-center font-semibold text-gray-500">{listing.rowNum}</td>
+                              <td className="p-3.5 font-bold text-gray-900 max-w-xs truncate" title={listing.data.title}>{listing.data.title}</td>
+                              <td className="p-3.5 font-medium text-gray-700">{destinationName || <span className="text-red-500">Missing Destination</span>}</td>
+                              <td className="p-3.5 capitalize text-gray-600">{listing.data.packageType}</td>
+                              <td className="p-3.5 font-semibold text-gray-800">₹{listing.data.cost}</td>
+                              <td className="p-3.5 font-medium text-gray-600">{listing.data.itinerary.length} Days</td>
+                              <td className="p-3.5">
                                 {listing.isValid ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-bold bg-green-100 text-green-800 px-2.5 py-1 rounded-full">
-                                    <CheckCircle className="h-3 w-3" /> Ready
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md" style={{ borderRadius: '6px' }}>
+                                    <CheckCircle className="h-3 w-3 text-emerald-600" /> Ready
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-xs font-bold bg-red-100 text-red-800 px-2.5 py-1 rounded-full">
-                                    <AlertTriangle className="h-3 w-3" /> Fix Errors
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-md" style={{ borderRadius: '6px' }}>
+                                    <AlertTriangle className="h-3 w-3 text-red-600" /> Fix Errors
                                   </span>
                                 )}
                               </td>

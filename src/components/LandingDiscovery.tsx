@@ -483,9 +483,7 @@ export default function LandingDiscovery({
 
                         {/* Top Badges */}
                         <div className="relative z-10 flex items-center justify-between gap-2">
-                          <span className="bg-orange-500 text-white text-[11px] font-black px-3 py-1 rounded-full shadow-xs flex items-center gap-1 shrink-0 whitespace-nowrap">
-                            <span>🔥 Most Popular</span>
-                          </span>
+                          
                           <span className="bg-slate-900/80 backdrop-blur-md text-white text-xs font-black px-3 py-1 rounded-full border border-white/20 shadow-xs">
                             {heroDest.packageCount} {heroDest.packageCount === 1 ? 'Package' : 'Packages'}
                           </span>

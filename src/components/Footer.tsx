@@ -21,8 +21,8 @@ export default function Footer({ onNavigate }: FooterProps = {}) {
             <ul className="space-y-2.5 text-sm text-gray-400">
               <li><Link href="#" className="hover:text-white transition-colors">About us</Link></li>
               <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Career</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Press Release</Link></li>
+              {/* <li><Link href="#" className="hover:text-white transition-colors">Career</Link></li>
+              <li><Link href="#" className="hover:text-white transition-colors">Press Release</Link></li> */}
             </ul>
           </div>
 
@@ -31,7 +31,7 @@ export default function Footer({ onNavigate }: FooterProps = {}) {
             <h3 className="text-base font-bold mb-4 text-white">Get in touch with us</h3>
             <ul className="space-y-2.5 text-sm text-gray-400">
               <li><Link href="#" className="hover:text-white transition-colors">Facebook</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Twitter</Link></li>
+              {/* <li><Link href="#" className="hover:text-white transition-colors">Twitter</Link></li> */}
               <li><Link href="#" className="hover:text-white transition-colors">Instagram</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">YouTube</Link></li>
               <li><Link href="#" className="hover:text-white transition-colors">Contact us</Link></li>
@@ -62,7 +62,7 @@ export default function Footer({ onNavigate }: FooterProps = {}) {
                   My Chat
                 </a>
               </li>
-              <li><Link href="#" className="hover:text-white transition-colors">Talk to our Customer care</Link></li>
+              {/* <li><Link href="#" className="hover:text-white transition-colors">Talk to our Customer care</Link></li> */}
             </ul>
           </div>
 

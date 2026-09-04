@@ -340,7 +340,7 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
           <div className="flex items-center gap-5 shrink-0 pl-4">
             {/* Location */}
             <div className="flex items-center gap-1.5 text-gray-700 select-none mr-2">
-              <MapPin className="h-4 w-4 text-orange-500" />
+              <MapPin className="h-4 w-4 text-slate-500" />
               <div className="flex flex-col leading-[1.1]">
                 <span className="font-semibold text-gray-900 text-[13px]">{pincode}</span>
               </div>
@@ -348,26 +348,26 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
 
             {/* Compare */}
             <span
-              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-400 flex items-center gap-1.5"
+              className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 select-none"
               onClick={() => router.push('/?section=compare')}
             >
-              <Scale className="h-4 w-4 text-orange-400" /> Compare
+              <Scale className="h-4 w-4 text-slate-600" /> Compare
             </span>
 
             {/* Wishlist */}
             <span
-              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-400 flex items-center gap-1.5"
+              className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 select-none"
               onClick={() => router.push('/?section=wishlist')}
             >
-              <Heart className="h-4 w-4 text-orange-400" /> Wishlist
+              <Heart className="h-4 w-4 text-slate-600" /> Wishlist
             </span>
 
             {/* Messages */}
             <span
-              className="cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-400 flex items-center gap-1.5"
+              className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 select-none"
               onClick={() => router.push('/?section=chat')}
             >
-              <MessageSquare className="h-4 w-4 text-orange-400" /> Messages
+              <MessageSquare className="h-4 w-4 text-slate-600" /> Messages
             </span>
 
             {/* Profile / Sign In */}
@@ -376,28 +376,28 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
                 {userData.role === 'agency' && (
                   <a
                     href="/agencytripdm"
-                    className="cursor-pointer transition-all text-[15px] font-medium flex items-center gap-1.5 text-gray-800 hover:text-gray-900 hover:opacity-80 shrink-0"
+                    className="cursor-pointer text-[15px] font-medium flex items-center gap-1.5 text-slate-800 shrink-0"
                   >
-                    <Briefcase className="h-4 w-4 text-gray-600" />
+                    <Briefcase className="h-4 w-4 text-slate-600" />
                     <span>Agency Portal</span>
                   </a>
                 )}
                 <div
-                  className="flex items-center gap-2 cursor-pointer transition-all text-[15px] font-medium text-gray-800 hover:text-orange-500"
+                  className="flex items-center gap-2 cursor-pointer text-[15px] font-medium text-slate-800"
                   onClick={() => router.push('/?section=profile')}
                 >
                   {userData.avatarUrl ? (
                     <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
                   ) : (
-                    <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                      {userData?.name ? userData.name.charAt(0).toUpperCase() : 'U'}
+                    <div className="w-7 h-7 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 border border-gray-200">
+                      <User className="h-4 w-4" />
                     </div>
                   )}
                   <span>Hi, {userData?.name ? userData.name.split(' ')[0] : 'User'}</span>
                 </div>
                 
                 <span
-                  className="text-[13px] text-gray-500 hover:text-orange-500 cursor-pointer"
+                  className="text-[13px] text-slate-600 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     signOut?.();
@@ -407,12 +407,12 @@ export default function PoliciesLayout({ children }: { children: React.ReactNode
                 </span>
               </div>
             ) : (
-              <button
+              <span
                 onClick={() => { setAuthModalTab('login'); setShowAuthModal(true); }}
-                className="px-3 py-1.5 text-xs sm:text-sm font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors flex items-center gap-1.5 ml-2 border-l border-gray-200 pl-4"
+                className="cursor-pointer text-[15px] font-medium text-slate-800 flex items-center gap-1.5 ml-2 border-l border-gray-200 pl-4"
               >
-                <User className="h-4 w-4 text-orange-500" /> Login
-              </button>
+                <User className="h-4 w-4 text-slate-600" /> Login
+              </span>
             )}
           </div>
         </div>

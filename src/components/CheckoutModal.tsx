@@ -371,13 +371,14 @@ export default function CheckoutModal({
                     onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
                     placeholder="Enter Coupon Code (e.g. SUMMER20)"
                     disabled={isValidating || isProcessing}
-                    className="w-full bg-white border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 rounded-xl px-3.5 py-2.5 text-xs font-mono font-semibold uppercase text-slate-900 tracking-wider transition-all placeholder:font-sans placeholder:normal-case placeholder:tracking-normal placeholder:text-gray-400"
+                    className="w-full bg-white border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 rounded-md px-3.5 py-2.5 text-xs font-mono font-semibold uppercase text-slate-900 tracking-wider transition-all placeholder:font-sans placeholder:normal-case placeholder:tracking-normal placeholder:text-gray-400 shadow-xs"
+                    style={{ borderRadius: '6px' }}
                   />
                   {couponCodeInput && (
                     <button
                       type="button"
                       onClick={() => setCouponCodeInput('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -386,7 +387,8 @@ export default function CheckoutModal({
                 <button
                   type="submit"
                   disabled={!couponCodeInput.trim() || isValidating || isProcessing}
-                  className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white disabled:text-slate-400 font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0"
+                  className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white disabled:text-slate-400 font-semibold text-xs px-5 py-2.5 rounded-md transition-all duration-200 shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer hover:scale-[1.02]"
+                  style={{ borderRadius: '6px' }}
                 >
                   {isValidating ? (
                     <>
@@ -399,9 +401,9 @@ export default function CheckoutModal({
               </form>
             ) : (
               /* Applied Coupon State Card */
-              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs">
+              <div className="bg-emerald-50/80 border border-emerald-200 rounded-md p-3.5 flex items-center justify-between shadow-xs" style={{ borderRadius: '6px' }}>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center" style={{ borderRadius: '6px' }}>
                     <Gift className="w-4 h-4" />
                   </div>
                   <div>
@@ -409,7 +411,7 @@ export default function CheckoutModal({
                       <span className="font-mono text-xs font-bold text-emerald-900 uppercase">
                         {appliedCoupon.code}
                       </span>
-                      <span className="text-[10px] font-bold bg-emerald-200/60 text-emerald-800 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-bold bg-emerald-200/60 text-emerald-800 px-1.5 py-0.5 rounded" style={{ borderRadius: '4px' }}>
                         Applied
                       </span>
                     </div>
@@ -424,7 +426,8 @@ export default function CheckoutModal({
                   type="button"
                   onClick={handleRemoveCoupon}
                   disabled={isProcessing}
-                  className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 hover:bg-red-50 rounded-lg transition-colors"
+                  className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 hover:bg-red-50 rounded-md transition-all duration-200 cursor-pointer"
+                  style={{ borderRadius: '6px' }}
                 >
                   Remove
                 </button>
@@ -433,7 +436,7 @@ export default function CheckoutModal({
 
             {/* Error Message */}
             {couponError && (
-              <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 p-2.5 rounded-xl">
+              <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-200 p-2.5 rounded-md" style={{ borderRadius: '6px' }}>
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{couponError}</span>
               </div>
@@ -475,7 +478,7 @@ export default function CheckoutModal({
 
           {/* Processing Status Banner */}
           {statusMessage && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2 text-xs font-semibold text-blue-700">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 flex items-center gap-2 text-xs font-semibold text-blue-700" style={{ borderRadius: '6px' }}>
               <Loader2 className="w-4 h-4 animate-spin shrink-0 text-blue-600" />
               <span>{statusMessage}</span>
             </div>
@@ -488,7 +491,8 @@ export default function CheckoutModal({
                 type="button"
                 onClick={handleDirectFreeActivation}
                 disabled={isProcessing}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm py-3 rounded-md shadow-md shadow-emerald-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
+                style={{ borderRadius: '6px' }}
               >
                 {isProcessing ? (
                   <>
@@ -505,7 +509,8 @@ export default function CheckoutModal({
                 type="button"
                 onClick={handleProceedToRazorpay}
                 disabled={isProcessing}
-                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-60 text-white font-bold text-sm py-3 rounded-md shadow-md shadow-amber-500/25 border border-amber-400/50 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
+                style={{ borderRadius: '6px' }}
               >
                 {isProcessing ? (
                   <>

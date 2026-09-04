@@ -332,7 +332,7 @@ export default function PackageClientView({ listing }: { listing: any }) {
           <div className="flex items-center gap-2 sm:gap-4 h-full">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 -ml-1 text-slate-700 hover:text-orange-500 hover:bg-slate-100 active:bg-slate-200 rounded-xl transition-colors"
+              className="md:hidden p-2 -ml-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200 rounded-xl transition-colors"
               aria-label="Open menu"
             >
               <Menu className="h-6 w-6" />
@@ -350,7 +350,7 @@ export default function PackageClientView({ listing }: { listing: any }) {
             {/* Explore Link */}
             <button
               onClick={() => router.push('/')}
-              className="hidden sm:inline-flex text-xs font-bold text-slate-600 hover:text-orange-500 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+              className="hidden sm:inline-flex text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
             >
               Explore Packages
             </button>
@@ -367,13 +367,13 @@ export default function PackageClientView({ listing }: { listing: any }) {
                   </a>
                 )}
                 <div
-                  className="flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-orange-500 text-slate-800"
+                  className="flex items-center gap-2 cursor-pointer transition-all text-sm font-semibold hover:text-slate-900 text-slate-800"
                   onClick={() => router.push('/?section=profile')}
                 >
                   {userData.avatarUrl ? (
                     <img src={userData.avatarUrl} alt="Profile" className="w-7 h-7 rounded-full object-cover border border-gray-200" />
                   ) : (
-                    <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                    <div className="w-7 h-7 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 border border-gray-200 text-xs font-bold">
                       {userData?.name ? userData.name.charAt(0).toUpperCase() : 'U'}
                     </div>
                   )}
@@ -381,7 +381,7 @@ export default function PackageClientView({ listing }: { listing: any }) {
                 </div>
                 
                 <span
-                  className="text-xs text-slate-500 hover:text-orange-500 cursor-pointer border-l border-gray-200 pl-3 transition-colors font-medium hidden sm:inline"
+                  className="text-xs text-slate-500 hover:text-rose-600 cursor-pointer border-l border-gray-200 pl-3 transition-colors font-medium hidden sm:inline"
                   onClick={() => signOut?.()}
                 >
                   Sign Out
