@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ComparisonProvider } from "@/contexts/ComparisonContext";
 import { injectImageStyles } from '@/lib/imageStyles';
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
+import MicrosoftClarity from "@/components/MicrosoftClarity";
 
 const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
@@ -87,6 +88,7 @@ export default function RootLayout({
             />
           </>
         )}
+        <MicrosoftClarity />
       </head>
       <body
         className={`${poppins.variable} ${inter.variable} ${playfair.variable} ${dmSans.variable} ${jakarta.variable} ${outfit.variable} font-sans antialiased`}

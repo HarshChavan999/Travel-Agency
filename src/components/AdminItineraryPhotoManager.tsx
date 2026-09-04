@@ -31,7 +31,11 @@ import {
   Plus,
   MoveLeft,
   MoveRight,
-  Bot
+  Bot,
+  Link2,
+  AlertTriangle,
+  Table as TableIcon,
+  LayoutGrid
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,6 +61,293 @@ export interface ItineraryPlaceItem {
   imageUrl?: string | null;
   imageUrls?: string[];
   hasPhoto: boolean;
+}
+
+// Extract human-readable image title/filename from URL (Wikimedia, R2, etc.)
+export function extractImageTitleFromUrl(url: string): string {
+  if (!url) return 'Unknown Asset';
+  try {
+    const cleanUrl = url.split('?')[0].split('#')[0];
+    const parts = cleanUrl.split('/').filter(Boolean);
+    if (parts.length === 0) return 'Unknown Asset';
+
+    const thumbIdx = parts.indexOf('thumb');
+    let rawFilename = '';
+    if (thumbIdx !== -1 && parts.length > thumbIdx + 3) {
+      // For Wikimedia thumb URLs, the original filename is thumb/x/xx/FileName.ext/...
+      rawFilename = parts[thumbIdx + 3];
+    } else {
+      rawFilename = parts[parts.length - 1];
+      rawFilename = rawFilename.replace(/^\d+px-/, '');
+    }
+
+    let decoded = decodeURIComponent(rawFilename);
+    // Remove extension (.jpg, .png, .webp, etc.)
+    decoded = decoded.replace(/\.(jpg|jpeg|png|webp|gif|svg|avif|tiff)$/i, '');
+    // Replace underscores, dashes, pluses with spaces
+    decoded = decoded.replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return decoded || 'Photo Asset';
+  } catch (e) {
+    return 'Photo Asset';
+  }
+}
+
+// Compare image title and place name to detect whether photo matches the place
+export function checkImageAndPlaceMatch(
+  imageTitle: string,
+  placeName: string,
+  destination?: string
+): {
+  isMatch: boolean;
+  score: number;
+  matchedKeywords: string[];
+  reason: string;
+} {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2);
+
+  const imgWords = norm(imageTitle);
+  const placeWords = norm(placeName);
+  const destWords = destination ? norm(destination) : [];
+
+  // Common stop words to exclude from keyword overlap
+  const stopWords = new Set([
+    'day', 'sightseeing', 'tour', 'visit', 'city', 'the', 'and', 'near',
+    'from', 'photo', 'image', 'trip', 'overview', 'drive', 'arrival',
+    'departure', 'stay', 'night', 'morning', 'afternoon', 'evening', 'full', 'half'
+  ]);
+
+  const cleanImgWords = imgWords.filter(w => !stopWords.has(w));
+  const cleanPlaceWords = placeWords.filter(w => !stopWords.has(w));
+
+  // Overlapping place keywords with image title
+  const matched = cleanPlaceWords.filter(w =>
+    cleanImgWords.some(iw => iw.includes(w) || w.includes(iw))
+  );
+
+  // Check destination match as secondary signal
+  const destMatched = destWords.filter(
+    w => !stopWords.has(w) && cleanImgWords.some(iw => iw.includes(w) || w.includes(iw))
+  );
+
+  if (matched.length > 0) {
+    return {
+      isMatch: true,
+      score: matched.length / Math.max(1, cleanPlaceWords.length),
+      matchedKeywords: matched,
+      reason: `Matches place keyword: "${matched.join(', ')}"`
+    };
+  }
+
+  if (destMatched.length > 0 && cleanPlaceWords.length === 0) {
+    return {
+      isMatch: true,
+      score: 0.5,
+      matchedKeywords: destMatched,
+      reason: `Matches destination: "${destMatched.join(', ')}"`
+    };
+  }
+
+  return {
+    isMatch: false,
+    score: 0,
+    matchedKeywords: [],
+    reason: `Place name "${placeName}" does not match image title`
+  };
+}
+
+// Compare two URLs ignoring query params and Wikimedia thumbnail dimensions
+export function isMatchingUrl(urlA?: string | null, urlB?: string | null): boolean {
+  if (!urlA || !urlB) return false;
+  const cleanA = urlA.split('?')[0].split('#')[0].trim().toLowerCase();
+  const cleanB = urlB.split('?')[0].split('#')[0].trim().toLowerCase();
+  if (cleanA === cleanB) return true;
+
+  try {
+    const fileA = cleanA.split('/').filter(Boolean).pop()?.replace(/^\d+px-/, '');
+    const fileB = cleanB.split('/').filter(Boolean).pop()?.replace(/^\d+px-/, '');
+    if (fileA && fileB && fileA === fileB) return true;
+  } catch {}
+
+  return false;
+}
+
+// Synchronize all listing photo collections (itinerary, placesCovered, photos, imageUrls, imageUrl)
+// to ensure main front thumbnail on the package page stays perfectly in sync with itinerary changes
+export function syncPackageListingPhotos(
+  pkg: any,
+  options: {
+    removeDayIndex?: number;
+    removedUrls?: string[];
+    updateDayIndex?: number;
+    newUrls?: string[];
+    placeName?: string;
+  }
+): {
+  updatedPkg: any;
+  firestorePayload: Record<string, any>;
+} {
+  const itinerary = Array.isArray(pkg.itinerary)
+    ? pkg.itinerary.map((day: any) => ({ ...day }))
+    : [];
+
+  const removedUrls = (options.removedUrls || []).filter(Boolean);
+
+  // 1. Update itinerary
+  if (
+    typeof options.removeDayIndex === 'number' &&
+    options.removeDayIndex >= 0 &&
+    options.removeDayIndex < itinerary.length
+  ) {
+    itinerary[options.removeDayIndex] = {
+      ...itinerary[options.removeDayIndex],
+      imageUrl: '',
+      imageUrls: []
+    };
+  }
+
+  if (
+    typeof options.updateDayIndex === 'number' &&
+    options.updateDayIndex >= 0 &&
+    options.updateDayIndex < itinerary.length &&
+    options.newUrls &&
+    options.newUrls.length > 0
+  ) {
+    itinerary[options.updateDayIndex] = {
+      ...itinerary[options.updateDayIndex],
+      imageUrl: options.newUrls[0],
+      imageUrls: options.newUrls
+    };
+  }
+
+  // 2. Find remaining valid itinerary photos across all days
+  const remainingItineraryPhotos: string[] = [];
+  itinerary.forEach((d: any) => {
+    const dayUrls = Array.isArray(d.imageUrls) ? d.imageUrls : d.imageUrl ? [d.imageUrl] : [];
+    dayUrls.forEach((u: string) => {
+      if (u && !removedUrls.some(ru => isMatchingUrl(ru, u))) {
+        if (!remainingItineraryPhotos.includes(u)) {
+          remainingItineraryPhotos.push(u);
+        }
+      }
+    });
+  });
+
+  // 3. Update placesCovered (primary source for main front thumbnail in package page and listing cards)
+  let placesCovered = Array.isArray(pkg.placesCovered)
+    ? pkg.placesCovered.map((place: any) => ({ ...place }))
+    : [];
+
+  if (placesCovered.length > 0) {
+    const targetPlaceName = (options.placeName || '').trim().toLowerCase();
+
+    placesCovered = placesCovered.map((place: any) => {
+      let placeUrls: string[] = Array.isArray(place.imageUrls)
+        ? [...place.imageUrls]
+        : place.imageUrl
+        ? [place.imageUrl]
+        : [];
+
+      // Remove any blacklisted / deleted URLs
+      if (removedUrls.length > 0) {
+        placeUrls = placeUrls.filter(u => !removedUrls.some(ru => isMatchingUrl(ru, u)));
+      }
+
+      // If place name matches the edited place
+      if (targetPlaceName && place.name && place.name.trim().toLowerCase() === targetPlaceName) {
+        if (options.removeDayIndex !== undefined) {
+          placeUrls = [];
+        } else if (options.newUrls && options.newUrls.length > 0) {
+          placeUrls = options.newUrls;
+        }
+      }
+
+      return {
+        ...place,
+        imageUrls: placeUrls,
+        ...(place.imageUrl !== undefined ? { imageUrl: placeUrls[0] || '' } : {})
+      };
+    });
+
+    // Ensure the front thumbnail (placesCovered[0]) is updated
+    if (options.updateDayIndex === 0 && options.newUrls && options.newUrls.length > 0) {
+      placesCovered[0] = {
+        ...placesCovered[0],
+        imageUrls: options.newUrls,
+        ...(placesCovered[0].imageUrl !== undefined ? { imageUrl: options.newUrls[0] } : {})
+      };
+    } else {
+      // If placesCovered[0] has had its photo deleted (or is empty), sync it with the next valid photo
+      const frontUrls = (placesCovered[0].imageUrls || []).filter(
+        (u: string) => !removedUrls.some(ru => isMatchingUrl(ru, u))
+      );
+
+      if (frontUrls.length === 0) {
+        placesCovered[0] = {
+          ...placesCovered[0],
+          imageUrls: remainingItineraryPhotos.length > 0 ? [remainingItineraryPhotos[0]] : [],
+          ...(placesCovered[0].imageUrl !== undefined
+            ? { imageUrl: remainingItineraryPhotos[0] || '' }
+            : {})
+        };
+      }
+    }
+  }
+
+  // 4. Update photos array
+  let photos = Array.isArray(pkg.photos) ? [...pkg.photos] : [];
+  if (removedUrls.length > 0) {
+    photos = photos.filter(u => !removedUrls.some(ru => isMatchingUrl(ru, u)));
+  }
+  if (
+    options.newUrls &&
+    options.newUrls.length > 0 &&
+    (photos.length === 0 || options.updateDayIndex === 0)
+  ) {
+    photos = [options.newUrls[0], ...photos.filter(u => u !== options.newUrls![0])];
+  }
+
+  // 5. Update top-level imageUrls
+  let imageUrls = Array.isArray(pkg.imageUrls) ? [...pkg.imageUrls] : [];
+  if (removedUrls.length > 0) {
+    imageUrls = imageUrls.filter(u => !removedUrls.some(ru => isMatchingUrl(ru, u)));
+  }
+  if (
+    options.newUrls &&
+    options.newUrls.length > 0 &&
+    (imageUrls.length === 0 || options.updateDayIndex === 0)
+  ) {
+    imageUrls = [options.newUrls[0], ...imageUrls.filter(u => u !== options.newUrls![0])];
+  }
+
+  // 6. Update top-level imageUrl
+  let mainImageUrl = pkg.imageUrl || '';
+  if (removedUrls.some(ru => isMatchingUrl(ru, mainImageUrl))) {
+    mainImageUrl = placesCovered[0]?.imageUrls?.[0] || remainingItineraryPhotos[0] || '';
+  }
+  if (options.updateDayIndex === 0 && options.newUrls && options.newUrls.length > 0) {
+    mainImageUrl = options.newUrls[0];
+  }
+
+  const firestorePayload: Record<string, any> = {
+    itinerary,
+    ...(placesCovered.length > 0 ? { placesCovered } : {}),
+    photos,
+    imageUrls,
+    imageUrl: mainImageUrl,
+    updatedAt: new Date()
+  };
+
+  const updatedPkg = {
+    ...pkg,
+    ...firestorePayload
+  };
+
+  return { updatedPkg, firestorePayload };
 }
 
 interface AdminItineraryPhotoManagerProps {
@@ -95,6 +386,11 @@ export default function AdminItineraryPhotoManager({
   const [isSaving, setIsSaving] = useState(false);
   const [updatePlacesCovered, setUpdatePlacesCovered] = useState(true);
   const [previewFullImageUrl, setPreviewFullImageUrl] = useState<string | null>(null);
+
+  // Duplicate images table & bulk selection state
+  const [duplicateViewMode, setDuplicateViewMode] = useState<Record<string, 'table' | 'cards'>>({});
+  const [duplicateFilter, setDuplicateFilter] = useState<Record<string, 'all' | 'mismatched' | 'matching'>>({});
+  const [bulkSelectedPlaceIds, setBulkSelectedPlaceIds] = useState<Record<string, string[]>>({});
 
   // Toast Notification
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -260,7 +556,7 @@ export default function AdminItineraryPhotoManager({
   // ─────────────────────────────────────────────────────────────────────────────
   const auditReport = useMemo(() => {
     // 1. Duplicate place names
-    const nameMap = new Map<string, Array<{ listingId: string; listingTitle: string; dayNumber: number; placeName: string; hasPhoto: boolean; imageUrl?: string | null }>>();
+    const nameMap = new Map<string, Array<ItineraryPlaceItem>>();
     allItineraryPlaces.forEach(p => {
       const key = p.placeName.toLowerCase().trim();
       if (!key || /^day \d+ sightseeing$/.test(key)) return;
@@ -270,7 +566,7 @@ export default function AdminItineraryPhotoManager({
 
     const duplicateNames: Array<{
       placeName: string;
-      occurrences: Array<{ listingId: string; listingTitle: string; dayNumber: number; hasPhoto: boolean; imageUrl?: string | null }>;
+      occurrences: Array<ItineraryPlaceItem>;
       type: 'cross-package' | 'same-package';
     }> = [];
 
@@ -285,22 +581,35 @@ export default function AdminItineraryPhotoManager({
     });
 
     // 2. Duplicate images (same URL for different place names)
-    const imageMap = new Map<string, Array<{ listingId: string; listingTitle: string; dayNumber: number; placeName: string }>>();
+    const imageMap = new Map<string, Array<ItineraryPlaceItem>>();
     allItineraryPlaces.forEach(p => {
       if (!p.imageUrl) return;
       const url = p.imageUrl.trim();
       if (!imageMap.has(url)) imageMap.set(url, []);
-      imageMap.get(url)!.push({ listingId: p.listingId, listingTitle: p.listingTitle, dayNumber: p.dayNumber, placeName: p.placeName });
+      imageMap.get(url)!.push(p);
     });
 
     const duplicateImages: Array<{
       imageUrl: string;
-      usages: Array<{ listingId: string; listingTitle: string; dayNumber: number; placeName: string }>;
+      imageTitle: string;
+      usages: Array<ItineraryPlaceItem>;
+      mismatchedCount: number;
+      matchingCount: number;
     }> = [];
     imageMap.forEach((usages, url) => {
       if (usages.length < 2) return;
       const uniqueNames = new Set(usages.map(u => u.placeName.toLowerCase().trim()));
-      if (uniqueNames.size > 1) duplicateImages.push({ imageUrl: url, usages });
+      if (uniqueNames.size > 1) {
+        const imageTitle = extractImageTitleFromUrl(url);
+        let mismatchedCount = 0;
+        let matchingCount = 0;
+        usages.forEach(u => {
+          const match = checkImageAndPlaceMatch(imageTitle, u.placeName, u.destination);
+          if (match.isMatch) matchingCount++;
+          else mismatchedCount++;
+        });
+        duplicateImages.push({ imageUrl: url, imageTitle, usages, mismatchedCount, matchingCount });
+      }
     });
 
     // 3. Empty / missing place names
@@ -346,9 +655,70 @@ export default function AdminItineraryPhotoManager({
     });
     packageHealth.sort((a, b) => a.score - b.score);
 
-    const totalIssues = duplicateNames.length + duplicateImages.length + emptyNames.length + suspiciousMismatches.length;
-    return { duplicateNames, duplicateImages, emptyNames, suspiciousMismatches, packageHealth, totalIssues };
-  }, [allItineraryPlaces, allListings]);
+    // 6. Packages where the front thumbnail in placesCovered[0] is orphaned (photo was deleted from itinerary)
+    const orphanedFrontThumbnails: Array<{
+      listingId: string;
+      listingTitle: string;
+      destination: string;
+      agencyName?: string;
+      thumbnailUrl: string;
+      suggestedPhoto: string | null;
+    }> = [];
+
+    allListings.forEach((pkg: any) => {
+      if (!pkg || !Array.isArray(pkg.placesCovered) || pkg.placesCovered.length === 0) return;
+      const frontPhoto = pkg.placesCovered[0]?.imageUrls?.[0];
+      if (!frontPhoto) return;
+
+      // Check if this front photo exists in any itinerary day
+      const existsInItinerary = Array.isArray(pkg.itinerary) && pkg.itinerary.some((d: any) => {
+        const urls = Array.isArray(d.imageUrls) ? d.imageUrls : d.imageUrl ? [d.imageUrl] : [];
+        return urls.some((u: string) => isMatchingUrl(u, frontPhoto));
+      });
+
+      if (!existsInItinerary) {
+        let firstValid: string | null = null;
+        if (Array.isArray(pkg.itinerary)) {
+          for (const d of pkg.itinerary) {
+            const urls = Array.isArray(d.imageUrls) ? d.imageUrls : d.imageUrl ? [d.imageUrl] : [];
+            if (urls.length > 0) {
+              firstValid = urls[0];
+              break;
+            }
+          }
+        }
+
+        const agency = allAgencies.find(a => a.id === pkg.agencyId);
+        const destination = pkg.packageType === 'international' ? pkg.countryName || 'International' : pkg.stateName || 'Domestic';
+
+        orphanedFrontThumbnails.push({
+          listingId: pkg.id,
+          listingTitle: pkg.title || 'Untitled Package',
+          destination,
+          agencyName: agency?.companyName || pkg.agencyName,
+          thumbnailUrl: frontPhoto,
+          suggestedPhoto: firstValid
+        });
+      }
+    });
+
+    const totalIssues =
+      duplicateNames.length +
+      duplicateImages.length +
+      emptyNames.length +
+      suspiciousMismatches.length +
+      orphanedFrontThumbnails.length;
+
+    return {
+      duplicateNames,
+      duplicateImages,
+      emptyNames,
+      suspiciousMismatches,
+      orphanedFrontThumbnails,
+      packageHealth,
+      totalIssues
+    };
+  }, [allItineraryPlaces, allListings, allAgencies]);
 
   // Statistics & Fillable Count for repeated places
   const stats = useMemo(() => {
@@ -546,24 +916,6 @@ export default function AdminItineraryPhotoManager({
     setExtractedSpots(extracted);
     setIsExtractingLocations(false);
 
-    // If place has no photos yet, check if photos exist from repeated places in other packages
-    if (initialSelected.length === 0) {
-      const knownPhotos = findKnownPhotos(place.placeName, extracted);
-      if (knownPhotos.length > 0) {
-        initialSelected = knownPhotos.map((url, idx) => ({
-          id: `repeated-${idx}-${url}`,
-          title: `Saved Place Photo #${idx + 1}`,
-          thumbUrl: url,
-          fullUrl: url,
-          width: 800,
-          height: 600,
-          source: 'Wikimedia Commons',
-          license: 'Auto-Matched Place Photo'
-        }));
-        showToast(`⚡ Pre-selected ${knownPhotos.length} photo(s) from matching saved place`, 'info');
-      }
-    }
-
     setSelectedImages(initialSelected);
 
     // Step 2: Set primary search query and trigger search
@@ -572,11 +924,11 @@ export default function AdminItineraryPhotoManager({
     setCustomSearchQuery(initialQuery);
     setActiveSpotId(firstSpot ? firstSpot.id : 'all');
 
-    await performWikimediaSearch(initialQuery, place.destination, initialSelected.length > 0);
+    await performWikimediaSearch(initialQuery, place.destination);
   };
 
   // Perform search on Wikimedia Commons & Wikipedia
-  const performWikimediaSearch = async (queryText: string, destinationHint?: string, hasPreselected: boolean = false) => {
+  const performWikimediaSearch = async (queryText: string, destinationHint?: string) => {
     if (!queryText.trim()) return;
 
     setIsSearchingWiki(true);
@@ -589,16 +941,6 @@ export default function AdminItineraryPhotoManager({
       });
 
       setWikiResults(results);
-
-      // If no photos were pre-selected yet and we have search results, auto pre-select the top result (#1)
-      if (!hasPreselected && results.length > 0) {
-        setSelectedImages(prev => {
-          if (prev.length === 0) {
-            return [results[0]];
-          }
-          return prev;
-        });
-      }
     } catch (err: any) {
       console.error('Wikimedia search error:', err);
       showToast('Error searching Wikimedia images. Please try another query.', 'error');
@@ -611,28 +953,7 @@ export default function AdminItineraryPhotoManager({
   const handleSelectSpot = (spot: ExtractedLocation) => {
     setActiveSpotId(spot.id);
     setCustomSearchQuery(spot.query);
-
-    // If selectedImages is empty, check if known photos exist for this specific spot
-    const spotKnown = findKnownPhotos(spot.name);
-    let hasKnown = false;
-    if (spotKnown.length > 0) {
-      setSelectedImages(
-        spotKnown.map((url, idx) => ({
-          id: `spot-repeated-${idx}-${url}`,
-          title: `${spot.name} Photo #${idx + 1}`,
-          thumbUrl: url,
-          fullUrl: url,
-          width: 800,
-          height: 600,
-          source: 'Wikimedia Commons',
-          license: 'Auto-Matched Place Photo'
-        }))
-      );
-      hasKnown = true;
-      showToast(`⚡ Pre-selected photos for ${spot.name}`, 'info');
-    }
-
-    performWikimediaSearch(spot.query, activePlace?.destination, hasKnown);
+    performWikimediaSearch(spot.query, activePlace?.destination);
   };
 
   // Toggle or add image to multi-selection tray
@@ -699,45 +1020,28 @@ export default function AdminItineraryPhotoManager({
       if (db) {
         const pkgIndex = allListings.findIndex(p => p.id === activePlace.listingId);
         if (pkgIndex !== -1) {
-          const updatedPkg = { ...allListings[pkgIndex] };
-          const itineraryCopy = Array.isArray(updatedPkg.itinerary) ? [...updatedPkg.itinerary] : [];
+          const oldUrls = [
+            ...(activePlace.imageUrls || []),
+            activePlace.imageUrl || ''
+          ].filter(Boolean);
 
-          if (activePlace.dayIndex >= 0 && activePlace.dayIndex < itineraryCopy.length) {
-            itineraryCopy[activePlace.dayIndex] = {
-              ...itineraryCopy[activePlace.dayIndex],
-              imageUrl: primaryUrl,
-              imageUrls: chosenUrls
-            };
-            updatedPkg.itinerary = itineraryCopy;
+          const { updatedPkg, firestorePayload } = syncPackageListingPhotos(allListings[pkgIndex], {
+            updateDayIndex: activePlace.dayIndex,
+            newUrls: chosenUrls,
+            placeName: activePlace.placeName,
+            removedUrls: oldUrls
+          });
 
-            // Also update placesCovered if requested
-            if (updatePlacesCovered && Array.isArray(updatedPkg.placesCovered) && primaryUrl) {
-              const pcCopy = [...updatedPkg.placesCovered];
-              const pName = (activePlace.placeName || '').trim().toLowerCase();
-              pcCopy.forEach((p: any, i: number) => {
-                if (p.name && p.name.trim().toLowerCase() === pName) {
-                  if (!p.imageUrls || p.imageUrls.length === 0) {
-                    pcCopy[i] = { ...p, imageUrls: chosenUrls };
-                  }
-                }
-              });
-              updatedPkg.placesCovered = pcCopy;
-            }
+          // Write all synced fields to Firestore client
+          await updateDoc(doc(db, 'listings', activePlace.listingId), firestorePayload);
 
-            // Write to Firestore client
-            await updateDoc(doc(db, 'listings', activePlace.listingId), {
-              itinerary: updatedPkg.itinerary,
-              ...(updatedPkg.placesCovered ? { placesCovered: updatedPkg.placesCovered } : {})
-            });
+          // Update in local state
+          const updatedAll = [...allListings];
+          updatedAll[pkgIndex] = updatedPkg;
+          setAllListings(updatedAll);
 
-            // Update in local state
-            const updatedAll = [...allListings];
-            updatedAll[pkgIndex] = updatedPkg;
-            setAllListings(updatedAll);
-
-            if (onListingUpdated) {
-              onListingUpdated(updatedPkg);
-            }
+          if (onListingUpdated) {
+            onListingUpdated(updatedPkg);
           }
         }
       }
@@ -812,7 +1116,7 @@ export default function AdminItineraryPhotoManager({
 
   // Remove all photos from itinerary day
   const handleRemoveAllPhotos = async (place: ItineraryPlaceItem) => {
-    if (!confirm(`Are you sure you want to remove all photos for Day ${place.dayNumber}: ${place.placeName}?`)) {
+    if (!confirm(`Are you sure you want to remove all photos for Day ${place.dayNumber}: ${place.placeName}?\n\nThis will also remove this photo from the package front thumbnail and photo galleries.`)) {
       return;
     }
 
@@ -823,44 +1127,263 @@ export default function AdminItineraryPhotoManager({
       const pkgIndex = allListings.findIndex(p => p.id === place.listingId);
       if (pkgIndex === -1) return;
 
-      const updatedPkg = { ...allListings[pkgIndex] };
-      const itineraryCopy = Array.isArray(updatedPkg.itinerary) ? [...updatedPkg.itinerary] : [];
+      const oldUrls = [
+        ...(place.imageUrls || []),
+        place.imageUrl || ''
+      ].filter(Boolean);
 
-      if (place.dayIndex >= 0 && place.dayIndex < itineraryCopy.length) {
-        itineraryCopy[place.dayIndex] = {
-          ...itineraryCopy[place.dayIndex],
-          imageUrl: '',
-          imageUrls: []
-        };
-        updatedPkg.itinerary = itineraryCopy;
+      const { updatedPkg, firestorePayload } = syncPackageListingPhotos(allListings[pkgIndex], {
+        removeDayIndex: place.dayIndex,
+        removedUrls: oldUrls,
+        placeName: place.placeName
+      });
 
-        await updateDoc(doc(db, 'listings', place.listingId), {
-          itinerary: itineraryCopy
-        });
+      await updateDoc(doc(db, 'listings', place.listingId), firestorePayload);
 
-        const updatedAll = [...allListings];
-        updatedAll[pkgIndex] = updatedPkg;
-        setAllListings(updatedAll);
+      const updatedAll = [...allListings];
+      updatedAll[pkgIndex] = updatedPkg;
+      setAllListings(updatedAll);
 
-        if (onListingUpdated) {
-          onListingUpdated(updatedPkg);
-        }
-
-        if (activePlace && activePlace.id === place.id) {
-          setActivePlace({
-            ...activePlace,
-            imageUrl: null,
-            imageUrls: [],
-            hasPhoto: false
-          });
-          setSelectedImages([]);
-        }
-
-        showToast(`Removed all photos for Day ${place.dayNumber}.`, 'info');
+      if (onListingUpdated) {
+        onListingUpdated(updatedPkg);
       }
+
+      if (activePlace && activePlace.id === place.id) {
+        setActivePlace({
+          ...activePlace,
+          imageUrl: null,
+          imageUrls: [],
+          hasPhoto: false
+        });
+        setSelectedImages([]);
+      }
+
+      showToast(`Removed all photos for Day ${place.dayNumber} and updated front thumbnail.`, 'info');
     } catch (err: any) {
       console.error('Error removing photo:', err);
       showToast('Failed to remove photo.', 'error');
+    }
+  };
+
+  // Quick direct URL update for a place
+  const handleQuickSetPhoto = async (place: ItineraryPlaceItem, newUrl: string) => {
+    if (!newUrl || !newUrl.trim()) return;
+    const url = newUrl.trim();
+    const db = getDbInstance();
+    if (!db) return;
+
+    try {
+      const pkgIndex = allListings.findIndex(p => p.id === place.listingId);
+      if (pkgIndex === -1) return;
+
+      const oldUrls = [
+        ...(place.imageUrls || []),
+        place.imageUrl || ''
+      ].filter(Boolean);
+
+      const { updatedPkg, firestorePayload } = syncPackageListingPhotos(allListings[pkgIndex], {
+        updateDayIndex: place.dayIndex,
+        newUrls: [url],
+        placeName: place.placeName,
+        removedUrls: oldUrls
+      });
+
+      await updateDoc(doc(db, 'listings', place.listingId), firestorePayload);
+
+      const updatedAll = [...allListings];
+      updatedAll[pkgIndex] = updatedPkg;
+      setAllListings(updatedAll);
+
+      if (onListingUpdated) {
+        onListingUpdated(updatedPkg);
+      }
+
+      if (activePlace && activePlace.id === place.id) {
+        setActivePlace({
+          ...activePlace,
+          imageUrl: url,
+          imageUrls: [url],
+          hasPhoto: true
+        });
+      }
+
+      showToast(`Updated photo for Day ${place.dayNumber}: ${place.placeName} (front thumbnail synced).`, 'success');
+    } catch (err: any) {
+      console.error('Error updating photo:', err);
+      showToast('Failed to update photo.', 'error');
+    }
+  };
+
+  // Bulk remove photos across multiple selected places and packages
+  const handleBulkRemovePhotos = async (placesToRemove: ItineraryPlaceItem[], imageUrl: string) => {
+    if (!placesToRemove || placesToRemove.length === 0) {
+      showToast('Please select at least 1 place to remove photos.', 'error');
+      return;
+    }
+
+    if (
+      !confirm(
+        `Are you sure you want to remove this photo from ${placesToRemove.length} place(s)?\n\nThis will remove the photo from itineraries AND clear it from package front thumbnails and place covers.`
+      )
+    ) {
+      return;
+    }
+
+    setIsSaving(true);
+    const db = getDbInstance();
+    if (!db) {
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      // Group places by listingId for batch package updates
+      const byListing = new Map<string, ItineraryPlaceItem[]>();
+      placesToRemove.forEach(p => {
+        if (!byListing.has(p.listingId)) byListing.set(p.listingId, []);
+        byListing.get(p.listingId)!.push(p);
+      });
+
+      const updatedAll = [...allListings];
+
+      for (const [listingId, places] of byListing.entries()) {
+        const pkgIndex = updatedAll.findIndex(p => p.id === listingId);
+        if (pkgIndex === -1) continue;
+
+        let currentPkg = { ...updatedAll[pkgIndex] };
+
+        // Process each place removal sequentially on the package
+        places.forEach(place => {
+          const removedList = [
+            imageUrl,
+            ...(place.imageUrls || []),
+            place.imageUrl || ''
+          ].filter(Boolean);
+
+          const { updatedPkg } = syncPackageListingPhotos(currentPkg, {
+            removeDayIndex: place.dayIndex,
+            removedUrls: removedList,
+            placeName: place.placeName
+          });
+          currentPkg = updatedPkg;
+        });
+
+        // Also purge the target imageUrl from package placesCovered and cover fields
+        const { updatedPkg: finalPkg, firestorePayload } = syncPackageListingPhotos(currentPkg, {
+          removedUrls: [imageUrl]
+        });
+
+        await updateDoc(doc(db, 'listings', listingId), firestorePayload);
+
+        updatedAll[pkgIndex] = finalPkg;
+
+        if (onListingUpdated) {
+          onListingUpdated(finalPkg);
+        }
+      }
+
+      setAllListings(updatedAll);
+
+      // Clear selection for this image
+      setBulkSelectedPlaceIds(prev => ({
+        ...prev,
+        [imageUrl]: []
+      }));
+
+      showToast(`Successfully removed photo from ${placesToRemove.length} place(s) and synced front thumbnails.`, 'success');
+    } catch (err: any) {
+      console.error('Error bulk removing photos:', err);
+      showToast('Failed to bulk remove photos.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Sync and clean all orphaned front thumbnails across packages
+  const handleSyncAllOrphanedThumbnails = async () => {
+    if (auditReport.orphanedFrontThumbnails.length === 0) return;
+    if (
+      !confirm(
+        `Sync and clean front thumbnails for ${auditReport.orphanedFrontThumbnails.length} package(s)?\n\nThis will remove deleted photos from the package front thumbnail and sync them with the active itinerary photos.`
+      )
+    ) {
+      return;
+    }
+
+    setIsSaving(true);
+    const db = getDbInstance();
+    if (!db) {
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      const updatedAll = [...allListings];
+      for (const item of auditReport.orphanedFrontThumbnails) {
+        const pkgIndex = updatedAll.findIndex(p => p.id === item.listingId);
+        if (pkgIndex === -1) continue;
+
+        const { updatedPkg, firestorePayload } = syncPackageListingPhotos(updatedAll[pkgIndex], {
+          removedUrls: [item.thumbnailUrl]
+        });
+
+        await updateDoc(doc(db, 'listings', item.listingId), firestorePayload);
+        updatedAll[pkgIndex] = updatedPkg;
+        if (onListingUpdated) {
+          onListingUpdated(updatedPkg);
+        }
+      }
+
+      setAllListings(updatedAll);
+      showToast(
+        `🎉 Successfully cleaned and synced front thumbnails for ${auditReport.orphanedFrontThumbnails.length} package(s)!`,
+        'success'
+      );
+    } catch (e: any) {
+      console.error('Error syncing front thumbnails:', e);
+      showToast('Failed to sync front thumbnails.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Sync a single orphaned thumbnail
+  const handleSyncSingleOrphanedThumbnail = async (item: {
+    listingId: string;
+    thumbnailUrl: string;
+    listingTitle: string;
+  }) => {
+    setIsSaving(true);
+    const db = getDbInstance();
+    if (!db) {
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      const pkgIndex = allListings.findIndex(p => p.id === item.listingId);
+      if (pkgIndex === -1) return;
+
+      const { updatedPkg, firestorePayload } = syncPackageListingPhotos(allListings[pkgIndex], {
+        removedUrls: [item.thumbnailUrl]
+      });
+
+      await updateDoc(doc(db, 'listings', item.listingId), firestorePayload);
+
+      const updatedAll = [...allListings];
+      updatedAll[pkgIndex] = updatedPkg;
+      setAllListings(updatedAll);
+
+      if (onListingUpdated) {
+        onListingUpdated(updatedPkg);
+      }
+
+      showToast(`Cleaned front thumbnail for "${item.listingTitle}".`, 'success');
+    } catch (e: any) {
+      console.error('Error syncing front thumbnail:', e);
+      showToast('Failed to clean front thumbnail.', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -884,7 +1407,7 @@ export default function AdminItineraryPhotoManager({
                   ? 'bg-emerald-600 border-emerald-500 shadow-emerald-900/20'
                   : toast.type === 'error'
                   ? 'bg-rose-600 border-rose-500 shadow-rose-900/20'
-                  : 'bg-slate-900 border-slate-700 shadow-slate-950/30'
+                  : 'bg-slate-800 border-slate-700 shadow-slate-900/20'
               }`}
             >
               {toast.type === 'success' && <CheckCircle2 className="h-5 w-5 shrink-0" />}
@@ -910,7 +1433,7 @@ export default function AdminItineraryPhotoManager({
                   className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-semibold flex items-center gap-2 rounded-xl transition-all"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  <span>Back to Packages List</span>
+                  <span>{activeTab === 'audit' ? 'Back to Quality Audit' : 'Back to Packages List'}</span>
                 </Button>
 
                 <span className="text-indigo-400 text-xs font-semibold">
@@ -1113,11 +1636,6 @@ export default function AdminItineraryPhotoManager({
                 <ImageIcon className="h-4 w-4 text-indigo-400" />
                 Selected Photos ({selectedImages.length})
               </span>
-              {selectedImages.length > 0 && (
-                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-semibold">
-                  ⚡ Auto Pre-Selected
-                </span>
-              )}
               <span className="text-[11px] text-gray-400">
                 (Click any photo below to add/remove. Drag or use arrows to order left-to-right)
               </span>
@@ -1759,11 +2277,12 @@ export default function AdminItineraryPhotoManager({
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 shrink-0">
                 {[
                   { label: 'Duplicate Names', count: auditReport.duplicateNames.length, bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
                   { label: 'Duplicate Images', count: auditReport.duplicateImages.length, bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
                   { label: 'Empty Names', count: auditReport.emptyNames.length, bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+                  { label: 'Front Thumbnails', count: auditReport.orphanedFrontThumbnails.length, bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
                   { label: 'Mismatches', count: auditReport.suspiciousMismatches.length, bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
                 ].map(item => (
                   <div key={item.label} className={`${item.bg} rounded-xl p-3 text-center border ${item.border} shadow-sm`}>
@@ -1774,6 +2293,85 @@ export default function AdminItineraryPhotoManager({
               </div>
             </div>
           </div>
+
+          {/* ── Orphaned Front Thumbnails Alert & 1-Click Fix ── */}
+          {auditReport.orphanedFrontThumbnails.length > 0 && (
+            <div className="bg-rose-50/80 border-2 border-rose-300 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-sm shrink-0">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-rose-950 text-base flex items-center gap-2">
+                      <span>Front Thumbnails Contain Deleted / Mismatched Photos</span>
+                      <span className="bg-rose-200 text-rose-800 text-xs px-2.5 py-0.5 rounded-full font-black">
+                        {auditReport.orphanedFrontThumbnails.length} package{auditReport.orphanedFrontThumbnails.length > 1 ? 's' : ''}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-rose-700 mt-1">
+                      These packages still display a deleted photo on the main package page because cover photos are cached in the package's places list. Click below to clean them instantly.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleSyncAllOrphanedThumbnails}
+                  disabled={isSaving}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-md flex items-center gap-2 shrink-0 transition-all"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  <span>Sync & Fix All Front Thumbnails ({auditReport.orphanedFrontThumbnails.length})</span>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                {auditReport.orphanedFrontThumbnails.map(item => (
+                  <div
+                    key={item.listingId}
+                    className="bg-white border border-rose-200 rounded-xl p-3 flex items-center gap-3 shadow-2xs"
+                  >
+                    <div
+                      onClick={() => setPreviewFullImageUrl(item.thumbnailUrl)}
+                      className="w-14 h-14 rounded-lg overflow-hidden border border-rose-200 shrink-0 bg-gray-100 cursor-pointer relative group"
+                      title="Click to preview current front thumbnail"
+                    >
+                      <img
+                        src={item.thumbnailUrl}
+                        alt="Current thumbnail"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px]">
+                        <Eye className="h-3 w-3" />
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-xs text-gray-900 truncate" title={item.listingTitle}>
+                        {item.listingTitle}
+                      </p>
+                      <p className="text-[11px] text-gray-500 truncate">
+                        {item.destination} {item.agencyName ? `· ${item.agencyName}` : ''}
+                      </p>
+                      <p className="text-[10px] text-rose-600 font-semibold mt-0.5">
+                        {item.suggestedPhoto ? '✓ Will sync with active itinerary photo' : '✗ No other photos in package'}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleSyncSingleOrphanedThumbnail(item)}
+                      disabled={isSaving}
+                      className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-bold rounded-lg transition-colors shrink-0"
+                      title="Clean this front thumbnail"
+                    >
+                      Fix
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Package Health Scores ── */}
           {auditReport.packageHealth.length > 0 && (
@@ -1869,6 +2467,12 @@ export default function AdminItineraryPhotoManager({
                               {occ.hasPhoto ? '✓ Has photo' : '✗ Missing photo'}
                             </span>
                           </div>
+                          <button
+                            onClick={() => handleOpenPhotoSelector(occ)}
+                            className="ml-auto shrink-0 text-[10px] bg-orange-500 hover:bg-orange-600 text-white px-2.5 py-1 rounded-lg font-bold transition-colors"
+                          >
+                            Edit
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1881,44 +2485,450 @@ export default function AdminItineraryPhotoManager({
           {/* ── Duplicate Images ── */}
           {auditReport.duplicateImages.length > 0 && (
             <div className="bg-white rounded-2xl border border-purple-200 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-purple-100 flex items-center gap-3 bg-purple-50/50">
-                <div className="p-2 bg-purple-100 text-purple-600 rounded-xl"><Globe className="h-5 w-5" /></div>
-                <div>
-                  <h3 className="font-bold text-purple-900 text-base">Duplicate Images — Same Photo on Different Places ({auditReport.duplicateImages.length})</h3>
-                  <p className="text-xs text-purple-700 mt-0.5">One image URL is assigned to multiple different place names — may indicate a wrong photo was selected.</p>
+              <div className="p-5 border-b border-purple-100 flex items-center justify-between gap-3 bg-purple-50/50 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 text-purple-600 rounded-xl"><Globe className="h-5 w-5" /></div>
+                  <div>
+                    <h3 className="font-bold text-purple-900 text-base">Duplicate Images — Same Photo on Different Places ({auditReport.duplicateImages.length})</h3>
+                    <p className="text-xs text-purple-700 mt-0.5">
+                      One image URL is shared across multiple places. View the table below to check place names against the image title and bulk delete mismatched photo assignments with 1 click.
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="divide-y divide-purple-50">
-                {auditReport.duplicateImages.map((di, i) => (
-                  <div key={i} className="p-5 flex flex-col sm:flex-row gap-4 hover:bg-purple-50/20 transition-colors">
-                    <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 border-2 border-purple-200 shadow-sm">
-                      <img
-                        src={di.imageUrl}
-                        alt="Shared image"
-                        className="w-full h-full object-cover"
-                        onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-purple-700 mb-2">Used by {di.usages.length} different place names:</p>
-                      <div className="space-y-1.5">
-                        {di.usages.map((u, j) => (
-                          <div key={j} className="flex items-center gap-2 bg-purple-50/60 rounded-lg px-3 py-1.5">
-                            <MapPin className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-                            <span className="text-xs font-bold text-gray-800">{u.placeName}</span>
-                            <span className="text-[10px] text-gray-500 truncate">Day {u.dayNumber} · {u.listingTitle}</span>
+
+              <div className="divide-y divide-purple-100">
+                {auditReport.duplicateImages.map((di, i) => {
+                  const mode = duplicateViewMode[di.imageUrl] || 'table';
+                  const filter = duplicateFilter[di.imageUrl] || 'all';
+                  const selectedIds = bulkSelectedPlaceIds[di.imageUrl] || [];
+
+                  // Filtered usages for this duplicate group
+                  const filteredUsages = di.usages.filter(u => {
+                    const match = checkImageAndPlaceMatch(di.imageTitle, u.placeName, u.destination);
+                    if (filter === 'mismatched') return !match.isMatch;
+                    if (filter === 'matching') return match.isMatch;
+                    return true;
+                  });
+
+                  const mismatchedList = di.usages.filter(
+                    u => !checkImageAndPlaceMatch(di.imageTitle, u.placeName, u.destination).isMatch
+                  );
+                  const mismatchedIds = mismatchedList.map(u => u.id);
+
+                  const isAllVisibleSelected =
+                    filteredUsages.length > 0 &&
+                    filteredUsages.every(u => selectedIds.includes(u.id));
+
+                  const handleToggleSelectAllVisible = () => {
+                    if (isAllVisibleSelected) {
+                      const visibleSet = new Set(filteredUsages.map(u => u.id));
+                      setBulkSelectedPlaceIds(prev => ({
+                        ...prev,
+                        [di.imageUrl]: (prev[di.imageUrl] || []).filter(id => !visibleSet.has(id))
+                      }));
+                    } else {
+                      const combined = new Set([...selectedIds, ...filteredUsages.map(u => u.id)]);
+                      setBulkSelectedPlaceIds(prev => ({
+                        ...prev,
+                        [di.imageUrl]: Array.from(combined)
+                      }));
+                    }
+                  };
+
+                  const handleSelectOnlyMismatched = () => {
+                    setBulkSelectedPlaceIds(prev => ({
+                      ...prev,
+                      [di.imageUrl]: mismatchedIds
+                    }));
+                  };
+
+                  const handleSelectRow = (placeId: string) => {
+                    setBulkSelectedPlaceIds(prev => {
+                      const current = prev[di.imageUrl] || [];
+                      const next = current.includes(placeId)
+                        ? current.filter(id => id !== placeId)
+                        : [...current, placeId];
+                      return { ...prev, [di.imageUrl]: next };
+                    });
+                  };
+
+                  const selectedPlaces = di.usages.filter(u => selectedIds.includes(u.id));
+
+                  return (
+                    <div key={i} className="p-5 space-y-4 hover:bg-purple-50/15 transition-colors">
+                      {/* Top Asset & Match Summary Bar */}
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-purple-50/70 border border-purple-100 p-4 rounded-2xl">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div
+                            onClick={() => setPreviewFullImageUrl(di.imageUrl)}
+                            className="relative group w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 border-purple-200 shadow-sm bg-gray-100 shrink-0 cursor-pointer"
+                            title="Click to preview full photo"
+                          >
+                            <img
+                              src={di.imageUrl}
+                              alt="Shared duplicate"
+                              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                              <Eye className="h-4 w-4" />
+                            </div>
                           </div>
-                        ))}
+
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] text-purple-700 font-bold uppercase tracking-wider">Image Title / Subject:</span>
+                              <span className="text-xs sm:text-sm font-black text-purple-950 bg-white px-2.5 py-0.5 rounded-lg border border-purple-200 shadow-2xs">
+                                {di.imageTitle}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap text-xs text-purple-800">
+                              <span className="font-semibold">Used on {di.usages.length} places:</span>
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100/70 border border-rose-200 px-2 py-0.5 rounded-md">
+                                <AlertCircle className="h-3 w-3 text-rose-600" />
+                                {di.mismatchedCount} Not Matching
+                              </span>
+                              {di.matchingCount > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                  {di.matchingCount} Matching
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* View Switcher & Action Controls */}
+                        <div className="flex items-center gap-2 flex-wrap shrink-0">
+                          <div className="inline-flex rounded-lg border border-purple-200 bg-white p-0.5 shadow-2xs">
+                            <button
+                              onClick={() => setDuplicateViewMode(prev => ({ ...prev, [di.imageUrl]: 'table' }))}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${
+                                mode === 'table' ? 'bg-purple-600 text-white shadow-xs' : 'text-purple-700 hover:bg-purple-50'
+                              }`}
+                            >
+                              <TableIcon className="h-3.5 w-3.5" />
+                              <span>Table View</span>
+                            </button>
+                            <button
+                              onClick={() => setDuplicateViewMode(prev => ({ ...prev, [di.imageUrl]: 'cards' }))}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${
+                                mode === 'cards' ? 'bg-purple-600 text-white shadow-xs' : 'text-purple-700 hover:bg-purple-50'
+                              }`}
+                            >
+                              <LayoutGrid className="h-3.5 w-3.5" />
+                              <span>Cards View</span>
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={() => setPreviewFullImageUrl(di.imageUrl)}
+                            className="px-2.5 py-1.5 text-xs font-semibold text-purple-700 hover:text-purple-900 bg-white hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Preview</span>
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => setPreviewFullImageUrl(di.imageUrl)}
-                        className="mt-2 flex items-center gap-1 text-[11px] text-purple-600 hover:underline font-semibold"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Preview Image
-                      </button>
+
+                      {/* Filter Tabs & Bulk Actions Bar */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-purple-100">
+                        {/* Filter Pills */}
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                          <button
+                            onClick={() => setDuplicateFilter(prev => ({ ...prev, [di.imageUrl]: 'all' }))}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${
+                              filter === 'all' ? 'bg-purple-100 text-purple-800' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            All Places ({di.usages.length})
+                          </button>
+                          <button
+                            onClick={() => setDuplicateFilter(prev => ({ ...prev, [di.imageUrl]: 'mismatched' }))}
+                            className={`px-2.5 py-1 rounded-lg font-bold transition-colors flex items-center gap-1 ${
+                              filter === 'mismatched' ? 'bg-rose-100 text-rose-800' : 'text-rose-600 hover:bg-rose-50'
+                            }`}
+                          >
+                            <AlertCircle className="h-3 w-3" />
+                            <span>Not Matching ({di.mismatchedCount})</span>
+                          </button>
+                          {di.matchingCount > 0 && (
+                            <button
+                              onClick={() => setDuplicateFilter(prev => ({ ...prev, [di.imageUrl]: 'matching' }))}
+                              className={`px-2.5 py-1 rounded-lg font-bold transition-colors flex items-center gap-1 ${
+                                filter === 'matching' ? 'bg-emerald-100 text-emerald-800' : 'text-emerald-600 hover:bg-emerald-50'
+                              }`}
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>Matching ({di.matchingCount})</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Bulk Action Controls */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {di.mismatchedCount > 0 && (
+                            <button
+                              onClick={handleSelectOnlyMismatched}
+                              className="text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs"
+                              title="Select all places where place name does not match image title"
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                              <span>Select All Not Matching ({di.mismatchedCount})</span>
+                            </button>
+                          )}
+
+                          {selectedIds.length > 0 && (
+                            <button
+                              onClick={() => setBulkSelectedPlaceIds(prev => ({ ...prev, [di.imageUrl]: [] }))}
+                              className="text-xs text-gray-500 hover:text-gray-800 underline px-1.5 py-1 font-medium"
+                            >
+                              Clear Selection ({selectedIds.length})
+                            </button>
+                          )}
+
+                          <Button
+                            onClick={() => handleBulkRemovePhotos(selectedPlaces, di.imageUrl)}
+                            disabled={selectedIds.length === 0 || isSaving}
+                            variant="destructive"
+                            size="sm"
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-sm flex items-center gap-1.5 transition-all disabled:opacity-40"
+                            title="Bulk delete/unlink this wrong image from selected places"
+                          >
+                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            <span>Bulk Delete Selected ({selectedIds.length})</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* View Mode: Table Format */}
+                      {mode === 'table' ? (
+                        <div className="overflow-x-auto rounded-xl border border-purple-200 shadow-xs bg-white">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-purple-100/70 border-b border-purple-200 text-purple-950 font-bold">
+                                <th className="p-3 w-10 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isAllVisibleSelected}
+                                    onChange={handleToggleSelectAllVisible}
+                                    className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+                                    title="Select / Deselect all visible"
+                                  />
+                                </th>
+                                <th className="p-3">Day & Package</th>
+                                <th className="p-3">Place Name</th>
+                                <th className="p-3">Image Subject</th>
+                                <th className="p-3">Match Status</th>
+                                <th className="p-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-purple-100">
+                              {filteredUsages.length === 0 ? (
+                                <tr>
+                                  <td colSpan={6} className="p-6 text-center text-gray-500">
+                                    No places found matching the current filter.
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredUsages.map(u => {
+                                  const isSelected = selectedIds.includes(u.id);
+                                  const match = checkImageAndPlaceMatch(di.imageTitle, u.placeName, u.destination);
+                                  return (
+                                    <tr
+                                      key={u.id}
+                                      className={`transition-colors ${
+                                        isSelected
+                                          ? 'bg-purple-100/60'
+                                          : match.isMatch
+                                          ? 'hover:bg-emerald-50/30'
+                                          : 'bg-rose-50/25 hover:bg-rose-50/45'
+                                      }`}
+                                    >
+                                      <td className="p-3 text-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={() => handleSelectRow(u.id)}
+                                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+                                        />
+                                      </td>
+                                      <td className="p-3">
+                                        <div className="flex items-center gap-2">
+                                          <span className="w-6 h-6 rounded-md bg-purple-200 text-purple-800 font-black text-[11px] flex items-center justify-center shrink-0">
+                                            D{u.dayNumber}
+                                          </span>
+                                          <div className="min-w-0 max-w-[240px]">
+                                            <p className="font-semibold text-gray-800 truncate" title={u.listingTitle}>
+                                              {u.listingTitle}
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 truncate">
+                                              {u.destination} {u.agencyName ? `· ${u.agencyName}` : ''}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="p-3">
+                                        <span className="font-bold text-gray-900 text-xs">{u.placeName}</span>
+                                      </td>
+                                      <td className="p-3">
+                                        <span
+                                          className="text-[11px] font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 truncate block max-w-[200px]"
+                                          title={di.imageTitle}
+                                        >
+                                          {di.imageTitle}
+                                        </span>
+                                      </td>
+                                      <td className="p-3">
+                                        {match.isMatch ? (
+                                          <span
+                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"
+                                            title={match.reason}
+                                          >
+                                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                            <span>Matching</span>
+                                          </span>
+                                        ) : (
+                                          <span
+                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full"
+                                            title={match.reason}
+                                          >
+                                            <AlertCircle className="h-3 w-3 text-rose-600" />
+                                            <span>Not Matching</span>
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="p-3 text-right">
+                                        <div className="inline-flex items-center gap-1.5 justify-end">
+                                          <button
+                                            onClick={() => handleRemoveAllPhotos(u)}
+                                            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                            title={`Delete/unlink photo from ${u.placeName}`}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              const newUrl = window.prompt(`Paste new image URL for "${u.placeName}" (Day ${u.dayNumber}):`);
+                                              if (newUrl && newUrl.trim()) {
+                                                handleQuickSetPhoto(u, newUrl.trim());
+                                              }
+                                            }}
+                                            className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                            title="Quick paste new image URL"
+                                          >
+                                            <Link2 className="h-3.5 w-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleOpenPhotoSelector(u)}
+                                            className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-2xs inline-flex items-center gap-1"
+                                            title={`Change photo for ${u.placeName}`}
+                                          >
+                                            <Sparkles className="h-3 w-3" />
+                                            <span>Change</span>
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        /* Cards View */
+                        <div className="space-y-2">
+                          {filteredUsages.map(u => {
+                            const isSelected = selectedIds.includes(u.id);
+                            const match = checkImageAndPlaceMatch(di.imageTitle, u.placeName, u.destination);
+                            return (
+                              <div
+                                key={u.id}
+                                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border rounded-xl p-3 transition-colors ${
+                                  isSelected
+                                    ? 'bg-purple-100/70 border-purple-300'
+                                    : match.isMatch
+                                    ? 'bg-purple-50/60 border-purple-100 hover:bg-purple-50'
+                                    : 'bg-rose-50/20 border-rose-100 hover:bg-rose-50/40'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleSelectRow(u.id)}
+                                    className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+                                  />
+                                  <div className="w-7 h-7 rounded-lg bg-purple-200 text-purple-800 font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
+                                    D{u.dayNumber}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs sm:text-sm font-bold text-gray-900">{u.placeName}</span>
+                                      {match.isMatch ? (
+                                        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-semibold">
+                                          ✓ Matching
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded font-semibold">
+                                          ✗ Not Matching
+                                        </span>
+                                      )}
+                                      {u.destination && (
+                                        <span className="text-[10px] bg-white text-purple-700 px-1.5 py-0.5 rounded border border-purple-200 font-medium">
+                                          {u.destination}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-500 truncate">
+                                      <span className="font-medium text-gray-700">{u.listingTitle}</span>
+                                      {u.agencyName ? ` · ${u.agencyName}` : ''}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                  <button
+                                    onClick={() => {
+                                      const newUrl = window.prompt(`Paste new image URL for "${u.placeName}" (Day ${u.dayNumber}):`);
+                                      if (newUrl && newUrl.trim()) {
+                                        handleQuickSetPhoto(u, newUrl.trim());
+                                      }
+                                    }}
+                                    className="text-[11px] font-semibold text-purple-700 hover:text-purple-900 bg-white hover:bg-purple-100 border border-purple-200 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                                    title="Quick paste image URL"
+                                  >
+                                    <Link2 className="h-3 w-3" />
+                                    <span>Paste URL</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleOpenPhotoSelector(u)}
+                                    className="text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:scale-95 px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition-all flex items-center gap-1.5"
+                                    title={`Search and select a photo for ${u.placeName}`}
+                                  >
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                    <span>Change Photo</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleRemoveAllPhotos(u)}
+                                    className="text-gray-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
+                                    title={`Remove photo from ${u.placeName}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

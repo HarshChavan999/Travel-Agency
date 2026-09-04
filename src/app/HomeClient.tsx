@@ -101,7 +101,6 @@ import {
 } from 'lucide-react';
 import { collection, query, where, getDocs, updateDoc, doc, getDoc, addDoc, deleteDoc, onSnapshot, orderBy, setDoc } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
-import { getFirestore } from 'firebase/firestore';
 import { compressMultipleImages, isValidImageFile, validateFileSize } from '@/lib/imageUtils';
 
 const BUYER_QUICK_REPLIES = [
@@ -4804,88 +4803,126 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </Card>
                   )}
 
-                  {/* Category Emoji Navigation Strip */}
-                  <div id="category-nav-strip" className="w-fit max-w-full mx-auto bg-white/85 border border-white/80 rounded-xl p-2.5 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] flex items-center justify-center gap-3 sm:gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
-                    <div className="flex gap-2 sm:gap-3.5 items-center justify-center px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide max-w-full">
-                      {[
-                        { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
-                        { id: 'all_packages', label: 'All Packages', type: 'all', filter: null, hidden: true },
-                        { id: 'domestic_tab', label: 'Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
-                        { id: 'intl_tab', label: 'International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
-                        { id: 'family_tab', label: 'Family', type: 'all', filter: { category: 'tourCategory', subcategory: 'Family Tour', title: 'Tour by Category - Family Tour' } },
-                        { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } },
-                        { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } }
-                      ].map((item) => {
-                        if ((item as any).hidden) return null;
-                        const isCategoriesActive = item.type === 'categories' && dashboardViewMode === 'categories' && !selectedCategoryFilter;
-                        const isAllActive = item.type === 'all' && dashboardViewMode === 'all' && !selectedCategoryFilter && !item.filter;
-                        const isFilterActive = item.filter && selectedCategoryFilter && 
-                                               selectedCategoryFilter.category === item.filter.category && 
-                                               selectedCategoryFilter.subcategory === item.filter.subcategory;
-                        
-                        const isActive = isCategoriesActive || isAllActive || isFilterActive;
+                  {/* Compute active filter count & summary for mobile button */}
+                  {(() => {
+                    const activeFilterCount = (
+                      (selectedCategoryFilter ? 1 : 0) +
+                      (advancedFilters.duration < 7 ? 1 : 0) +
+                      (advancedFilters.budget < 77000 ? 1 : 0) +
+                      (advancedFilters.budgetCategory ? 1 : 0) +
+                      (advancedFilters.hotelCategory ? 1 : 0)
+                    );
 
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setSearchTerm('');
-                              if (item.type === 'categories') {
-                                setDashboardViewMode('categories');
-                                setSelectedCategoryFilter(null);
-                              } else if (item.id === 'domestic_tab') {
-                                setDashboardViewMode('categories');
-                                setSelectedCategoryFilter({ category: 'domestic', title: 'Domestic Packages' });
-                              } else if (item.id === 'intl_tab') {
-                                setDashboardViewMode('categories');
-                                setSelectedCategoryFilter({ category: 'international', title: 'International Packages' });
-                              } else {
-                                setDashboardViewMode('all');
-                                setSelectedCategoryFilter(item.filter);
-                              }
-                            }}
-                            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
-                              isActive
-                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
-                                : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
-                            }`}
-                            style={{ borderRadius: '6px' }}
-                          >
-                            {getTabIcon(item.id, "h-3.5 w-3.5")}
-                            {item.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    
-                    <div className="h-6 w-px bg-slate-200/80 mx-1 shrink-0"></div>
-                    
-                    <div className="relative shrink-0 flex items-center">
-                      <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${
-                          showFilters 
-                            ? 'bg-orange-50 border-orange-300 text-orange-600 shadow-sm'
-                            : 'bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
-                        }`}
-                        style={{ borderRadius: '6px' }}
-                      >
-                        <SlidersHorizontal className={`h-4 w-4 ${showFilters ? 'text-orange-500' : 'text-slate-500'}`} />
-                        Filter
-                      </button>
-                      <FilterSidebar 
-                        isOpen={showFilters} 
-                        onClose={() => setShowFilters(false)} 
-                        initialFilters={advancedFilters}
-                        onApply={(newFilters) => {
-                          setAdvancedFilters(newFilters);
-                          if (dashboardViewMode === 'categories') {
-                            setDashboardViewMode('all');
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
+                    return (
+                      <>
+                        {/* Mobile View: Floating Filter Button at bottom of screen */}
+                        <button
+                          onClick={() => setShowFilters(true)}
+                          className="sm:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 hover:bg-slate-900 text-white shadow-[0_8px_25px_rgba(0,0,0,0.35)] px-5 py-2.5 rounded-full flex items-center gap-2 font-bold text-xs backdrop-blur-md border border-white/20 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <SlidersHorizontal className="w-4 h-4 text-orange-400" />
+                          <span>Filters</span>
+                          {activeFilterCount > 0 && (
+                            <span className="bg-orange-500 text-white text-[10px] px-1.5 h-4 min-w-[16px] rounded-full flex items-center justify-center font-mono font-bold">
+                              {activeFilterCount}
+                            </span>
+                          )}
+                        </button>
+
+                        {/* Desktop View: Classic Category Nav Strip */}
+                        <div id="category-nav-strip" className="hidden sm:flex w-fit max-w-full mx-auto bg-white/85 border border-white/80 rounded-xl p-2.5 mb-8 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.05)] items-center justify-center gap-3 sm:gap-4 py-2.5 sticky top-16 z-[90] backdrop-blur-xl relative transition-all duration-300">
+                          <div className="flex gap-2 sm:gap-3.5 items-center justify-center px-2 overflow-x-auto horizontal-scroll-nav scrollbar-hide max-w-full">
+                            {[
+                              { id: 'all_categories', label: 'Categories', type: 'categories', filter: null },
+                              { id: 'all_packages', label: 'All Packages', type: 'all', filter: null, hidden: true },
+                              { id: 'domestic_tab', label: 'Domestic', type: 'all', filter: { category: 'domestic', title: 'Domestic Packages' } },
+                              { id: 'intl_tab', label: 'International', type: 'all', filter: { category: 'international', title: 'International Packages' } },
+                              { id: 'family_tab', label: 'Family', type: 'all', filter: { category: 'tourCategory', subcategory: 'Family Tour', title: 'Tour by Category - Family Tour' } },
+                              { id: 'honeymoon_tab', label: 'Honeymoon', type: 'all', filter: { category: 'tourCategory', subcategory: 'Honeymoon Tour', title: 'Tour by Category - Honeymoon Tour' } },
+                              { id: 'experience_tab', label: 'Adventure', type: 'all', filter: { category: 'experiences', subcategory: 'Adventure', title: 'Experience Travel - Adventure' } }
+                            ].map((item) => {
+                              if ((item as any).hidden) return null;
+                              const isCategoriesActive = item.type === 'categories' && dashboardViewMode === 'categories' && !selectedCategoryFilter;
+                              const isAllActive = item.type === 'all' && dashboardViewMode === 'all' && !selectedCategoryFilter && !item.filter;
+                              const isFilterActive = item.filter && selectedCategoryFilter && 
+                                                     selectedCategoryFilter.category === item.filter.category && 
+                                                     selectedCategoryFilter.subcategory === item.filter.subcategory;
+                              
+                              const isActive = isCategoriesActive || isAllActive || isFilterActive;
+
+                              return (
+                                <button
+                                  key={item.id}
+                                  onClick={() => {
+                                    setSearchTerm('');
+                                    if (item.type === 'categories') {
+                                      setDashboardViewMode('categories');
+                                      setSelectedCategoryFilter(null);
+                                    } else if (item.id === 'domestic_tab') {
+                                      setDashboardViewMode('categories');
+                                      setSelectedCategoryFilter({ category: 'domestic', title: 'Domestic Packages' });
+                                    } else if (item.id === 'intl_tab') {
+                                      setDashboardViewMode('categories');
+                                      setSelectedCategoryFilter({ category: 'international', title: 'International Packages' });
+                                    } else {
+                                      setDashboardViewMode('all');
+                                      setSelectedCategoryFilter(item.filter);
+                                    }
+                                  }}
+                                  className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
+                                    isActive
+                                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
+                                      : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                                  }`}
+                                  style={{ borderRadius: '6px' }}
+                                >
+                                  {getTabIcon(item.id, "h-3.5 w-3.5")}
+                                  {item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          <div className="h-6 w-px bg-slate-200/80 mx-1 shrink-0"></div>
+                          
+                          <div className="relative shrink-0 flex items-center">
+                            <button
+                              onClick={() => setShowFilters(!showFilters)}
+                              className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${
+                                showFilters 
+                                  ? 'bg-orange-50 border-orange-300 text-orange-600 shadow-sm'
+                                  : 'bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
+                              }`}
+                              style={{ borderRadius: '6px' }}
+                            >
+                              <SlidersHorizontal className={`h-4 w-4 ${showFilters ? 'text-orange-500' : 'text-slate-500'}`} />
+                              Filter
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Filter Sidebar & Mobile Sliding Bottom Sheet */}
+                        <FilterSidebar 
+                          isOpen={showFilters} 
+                          onClose={() => setShowFilters(false)} 
+                          initialFilters={advancedFilters}
+                          selectedCategory={selectedCategoryFilter}
+                          onSelectCategory={(newCat) => {
+                            setSelectedCategoryFilter(newCat);
+                            if (newCat) {
+                              setDashboardViewMode('all');
+                            }
+                          }}
+                          onApply={(newFilters) => {
+                            setAdvancedFilters(newFilters);
+                            if (dashboardViewMode === 'categories') {
+                              setDashboardViewMode('all');
+                            }
+                          }}
+                        />
+                      </>
+                    );
+                  })()}
 
 
 
@@ -4916,7 +4953,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     />
                   ) : (
                     /* Filtered Listings Grid - Matching original 3-column card dimensions */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 w-full justify-items-center sm:justify-items-stretch">
                       {listings.length === 0 ? (
                         <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border border-gray-100 border-dashed">
                           <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner relative overflow-hidden">

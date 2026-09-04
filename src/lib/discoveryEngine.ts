@@ -98,25 +98,25 @@ export function calculateDiscoveryScore(listing: PackageListing): number {
 export const REGION_METADATA: Record<string, { label: string; shortLabel: string; icon: string; subtitle: string }> = {
   north: {
     label: 'North India',
-    shortLabel: 'North',
+    shortLabel: 'North India',
     icon: '🏔️',
     subtitle: 'Himalayas, Royal Heritage & Mountain Valleys',
   },
   south: {
     label: 'South India',
-    shortLabel: 'South',
+    shortLabel: 'South India',
     icon: '🌴',
     subtitle: 'Serene Backwaters, Ancient Temples & Coastlines',
   },
   east_northeast: {
-    label: 'East & North-East',
-    shortLabel: 'East & NE',
+    label: 'East & North-East India',
+    shortLabel: 'East & North-East India',
     icon: '🌿',
     subtitle: 'Lush Hills, Living Roots, Tea Gardens & Culture',
   },
   west_central: {
-    label: 'West & Central',
-    shortLabel: 'West & Central',
+    label: 'West & Central India',
+    shortLabel: 'West & Central India',
     icon: '🏰',
     subtitle: 'Historic Forts, Wildlife Safaris & Coastal Escapes',
   },
