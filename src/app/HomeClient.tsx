@@ -6931,7 +6931,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             setViewingListing(null);
                           }}
                           className={`px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer ${
-                            (!showListingForm && !showBulkUpload)
+                            (!showListingForm && !showBulkUpload && !viewingListing)
                               ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 scale-[1.02]'
                               : 'bg-white/80 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-sm hover:scale-[1.02]'
                           }`}
@@ -6941,12 +6941,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </button>
                         <button
                           onClick={() => {
-                            const currentPlan = userData?.plan || 'free';
-                            const maxListings = currentPlan === 'free' ? 2 : currentPlan === 'starter' ? 10 : currentPlan === 'premium' ? 50 : 10000;
-                            if (agencyListings.length >= maxListings) {
-                              alert(`Listing limit reached for your current plan (${maxListings} max). Please upgrade to add more listings.`);
-                              return;
-                            }
                             setShowListingForm(true);
                             setShowBulkUpload(false);
                             setEditingListing(null);
@@ -6963,12 +6957,6 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </button>
                         <button
                           onClick={() => {
-                            const currentPlan = userData?.plan || 'free';
-                            const maxListings = currentPlan === 'free' ? 2 : currentPlan === 'starter' ? 10 : currentPlan === 'premium' ? 50 : 10000;
-                            if (agencyListings.length >= maxListings) {
-                              alert(`Listing limit reached for your current plan (${maxListings} max). Please upgrade to add more listings.`);
-                              return;
-                            }
                             setShowBulkUpload(true);
                             setShowListingForm(false);
                             setEditingListing(null);
