@@ -437,23 +437,7 @@ export default function PackageDetailView({
       }
     };
 
-    // 1. Primary dedicated photos if uploaded directly to package
-    if (listing.photos && Array.isArray(listing.photos)) {
-      listing.photos.forEach(addImage);
-    }
-    const dedicatedPhotoObj = Array.isArray(listing.placesCovered)
-      ? listing.placesCovered.find((p: any) => p?.id === 'photos')
-      : null;
-    if (dedicatedPhotoObj?.imageUrls && Array.isArray(dedicatedPhotoObj.imageUrls)) {
-      dedicatedPhotoObj.imageUrls.forEach(addImage);
-    }
-
-    // 2. Front cover thumbnail from placesCovered[0]
-    if (Array.isArray(listing.placesCovered) && listing.placesCovered[0]?.imageUrls?.length > 0) {
-      listing.placesCovered[0].imageUrls.forEach(addImage);
-    }
-
-    // 3. Day-by-day itinerary photos (essential for showing all tour places)
+    // 1. Day-by-day itinerary photos first (ensures top banner starts with Day 1 and follows chronological tour sequence)
     if (listing.itinerary && Array.isArray(listing.itinerary)) {
       listing.itinerary.forEach((day: any) => {
         if (day?.imageUrls && Array.isArray(day.imageUrls)) {
@@ -464,7 +448,18 @@ export default function PackageDetailView({
       });
     }
 
-    // 4. Any remaining photos from placesCovered
+    // 2. Dedicated package photos (if uploaded directly)
+    if (listing.photos && Array.isArray(listing.photos)) {
+      listing.photos.forEach(addImage);
+    }
+    const dedicatedPhotoObj = Array.isArray(listing.placesCovered)
+      ? listing.placesCovered.find((p: any) => p?.id === 'photos')
+      : null;
+    if (dedicatedPhotoObj?.imageUrls && Array.isArray(dedicatedPhotoObj.imageUrls)) {
+      dedicatedPhotoObj.imageUrls.forEach(addImage);
+    }
+
+    // 3. Any additional photos from placesCovered
     if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
       listing.placesCovered.forEach((place: any) => {
         if (place?.imageUrls && Array.isArray(place.imageUrls)) {

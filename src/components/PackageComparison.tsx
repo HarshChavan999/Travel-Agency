@@ -49,18 +49,18 @@ const THEMES = [COLORS.orange, COLORS.purple, COLORS.teal];
 
 // Helpers
 const getMainImage = (pkg: ComparisonPackage) => {
+  if (pkg.itinerary && pkg.itinerary.length > 0) {
+    for (const day of pkg.itinerary) {
+      if (day.imageUrls && day.imageUrls.length > 0 && day.imageUrls[0]) return day.imageUrls[0];
+      if (day.imageUrl) return day.imageUrl;
+    }
+  }
   if (pkg.placesCovered && pkg.placesCovered.length > 0 && 
       pkg.placesCovered[0].imageUrls && pkg.placesCovered[0].imageUrls.length > 0) {
     return pkg.placesCovered[0].imageUrls[0];
   }
   if (pkg.photos && pkg.photos.length > 0) {
     return pkg.photos[0];
-  }
-  if (pkg.itinerary && pkg.itinerary.length > 0) {
-    for (const day of pkg.itinerary) {
-      if (day.imageUrls && day.imageUrls.length > 0) return day.imageUrls[0];
-      if (day.imageUrl) return day.imageUrl;
-    }
   }
   return null;
 };

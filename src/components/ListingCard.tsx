@@ -39,8 +39,14 @@ export default function ListingCard({
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
 
-  // Get main image from placesCovered or photos
+  // Get main image for listing card (prioritize Day 1 itinerary image)
   const getMainImage = () => {
+    if (listing.itinerary && Array.isArray(listing.itinerary)) {
+      for (const day of listing.itinerary) {
+        if (day?.imageUrls && day.imageUrls.length > 0 && day.imageUrls[0]) return day.imageUrls[0];
+        if (day?.imageUrl) return day.imageUrl;
+      }
+    }
     if (listing.placesCovered && listing.placesCovered.length > 0 && 
         listing.placesCovered[0].imageUrls && listing.placesCovered[0].imageUrls.length > 0) {
       return listing.placesCovered[0].imageUrls[0];
@@ -48,16 +54,10 @@ export default function ListingCard({
     if (listing.photos && listing.photos.length > 0) {
       return listing.photos[0];
     }
-    if (listing.itinerary && listing.itinerary.length > 0) {
-      for (const day of listing.itinerary) {
-        if (day.imageUrls && day.imageUrls.length > 0) return day.imageUrls[0];
-        if (day.imageUrl) return day.imageUrl;
-      }
-    }
     return null;
   };
 
-  // Get all images for listing card carousel (prefer placesCovered > photos > itinerary to avoid repeating images)
+  // Get all images for listing card carousel (prioritize itinerary day photos in order, then extra photos)
   const getAllImages = () => {
     const imagesSet = new Set<string>();
     const seenBaseUrls = new Set<string>();
@@ -74,22 +74,8 @@ export default function ListingCard({
       }
     };
     
-    // Priority 1: Primary package photos from placesCovered
-    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
-      listing.placesCovered.forEach((place: any) => {
-        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
-          place.imageUrls.forEach(addImage);
-        }
-      });
-    }
-
-    // Priority 2: Standalone photos (only if placesCovered had no images)
-    if (imagesSet.size === 0 && listing.photos && Array.isArray(listing.photos)) {
-      listing.photos.forEach(addImage);
-    }
-
-    // Priority 3: Itinerary day photos (only if neither placesCovered nor photos had images)
-    if (imagesSet.size === 0 && listing.itinerary && Array.isArray(listing.itinerary)) {
+    // Priority 1: Day-by-day itinerary photos (shows the trip journey sequentially)
+    if (listing.itinerary && Array.isArray(listing.itinerary)) {
       listing.itinerary.forEach((day: any) => {
         if (day?.imageUrls && Array.isArray(day.imageUrls)) {
           day.imageUrls.forEach(addImage);
@@ -99,11 +85,25 @@ export default function ListingCard({
       });
     }
 
+    // Priority 2: Primary package photos from placesCovered
+    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
+      listing.placesCovered.forEach((place: any) => {
+        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
+          place.imageUrls.forEach(addImage);
+        }
+      });
+    }
+
+    // Priority 3: Standalone photos
+    if (listing.photos && Array.isArray(listing.photos)) {
+      listing.photos.forEach(addImage);
+    }
+
     return Array.from(imagesSet);
   };
 
-  const mainImage = getMainImage();
   const allImages = getAllImages();
+  const mainImage = allImages[0] || getMainImage();
   const duration = listing.itinerary?.length || 0;
   const nights = duration > 0 ? duration - 1 : 0;
   let rawPrice = listing.cost || listing.price || 'N/A';

@@ -129,13 +129,11 @@ export default function WishlistView({ wishlist = [], listings = [], onWishlistT
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredItems.map((item, index) => {
-              // Extract main image safely
-              let mainImage = (item.photos && item.photos.length > 0) ? item.photos[0] : 
-                               (item.placesCovered && item.placesCovered.length > 0 && item.placesCovered[0].imageUrls && item.placesCovered[0].imageUrls.length > 0) 
-                               ? item.placesCovered[0].imageUrls[0] : '';
-              if (!mainImage && item.itinerary && item.itinerary.length > 0) {
+              // Extract main image safely (prioritize Day 1 itinerary image)
+              let mainImage = '';
+              if (item.itinerary && item.itinerary.length > 0) {
                 for (const day of item.itinerary) {
-                  if (day.imageUrls && day.imageUrls.length > 0) {
+                  if (day.imageUrls && day.imageUrls.length > 0 && day.imageUrls[0]) {
                     mainImage = day.imageUrls[0];
                     break;
                   } else if (day.imageUrl) {
@@ -143,6 +141,10 @@ export default function WishlistView({ wishlist = [], listings = [], onWishlistT
                     break;
                   }
                 }
+              }
+              if (!mainImage) {
+                mainImage = (item.placesCovered && item.placesCovered.length > 0 && item.placesCovered[0].imageUrls && item.placesCovered[0].imageUrls.length > 0) 
+                            ? item.placesCovered[0].imageUrls[0] : (item.photos && item.photos.length > 0 ? item.photos[0] : '');
               }
               
               const optimizedImage = mainImage ? optimizeImageUrl(mainImage, { quality: 80, format: 'auto' }) : fallbackImages[index % fallbackImages.length];
