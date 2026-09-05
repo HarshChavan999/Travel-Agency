@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/lib/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
@@ -34,30 +34,34 @@ export async function POST(req: Request) {
     const now = Date.now();
 
     // Validation 2: Valid From
-    if (coupon.validFrom && new Date(coupon.validFrom).getTime() > now) {
+    const validFrom = coupon.validFrom;
+    if (validFrom && new Date(validFrom).getTime() > now) {
       return NextResponse.json({ valid: false, error: 'This coupon is not valid yet.' }, { status: 400 });
     }
 
     // Validation 3: Valid Until (Expiry)
-    if (coupon.validUntil && new Date(coupon.validUntil).getTime() < now) {
+    const validUntil = coupon.validUntil || coupon.expiryDate;
+    if (validUntil && new Date(validUntil).getTime() < now) {
       return NextResponse.json({ valid: false, error: 'This coupon code has expired.' }, { status: 400 });
     }
 
     // Validation 4: Usage Limit
-    if (coupon.usageLimit !== null && coupon.usageLimit !== undefined && coupon.usedCount >= coupon.usageLimit) {
+    const usageLimit = coupon.usageLimit ?? coupon.maxUses;
+    if (usageLimit !== null && usageLimit !== undefined && (coupon.usedCount || 0) >= usageLimit) {
       return NextResponse.json({ valid: false, error: 'This coupon code has reached its maximum usage limit.' }, { status: 400 });
     }
 
     // Validation 5: Minimum Order Amount
-    if (coupon.minOrderAmount && Number(originalAmount) < coupon.minOrderAmount) {
+    const minOrder = coupon.minOrderAmount ?? coupon.minPurchaseAmount ?? 0;
+    if (minOrder && Number(originalAmount) < minOrder) {
       return NextResponse.json({
         valid: false,
-        error: `Minimum plan amount of ₹${coupon.minOrderAmount.toLocaleString('en-IN')} required to apply this coupon.`
+        error: `Minimum plan amount of ₹${minOrder.toLocaleString('en-IN')} required to apply this coupon.`
       }, { status: 400 });
     }
 
     // Validation 6: Applicable Plans
-    const allowedPlans = coupon.applicablePlans || ['all'];
+    const allowedPlans = coupon.applicablePlans || (coupon.targetPlan ? [coupon.targetPlan] : ['all']);
     if (!allowedPlans.includes('all') && !allowedPlans.includes(targetPlan)) {
       return NextResponse.json({
         valid: false,
@@ -76,7 +80,7 @@ export async function POST(req: Request) {
       } else {
         discountAmount = calculated;
       }
-    } else if (coupon.discountType === 'fixed') {
+    } else if (coupon.discountType === 'fixed' || coupon.discountType === 'flat') {
       discountAmount = Math.min(orig, Number(coupon.discountValue));
     }
 
