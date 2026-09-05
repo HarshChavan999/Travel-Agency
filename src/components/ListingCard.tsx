@@ -39,25 +39,7 @@ export default function ListingCard({
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
 
-  // Get main image from placesCovered or photos
-  const getMainImage = () => {
-    if (listing.placesCovered && listing.placesCovered.length > 0 && 
-        listing.placesCovered[0].imageUrls && listing.placesCovered[0].imageUrls.length > 0) {
-      return listing.placesCovered[0].imageUrls[0];
-    }
-    if (listing.photos && listing.photos.length > 0) {
-      return listing.photos[0];
-    }
-    if (listing.itinerary && listing.itinerary.length > 0) {
-      for (const day of listing.itinerary) {
-        if (day.imageUrls && day.imageUrls.length > 0) return day.imageUrls[0];
-        if (day.imageUrl) return day.imageUrl;
-      }
-    }
-    return null;
-  };
-
-  // Get all images for listing card carousel (prefer placesCovered > photos > itinerary to avoid repeating images)
+  // Get all images from placesCovered, photos, and itinerary (deduplicated by base URL)
   const getAllImages = () => {
     const imagesSet = new Set<string>();
     const seenBaseUrls = new Set<string>();
@@ -74,22 +56,24 @@ export default function ListingCard({
       }
     };
     
-    // Priority 1: Primary package photos from placesCovered
-    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
-      listing.placesCovered.forEach((place: any) => {
-        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
-          place.imageUrls.forEach(addImage);
-        }
-      });
-    }
-
-    // Priority 2: Standalone photos (only if placesCovered had no images)
-    if (imagesSet.size === 0 && listing.photos && Array.isArray(listing.photos)) {
+    // 1. Primary dedicated photos if uploaded directly to package
+    if (listing.photos && Array.isArray(listing.photos)) {
       listing.photos.forEach(addImage);
     }
+    const dedicatedPhotoObj = Array.isArray(listing.placesCovered)
+      ? listing.placesCovered.find((p: any) => p?.id === 'photos')
+      : null;
+    if (dedicatedPhotoObj?.imageUrls && Array.isArray(dedicatedPhotoObj.imageUrls)) {
+      dedicatedPhotoObj.imageUrls.forEach(addImage);
+    }
 
-    // Priority 3: Itinerary day photos (only if neither placesCovered nor photos had images)
-    if (imagesSet.size === 0 && listing.itinerary && Array.isArray(listing.itinerary)) {
+    // 2. Front cover thumbnail from placesCovered[0]
+    if (Array.isArray(listing.placesCovered) && listing.placesCovered[0]?.imageUrls?.length > 0) {
+      listing.placesCovered[0].imageUrls.forEach(addImage);
+    }
+
+    // 3. Day-by-day itinerary photos (essential for showing all tour places)
+    if (listing.itinerary && Array.isArray(listing.itinerary)) {
       listing.itinerary.forEach((day: any) => {
         if (day?.imageUrls && Array.isArray(day.imageUrls)) {
           day.imageUrls.forEach(addImage);
@@ -99,11 +83,55 @@ export default function ListingCard({
       });
     }
 
+    // 4. Any remaining photos from placesCovered
+    if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
+      listing.placesCovered.forEach((place: any) => {
+        if (place?.imageUrls && Array.isArray(place.imageUrls)) {
+          place.imageUrls.forEach(addImage);
+        } else if (place?.imageUrl) {
+          addImage(place.imageUrl);
+        } else if (place?.image) {
+          addImage(place.image);
+        }
+      });
+    }
+
+    // 5. Direct listing imageUrls or imageUrl
+    if (listing.imageUrls && Array.isArray(listing.imageUrls)) {
+      listing.imageUrls.forEach(addImage);
+    } else if (listing.imageUrl) {
+      addImage(listing.imageUrl);
+    }
+
     return Array.from(imagesSet);
   };
 
-  const mainImage = getMainImage();
   const allImages = getAllImages();
+
+  // Get main image from placesCovered, photos, or itinerary
+  const getMainImage = () => {
+    if (allImages.length > 0) return allImages[0];
+    if (listing.placesCovered && listing.placesCovered.length > 0 && 
+        listing.placesCovered[0].imageUrls && listing.placesCovered[0].imageUrls.length > 0) {
+      return listing.placesCovered[0].imageUrls[0];
+    }
+    if (listing.photos && listing.photos.length > 0) {
+      return listing.photos[0];
+    }
+    if (listing.itinerary && listing.itinerary.length > 0) {
+      for (const day of listing.itinerary) {
+        if (day.imageUrls && day.imageUrls.length > 0) return day.imageUrls[0];
+        if (day.imageUrl) return day.imageUrl;
+      }
+    }
+    if (listing.imageUrls && listing.imageUrls.length > 0) {
+      return listing.imageUrls[0];
+    }
+    if (listing.imageUrl) return listing.imageUrl;
+    return null;
+  };
+
+  const mainImage = getMainImage();
   const duration = listing.itinerary?.length || 0;
   const nights = duration > 0 ? duration - 1 : 0;
   let rawPrice = listing.cost || listing.price || 'N/A';
