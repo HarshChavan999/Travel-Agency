@@ -59,10 +59,21 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const description = listing.description || `Discover this amazing travel package to ${listing.countryName || listing.stateName || 'your next destination'}.`;
   
   let imageUrl = '';
-  if (listing.photos && listing.photos.length > 0) {
-    imageUrl = listing.photos[0];
-  } else if (listing.placesCovered && listing.placesCovered.length > 0 && listing.placesCovered[0].imageUrls && listing.placesCovered[0].imageUrls.length > 0) {
+  if (listing.itinerary && Array.isArray(listing.itinerary)) {
+    for (const day of listing.itinerary) {
+      if (day?.imageUrls && day.imageUrls.length > 0 && day.imageUrls[0]) {
+        imageUrl = day.imageUrls[0];
+        break;
+      } else if (day?.imageUrl) {
+        imageUrl = day.imageUrl;
+        break;
+      }
+    }
+  }
+  if (!imageUrl && listing.placesCovered && listing.placesCovered.length > 0 && listing.placesCovered[0]?.imageUrls?.length > 0) {
     imageUrl = listing.placesCovered[0].imageUrls[0];
+  } else if (!imageUrl && listing.photos && listing.photos.length > 0) {
+    imageUrl = listing.photos[0];
   }
 
   return {

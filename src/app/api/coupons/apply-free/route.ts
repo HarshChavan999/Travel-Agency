@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/lib/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {

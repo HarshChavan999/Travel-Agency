@@ -278,9 +278,10 @@ export function getPopularDestinations(listings: PackageListing[], minCount = 1)
 
     pkgList.forEach((pkg) => {
       if (!coverImage) {
-        if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
-        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
+        if (pkg.itinerary?.[0]?.imageUrls?.[0]) coverImage = pkg.itinerary[0].imageUrls[0];
         else if (pkg.itinerary?.[0]?.imageUrl) coverImage = pkg.itinerary[0].imageUrl;
+        else if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
+        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
       }
 
       const rawPrice = pkg.cost || pkg.price;
@@ -428,9 +429,10 @@ export function getStateStories(listings: PackageListing[]): StateStory[] {
 
     pkgList.forEach((pkg) => {
       if (!coverImage) {
-        if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
-        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
+        if (pkg.itinerary?.[0]?.imageUrls?.[0]) coverImage = pkg.itinerary[0].imageUrls[0];
         else if (pkg.itinerary?.[0]?.imageUrl) coverImage = pkg.itinerary[0].imageUrl;
+        else if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
+        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
       }
 
       const rawPrice = pkg.cost || pkg.price;
@@ -702,9 +704,10 @@ export function getDynamicExperiences(listings: PackageListing[]): DynamicExperi
 
     if (!coverImage) {
       for (const pkg of pkgList) {
-        if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
-        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
+        if (pkg.itinerary?.[0]?.imageUrls?.[0]) coverImage = pkg.itinerary[0].imageUrls[0];
         else if (pkg.itinerary?.[0]?.imageUrl) coverImage = pkg.itinerary[0].imageUrl;
+        else if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
+        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
         if (coverImage) break;
       }
     }
@@ -894,9 +897,10 @@ export function getDynamicDestinationSections(
 
     group.listings.forEach((pkg) => {
       if (!coverImage) {
-        if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
-        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
+        if (pkg.itinerary?.[0]?.imageUrls?.[0]) coverImage = pkg.itinerary[0].imageUrls[0];
         else if (pkg.itinerary?.[0]?.imageUrl) coverImage = pkg.itinerary[0].imageUrl;
+        else if (pkg.placesCovered?.[0]?.imageUrls?.[0]) coverImage = pkg.placesCovered[0].imageUrls[0];
+        else if (pkg.photos?.[0]) coverImage = pkg.photos[0];
       }
 
       const rawPrice = pkg.cost || pkg.price;

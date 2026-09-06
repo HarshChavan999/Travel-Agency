@@ -39,7 +39,8 @@ export default function ListingCard({
   const [showCompareToast, setShowCompareToast] = useState(false);
   const [compareToastMessage, setCompareToastMessage] = useState('');
 
-  // Get all images from placesCovered, photos, and itinerary (deduplicated by base URL)
+  // Get all images for listing card carousel (deduplicated by base URL)
+  // Prioritize Day-by-day itinerary photos in order, then dedicated photos & placesCovered
   const getAllImages = () => {
     const imagesSet = new Set<string>();
     const seenBaseUrls = new Set<string>();
@@ -56,23 +57,7 @@ export default function ListingCard({
       }
     };
     
-    // 1. Primary dedicated photos if uploaded directly to package
-    if (listing.photos && Array.isArray(listing.photos)) {
-      listing.photos.forEach(addImage);
-    }
-    const dedicatedPhotoObj = Array.isArray(listing.placesCovered)
-      ? listing.placesCovered.find((p: any) => p?.id === 'photos')
-      : null;
-    if (dedicatedPhotoObj?.imageUrls && Array.isArray(dedicatedPhotoObj.imageUrls)) {
-      dedicatedPhotoObj.imageUrls.forEach(addImage);
-    }
-
-    // 2. Front cover thumbnail from placesCovered[0]
-    if (Array.isArray(listing.placesCovered) && listing.placesCovered[0]?.imageUrls?.length > 0) {
-      listing.placesCovered[0].imageUrls.forEach(addImage);
-    }
-
-    // 3. Day-by-day itinerary photos (essential for showing all tour places)
+    // Priority 1: Day-by-day itinerary photos (shows the trip journey sequentially)
     if (listing.itinerary && Array.isArray(listing.itinerary)) {
       listing.itinerary.forEach((day: any) => {
         if (day?.imageUrls && Array.isArray(day.imageUrls)) {
@@ -83,7 +68,18 @@ export default function ListingCard({
       });
     }
 
-    // 4. Any remaining photos from placesCovered
+    // Priority 2: Primary dedicated photos if uploaded directly to package
+    if (listing.photos && Array.isArray(listing.photos)) {
+      listing.photos.forEach(addImage);
+    }
+    const dedicatedPhotoObj = Array.isArray(listing.placesCovered)
+      ? listing.placesCovered.find((p: any) => p?.id === 'photos')
+      : null;
+    if (dedicatedPhotoObj?.imageUrls && Array.isArray(dedicatedPhotoObj.imageUrls)) {
+      dedicatedPhotoObj.imageUrls.forEach(addImage);
+    }
+
+    // Priority 3: Photos from placesCovered
     if (listing.placesCovered && Array.isArray(listing.placesCovered)) {
       listing.placesCovered.forEach((place: any) => {
         if (place?.imageUrls && Array.isArray(place.imageUrls)) {
@@ -96,7 +92,7 @@ export default function ListingCard({
       });
     }
 
-    // 5. Direct listing imageUrls or imageUrl
+    // Priority 4: Direct listing imageUrls or imageUrl
     if (listing.imageUrls && Array.isArray(listing.imageUrls)) {
       listing.imageUrls.forEach(addImage);
     } else if (listing.imageUrl) {
@@ -108,21 +104,21 @@ export default function ListingCard({
 
   const allImages = getAllImages();
 
-  // Get main image from placesCovered, photos, or itinerary
+  // Get main image from itinerary, placesCovered, photos, or listing imageUrl
   const getMainImage = () => {
     if (allImages.length > 0) return allImages[0];
+    if (listing.itinerary && Array.isArray(listing.itinerary)) {
+      for (const day of listing.itinerary) {
+        if (day?.imageUrls && day.imageUrls.length > 0 && day.imageUrls[0]) return day.imageUrls[0];
+        if (day?.imageUrl) return day.imageUrl;
+      }
+    }
     if (listing.placesCovered && listing.placesCovered.length > 0 && 
         listing.placesCovered[0].imageUrls && listing.placesCovered[0].imageUrls.length > 0) {
       return listing.placesCovered[0].imageUrls[0];
     }
     if (listing.photos && listing.photos.length > 0) {
       return listing.photos[0];
-    }
-    if (listing.itinerary && listing.itinerary.length > 0) {
-      for (const day of listing.itinerary) {
-        if (day.imageUrls && day.imageUrls.length > 0) return day.imageUrls[0];
-        if (day.imageUrl) return day.imageUrl;
-      }
     }
     if (listing.imageUrls && listing.imageUrls.length > 0) {
       return listing.imageUrls[0];

@@ -14,6 +14,7 @@ import {
   X,
   Loader2,
   RefreshCw,
+  RotateCcw,
   Filter,
   Layers,
   MapPin,
@@ -61,6 +62,59 @@ export interface ItineraryPlaceItem {
   imageUrl?: string | null;
   imageUrls?: string[];
   hasPhoto: boolean;
+  autoFilledRepeated?: boolean;
+  autoFilledAt?: number;
+  autoFilledSource?: string;
+}
+
+export interface AutoFillRevertEntry {
+  id: string; // `${listingId}_day_${dayIndex}`
+  listingId: string;
+  listingTitle: string;
+  destination: string;
+  dayIndex: number;
+  dayNumber: number;
+  placeName: string;
+  imageUrl: string;
+  imageUrls: string[];
+  autoFilledAt?: number;
+  sourcePlaceName?: string;
+}
+
+export interface KnownPhotoSource {
+  urls: string[];
+  placeName: string;
+  packageTitle: string;
+  packageId: string;
+  dayNumber?: number;
+  destination?: string;
+  sourceType: 'itinerary' | 'placesCovered';
+}
+
+export interface AutoFillCandidate {
+  id: string; // `${targetListingId}_day_${dayIndex}`
+  targetListingId: string;
+  targetListingTitle: string;
+  targetDestination: string;
+  targetDayIndex: number;
+  targetDayNumber: number;
+  targetDayId?: string;
+  targetPlaceName: string;
+  targetDescription?: string;
+
+  // Photo details
+  proposedUrls: string[];
+  primaryImageUrl: string;
+  imageTitle: string;
+
+  // Source info & reason
+  sourcePlaceName: string;
+  sourcePackageTitle: string;
+  sourcePackageId: string;
+  sourceDayNumber?: number;
+  sourceType: 'itinerary' | 'placesCovered';
+  matchType: 'exact' | 'cleaned' | 'split' | 'placesCovered';
+  matchReason: string;
 }
 
 // Extract human-readable image title/filename from URL (Wikimedia, R2, etc.)
@@ -392,6 +446,17 @@ export default function AdminItineraryPhotoManager({
   const [duplicateFilter, setDuplicateFilter] = useState<Record<string, 'all' | 'mismatched' | 'matching'>>({});
   const [bulkSelectedPlaceIds, setBulkSelectedPlaceIds] = useState<Record<string, string[]>>({});
 
+  // Auto-Fill Review Modal state
+  const [isAutoFillReviewOpen, setIsAutoFillReviewOpen] = useState(false);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [autoFillModalSearch, setAutoFillModalSearch] = useState('');
+
+  // Auto-Fill Revert state
+  const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
+  const [isReverting, setIsReverting] = useState(false);
+  const [selectedRevertIds, setSelectedRevertIds] = useState<Set<string>>(new Set());
+  const [revertModalSearch, setRevertModalSearch] = useState('');
+
   // Toast Notification
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
@@ -543,13 +608,231 @@ export default function AdminItineraryPhotoManager({
           description: day.description || '',
           imageUrl: currentImage,
           imageUrls: rawUrls,
-          hasPhoto: hasPhoto
+          hasPhoto: hasPhoto,
+          autoFilledRepeated: !!day.autoFilledRepeated,
+          autoFilledAt: day.autoFilledAt,
+          autoFilledSource: day.autoFilledSource
         });
       });
     });
 
     return places;
   }, [allListings, allAgencies]);
+
+  // Collect all known photo sources with rich package metadata
+  const allKnownPhotoSources = useMemo<KnownPhotoSource[]>(() => {
+    const sources: KnownPhotoSource[] = [];
+
+    allListings.forEach((pkg: any) => {
+      if (!pkg) return;
+      const destination =
+        pkg.packageType === 'international'
+          ? pkg.countryName || 'International'
+          : pkg.stateName || 'Domestic';
+
+      // 1. From all itinerary days
+      if (Array.isArray(pkg.itinerary)) {
+        pkg.itinerary.forEach((day: any, idx: number) => {
+          const urls: string[] = Array.isArray(day.imageUrls)
+            ? day.imageUrls.filter(Boolean)
+            : day.imageUrl
+            ? [day.imageUrl]
+            : [];
+
+          if (urls.length > 0 && day.placeName && day.placeName.trim()) {
+            sources.push({
+              urls,
+              placeName: day.placeName.trim(),
+              packageTitle: pkg.title || `${destination} Package`,
+              packageId: pkg.id,
+              dayNumber: typeof day.day === 'number' ? day.day : idx + 1,
+              destination,
+              sourceType: 'itinerary'
+            });
+          }
+        });
+      }
+
+      // 2. From all placesCovered
+      if (Array.isArray(pkg.placesCovered)) {
+        pkg.placesCovered.forEach((p: any) => {
+          const urls: string[] = Array.isArray(p.imageUrls)
+            ? p.imageUrls.filter(Boolean)
+            : p.imageUrl
+            ? [p.imageUrl]
+            : [];
+
+          if (urls.length > 0 && p.name && p.name.trim()) {
+            sources.push({
+              urls,
+              placeName: p.name.trim(),
+              packageTitle: pkg.title || `${destination} Package`,
+              packageId: pkg.id,
+              destination,
+              sourceType: 'placesCovered'
+            });
+          }
+        });
+      }
+    });
+
+    return sources;
+  }, [allListings]);
+
+  // Auto-fill candidates: missing places that match a known photo source
+  const autoFillCandidates = useMemo<AutoFillCandidate[]>(() => {
+    const candidates: AutoFillCandidate[] = [];
+
+    allItineraryPlaces.forEach(p => {
+      if (p.hasPhoto || !p.placeName || !p.placeName.trim()) return;
+      const targetNameLower = p.placeName.toLowerCase().trim();
+      if (/^day \d+ sightseeing$/i.test(targetNameLower)) return;
+
+      const targetClean = cleanPlaceQuery(p.placeName).toLowerCase().trim();
+      const targetSplit = extractPlacesFromTitle(p.placeName).map(s => cleanPlaceQuery(s).toLowerCase().trim()).filter(Boolean);
+
+      // Search for best matching source
+      let bestMatch: {
+        source: KnownPhotoSource;
+        matchType: 'exact' | 'cleaned' | 'split' | 'placesCovered';
+        matchReason: string;
+      } | null = null;
+
+      // 1. Exact match on placeName
+      for (const s of allKnownPhotoSources) {
+        if (s.placeName.toLowerCase().trim() === targetNameLower) {
+          bestMatch = {
+            source: s,
+            matchType: 'exact',
+            matchReason: s.sourceType === 'itinerary'
+              ? `Exact place name match with "${s.placeName}" in "${s.packageTitle}"${s.dayNumber ? ` (Day ${s.dayNumber})` : ''}`
+              : `Exact place name match with highlight "${s.placeName}" in "${s.packageTitle}"`
+          };
+          break;
+        }
+      }
+
+      // 2. Cleaned place name match
+      if (!bestMatch && targetClean.length > 2) {
+        for (const s of allKnownPhotoSources) {
+          const sClean = cleanPlaceQuery(s.placeName).toLowerCase().trim();
+          if (sClean === targetClean) {
+            bestMatch = {
+              source: s,
+              matchType: 'cleaned',
+              matchReason: `Cleaned place name ("${targetClean}") matches "${s.placeName}" in "${s.packageTitle}"${s.dayNumber ? ` (Day ${s.dayNumber})` : ''}`
+            };
+            break;
+          }
+        }
+      }
+
+      // 3. Split / sub-location match
+      if (!bestMatch && targetSplit.length > 0) {
+        for (const s of allKnownPhotoSources) {
+          const sClean = cleanPlaceQuery(s.placeName).toLowerCase().trim();
+          const matchedSub = targetSplit.find(sub => sub.length > 2 && (sClean.includes(sub) || sub.includes(sClean)));
+          if (matchedSub) {
+            bestMatch = {
+              source: s,
+              matchType: 'split',
+              matchReason: `Sub-location "${matchedSub}" matches known photo for "${s.placeName}" in "${s.packageTitle}"${s.dayNumber ? ` (Day ${s.dayNumber})` : ''}`
+            };
+            break;
+          }
+        }
+      }
+
+      if (bestMatch && bestMatch.source.urls.length > 0) {
+        const primaryUrl = bestMatch.source.urls[0];
+        candidates.push({
+          id: p.id,
+          targetListingId: p.listingId,
+          targetListingTitle: p.listingTitle,
+          targetDestination: p.destination,
+          targetDayIndex: p.dayIndex,
+          targetDayNumber: p.dayNumber,
+          targetDayId: p.dayId,
+          targetPlaceName: p.placeName,
+          targetDescription: p.description,
+
+          proposedUrls: bestMatch.source.urls,
+          primaryImageUrl: primaryUrl,
+          imageTitle: extractImageTitleFromUrl(primaryUrl),
+
+          sourcePlaceName: bestMatch.source.placeName,
+          sourcePackageTitle: bestMatch.source.packageTitle,
+          sourcePackageId: bestMatch.source.packageId,
+          sourceDayNumber: bestMatch.source.dayNumber,
+          sourceType: bestMatch.source.sourceType,
+          matchType: bestMatch.matchType,
+          matchReason: bestMatch.matchReason
+        });
+      }
+    });
+
+    return candidates;
+  }, [allItineraryPlaces, allKnownPhotoSources]);
+
+  // Revertible places: itinerary days that have auto-filled repeated photos OR duplicate shared photos
+  const revertiblePlaces = useMemo<AutoFillRevertEntry[]>(() => {
+    let storedIds: string[] = [];
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('tripdm_autofill_revert_ids') : null;
+      if (raw) storedIds = JSON.parse(raw);
+    } catch (e) {}
+
+    // Map of clean URLs to usages to detect duplicate photo assignments
+    const urlUsageMap = new Map<string, Array<ItineraryPlaceItem>>();
+    allItineraryPlaces.forEach(p => {
+      if (!p.imageUrl) return;
+      const clean = p.imageUrl.split('?')[0];
+      if (!urlUsageMap.has(clean)) urlUsageMap.set(clean, []);
+      urlUsageMap.get(clean)!.push(p);
+    });
+
+    const entries: AutoFillRevertEntry[] = [];
+    const seen = new Set<string>();
+
+    allItineraryPlaces.forEach(p => {
+      if (!p.hasPhoto || !p.imageUrl) return;
+      const clean = p.imageUrl.split('?')[0];
+      const duplicateUsages = urlUsageMap.get(clean) || [];
+      const isDuplicateUsage = duplicateUsages.length > 1;
+      const isMarked = p.autoFilledRepeated || storedIds.includes(p.id);
+
+      if ((isMarked || isDuplicateUsage) && !seen.has(p.id)) {
+        seen.add(p.id);
+        entries.push({
+          id: p.id,
+          listingId: p.listingId,
+          listingTitle: p.listingTitle,
+          destination: p.destination,
+          dayIndex: p.dayIndex,
+          dayNumber: p.dayNumber,
+          placeName: p.placeName,
+          imageUrl: p.imageUrl,
+          imageUrls: p.imageUrls || [p.imageUrl],
+          autoFilledAt: p.autoFilledAt,
+          sourcePlaceName: p.autoFilledSource || (isDuplicateUsage ? `Duplicate shared across ${duplicateUsages.length} stops` : undefined)
+        });
+      }
+    });
+
+    return entries;
+  }, [allItineraryPlaces]);
+
+  // Filtered revert items within revert modal
+  const filteredRevertPlaces = useMemo(() => {
+    if (!revertModalSearch.trim()) return revertiblePlaces;
+    const q = revertModalSearch.toLowerCase().trim();
+    return revertiblePlaces.filter(r =>
+      r.placeName.toLowerCase().includes(q) ||
+      r.listingTitle.toLowerCase().includes(q) ||
+      r.destination.toLowerCase().includes(q) ||
+      (r.sourcePlaceName && r.sourcePlaceName.toLowerCase().includes(q))
+    );
+  }, [revertiblePlaces, revertModalSearch]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // AUDIT REPORT: quality analysis of all itinerary place+image data
@@ -729,11 +1012,7 @@ export default function AdminItineraryPhotoManager({
     const totalPackages = allListings.length;
 
     // Count how many missing places can be auto-filled immediately from repeated place photos
-    const repeatedFillableCount = allItineraryPlaces.filter(p => {
-      if (p.hasPhoto) return false;
-      const known = findKnownPhotos(p.placeName);
-      return known.length > 0;
-    }).length;
+    const repeatedFillableCount = autoFillCandidates.length;
 
     return {
       totalPackages,
@@ -743,7 +1022,7 @@ export default function AdminItineraryPhotoManager({
       coveragePercent,
       repeatedFillableCount
     };
-  }, [allItineraryPlaces, allListings, knownPlacePhotosMap]);
+  }, [allItineraryPlaces, allListings, autoFillCandidates]);
 
   // Unique destinations list for dropdown filter
   const destinationsList = useMemo(() => {
@@ -807,8 +1086,70 @@ export default function AdminItineraryPhotoManager({
     }));
   }, [filteredPlaces]);
 
-  // Auto-Fill All Repeated Places across packages in 1 click
-  const handleAutoFillAllRepeatedPlaces = async () => {
+  // Filtered auto-fill candidates within review modal
+  const filteredCandidates = useMemo(() => {
+    if (!autoFillModalSearch.trim()) return autoFillCandidates;
+    const q = autoFillModalSearch.toLowerCase().trim();
+    return autoFillCandidates.filter(c =>
+      c.targetPlaceName.toLowerCase().includes(q) ||
+      c.targetListingTitle.toLowerCase().includes(q) ||
+      c.targetDestination.toLowerCase().includes(q) ||
+      c.sourcePlaceName.toLowerCase().includes(q) ||
+      c.sourcePackageTitle.toLowerCase().includes(q) ||
+      c.matchReason.toLowerCase().includes(q)
+    );
+  }, [autoFillCandidates, autoFillModalSearch]);
+
+  // Open the Auto-Fill Review Modal
+  const handleOpenAutoFillReview = (targetPlaceId?: string) => {
+    if (targetPlaceId) {
+      setSelectedCandidateIds(new Set([targetPlaceId]));
+    } else {
+      setSelectedCandidateIds(new Set(autoFillCandidates.map(c => c.id)));
+    }
+    setAutoFillModalSearch('');
+    setIsAutoFillReviewOpen(true);
+  };
+
+  // Toggle selection for an individual candidate in the review modal
+  const handleToggleCandidate = (id: string) => {
+    setSelectedCandidateIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Select all visible candidates
+  const handleSelectAllCandidates = (list: AutoFillCandidate[]) => {
+    setSelectedCandidateIds(prev => {
+      const next = new Set(prev);
+      list.forEach(c => next.add(c.id));
+      return next;
+    });
+  };
+
+  // Deselect all visible candidates
+  const handleDeselectAllCandidates = (list: AutoFillCandidate[]) => {
+    setSelectedCandidateIds(prev => {
+      const next = new Set(prev);
+      list.forEach(c => next.delete(c.id));
+      return next;
+    });
+  };
+
+  // Execute Auto-Fill for the user-selected repeated places (triggered by "Done" button)
+  const handleExecuteAutoFill = async () => {
+    const candidatesToApply = autoFillCandidates.filter(c => selectedCandidateIds.has(c.id));
+    if (candidatesToApply.length === 0) {
+      showToast('Please select at least one place to auto-fill.', 'info');
+      return;
+    }
+
     setIsAutoFillingRepeated(true);
     try {
       const db = getDbInstance();
@@ -817,47 +1158,234 @@ export default function AdminItineraryPhotoManager({
         return;
       }
 
-      let totalFilled = 0;
+      // Group candidates by targetListingId
+      const byListing: Record<string, AutoFillCandidate[]> = {};
+      candidatesToApply.forEach(c => {
+        if (!byListing[c.targetListingId]) byListing[c.targetListingId] = [];
+        byListing[c.targetListingId].push(c);
+      });
+
       const updatedListings = [...allListings];
+      let totalFilled = 0;
 
-      for (let i = 0; i < updatedListings.length; i++) {
-        const pkg = updatedListings[i];
-        if (!pkg || !Array.isArray(pkg.itinerary)) continue;
+      for (const [listingId, candidates] of Object.entries(byListing)) {
+        const pkgIndex = updatedListings.findIndex(p => p.id === listingId);
+        if (pkgIndex === -1) continue;
 
-        let pkgChanged = false;
-        const itineraryCopy = [...pkg.itinerary];
+        let pkg = { ...updatedListings[pkgIndex] };
+        let itinerary = Array.isArray(pkg.itinerary) ? pkg.itinerary.map((d: any) => ({ ...d })) : [];
+        let placesCovered = Array.isArray(pkg.placesCovered) ? pkg.placesCovered.map((p: any) => ({ ...p })) : [];
 
-        itineraryCopy.forEach((day: any, idx: number) => {
-          const hasPhoto = (Array.isArray(day.imageUrls) && day.imageUrls.length > 0) || !!day.imageUrl;
-          if (!hasPhoto && day.placeName) {
-            const matchingPhotos = findKnownPhotos(day.placeName);
-            if (matchingPhotos.length > 0) {
-              itineraryCopy[idx] = {
-                ...day,
-                imageUrl: matchingPhotos[0],
-                imageUrls: matchingPhotos
+        candidates.forEach(cand => {
+          if (cand.targetDayIndex >= 0 && cand.targetDayIndex < itinerary.length) {
+            itinerary[cand.targetDayIndex] = {
+              ...itinerary[cand.targetDayIndex],
+              imageUrl: cand.primaryImageUrl,
+              imageUrls: cand.proposedUrls,
+              autoFilledRepeated: true,
+              autoFilledAt: Date.now(),
+              autoFilledSource: cand.sourcePlaceName
+            };
+            totalFilled++;
+
+            // Also sync matching place in placesCovered
+            const targetClean = cleanPlaceQuery(cand.targetPlaceName).toLowerCase().trim();
+            placesCovered = placesCovered.map((place: any) => {
+              const placeClean = cleanPlaceQuery(place.name || '').toLowerCase().trim();
+              if (placeClean && (placeClean === targetClean || targetClean.includes(placeClean))) {
+                return {
+                  ...place,
+                  imageUrl: cand.primaryImageUrl,
+                  imageUrls: cand.proposedUrls
+                };
+              }
+              return place;
+            });
+
+            // If Day 1 was updated and placesCovered has items, ensure front thumbnail is updated
+            if (cand.targetDayIndex === 0 && placesCovered.length > 0) {
+              placesCovered[0] = {
+                ...placesCovered[0],
+                imageUrl: cand.primaryImageUrl,
+                imageUrls: cand.proposedUrls
               };
-              pkgChanged = true;
-              totalFilled++;
             }
           }
         });
 
-        if (pkgChanged) {
-          updatedListings[i] = { ...pkg, itinerary: itineraryCopy };
-          await updateDoc(doc(db, 'listings', pkg.id), {
-            itinerary: itineraryCopy
-          });
+        const firestorePayload: Record<string, any> = {
+          itinerary,
+          ...(placesCovered.length > 0 ? { placesCovered } : {})
+        };
+
+        await updateDoc(doc(db, 'listings', listingId), firestorePayload);
+
+        const updatedPkg = { ...pkg, itinerary, placesCovered };
+        updatedListings[pkgIndex] = updatedPkg;
+
+        if (onListingUpdated) {
+          onListingUpdated(updatedPkg);
         }
       }
 
+      // Store applied IDs in localStorage so user can revert even after refresh
+      try {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('tripdm_autofill_revert_ids') : null;
+        const prev: string[] = raw ? JSON.parse(raw) : [];
+        const newIds = Array.from(new Set([...prev, ...candidatesToApply.map(c => c.id)]));
+        localStorage.setItem('tripdm_autofill_revert_ids', JSON.stringify(newIds));
+      } catch (e) {}
+
       setAllListings(updatedListings);
-      showToast(`🎉 Auto-filled photos for ${totalFilled} repeated itinerary places!`, 'success');
+      setIsAutoFillReviewOpen(false);
+      showToast(`🎉 Successfully auto-filled photos for ${totalFilled} repeated itinerary places!`, 'success');
     } catch (err: any) {
       console.error('Error auto-filling repeated places:', err);
-      showToast('Failed to auto-fill repeated places.', 'error');
+      showToast('Failed to auto-fill repeated places. Please try again.', 'error');
     } finally {
       setIsAutoFillingRepeated(false);
+    }
+  };
+
+  // Alias for backward compatibility if invoked elsewhere
+  const handleAutoFillAllRepeatedPlaces = () => handleOpenAutoFillReview();
+
+  // Open the Revert Modal
+  const handleOpenRevertModal = (singleTargetId?: string) => {
+    if (singleTargetId) {
+      setSelectedRevertIds(new Set([singleTargetId]));
+    } else {
+      setSelectedRevertIds(new Set(revertiblePlaces.map(r => r.id)));
+    }
+    setRevertModalSearch('');
+    setIsRevertModalOpen(true);
+  };
+
+  // Toggle selection for an individual item in the revert modal
+  const handleToggleRevertItem = (id: string) => {
+    setSelectedRevertIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Select all visible revert items
+  const handleSelectAllRevert = (list: AutoFillRevertEntry[]) => {
+    setSelectedRevertIds(prev => {
+      const next = new Set(prev);
+      list.forEach(r => next.add(r.id));
+      return next;
+    });
+  };
+
+  // Deselect all visible revert items
+  const handleDeselectAllRevert = (list: AutoFillRevertEntry[]) => {
+    setSelectedRevertIds(prev => {
+      const next = new Set(prev);
+      list.forEach(r => next.delete(r.id));
+      return next;
+    });
+  };
+
+  // Execute Revert for the user-selected auto-filled places
+  const handleExecuteRevert = async () => {
+    const itemsToRevert = revertiblePlaces.filter(item => selectedRevertIds.has(item.id));
+    if (itemsToRevert.length === 0) {
+      showToast('Please select at least one place to revert.', 'info');
+      return;
+    }
+
+    setIsReverting(true);
+    try {
+      const db = getDbInstance();
+      if (!db) {
+        setIsReverting(false);
+        return;
+      }
+
+      // Group items by listingId
+      const byListing: Record<string, AutoFillRevertEntry[]> = {};
+      itemsToRevert.forEach(item => {
+        if (!byListing[item.listingId]) byListing[item.listingId] = [];
+        byListing[item.listingId].push(item);
+      });
+
+      const updatedListings = [...allListings];
+      let totalReverted = 0;
+
+      for (const [listingId, items] of Object.entries(byListing)) {
+        const pkgIndex = updatedListings.findIndex(p => p.id === listingId);
+        if (pkgIndex === -1) continue;
+
+        let pkg = { ...updatedListings[pkgIndex] };
+        let itinerary = Array.isArray(pkg.itinerary) ? pkg.itinerary.map((d: any) => ({ ...d })) : [];
+        let placesCovered = Array.isArray(pkg.placesCovered) ? pkg.placesCovered.map((p: any) => ({ ...p })) : [];
+
+        items.forEach(item => {
+          if (item.dayIndex >= 0 && item.dayIndex < itinerary.length) {
+            const currentDay = { ...itinerary[item.dayIndex] };
+            delete currentDay.autoFilledRepeated;
+            delete currentDay.autoFilledAt;
+            delete currentDay.autoFilledSource;
+            currentDay.imageUrl = '';
+            currentDay.imageUrls = [];
+            itinerary[item.dayIndex] = currentDay;
+            totalReverted++;
+
+            // If Day 1 was reverted, also check placesCovered front photo
+            if (item.dayIndex === 0 && placesCovered.length > 0) {
+              let nextValid: string | null = null;
+              for (const d of itinerary) {
+                const urls = Array.isArray(d.imageUrls) ? d.imageUrls : d.imageUrl ? [d.imageUrl] : [];
+                if (urls.length > 0 && urls[0]) {
+                  nextValid = urls[0];
+                  break;
+                }
+              }
+              placesCovered[0] = {
+                ...placesCovered[0],
+                imageUrl: nextValid || '',
+                imageUrls: nextValid ? [nextValid] : []
+              };
+            }
+          }
+        });
+
+        const firestorePayload: Record<string, any> = {
+          itinerary,
+          ...(placesCovered.length > 0 ? { placesCovered } : {})
+        };
+
+        await updateDoc(doc(db, 'listings', listingId), firestorePayload);
+
+        const updatedPkg = { ...pkg, itinerary, placesCovered };
+        updatedListings[pkgIndex] = updatedPkg;
+
+        if (onListingUpdated) {
+          onListingUpdated(updatedPkg);
+        }
+      }
+
+      // Remove reverted IDs from localStorage
+      try {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('tripdm_autofill_revert_ids') : null;
+        if (raw) {
+          const prev: string[] = JSON.parse(raw);
+          const remaining = prev.filter(id => !selectedRevertIds.has(id));
+          localStorage.setItem('tripdm_autofill_revert_ids', JSON.stringify(remaining));
+        }
+      } catch (e) {}
+
+      setAllListings(updatedListings);
+      setIsRevertModalOpen(false);
+      showToast(`↺ Successfully reverted photos for ${totalReverted} repeated place(s)!`, 'success');
+    } catch (err: any) {
+      console.error('Error reverting auto-filled places:', err);
+      showToast('Failed to revert auto-filled places. Please try again.', 'error');
+    } finally {
+      setIsReverting(false);
     }
   };
 
@@ -2004,10 +2532,10 @@ export default function AdminItineraryPhotoManager({
           {stats.repeatedFillableCount > 0 && (
             <Button
               size="sm"
-              onClick={handleAutoFillAllRepeatedPlaces}
+              onClick={() => handleOpenAutoFillReview()}
               disabled={loading || isAutoFillingRepeated}
               className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 shadow-sm font-semibold rounded-xl animate-in fade-in"
-              title="Automatically copy photos to matching missing places across all packages"
+              title="Review matching photos and auto-fill across packages"
             >
               {isAutoFillingRepeated ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
@@ -2017,6 +2545,24 @@ export default function AdminItineraryPhotoManager({
               <span>Auto-Fill {stats.repeatedFillableCount} Repeated Places</span>
             </Button>
           )}
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleOpenRevertModal()}
+            disabled={loading || isReverting || revertiblePlaces.length === 0}
+            className={`border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 flex items-center gap-2 shadow-xs font-semibold rounded-xl transition-all ${
+              revertiblePlaces.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
+            }`}
+            title="Revert duplicate or auto-filled photos back to missing"
+          >
+            {isReverting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-amber-700" />
+            ) : (
+              <RotateCcw className="h-4 w-4 text-amber-700" />
+            )}
+            <span>Revert Duplicates ({revertiblePlaces.length})</span>
+          </Button>
 
           {stats.missingPlaces > 0 && (
             <Button
@@ -2495,6 +3041,16 @@ export default function AdminItineraryPhotoManager({
                     </p>
                   </div>
                 </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => handleOpenRevertModal()}
+                  disabled={isReverting || revertiblePlaces.length === 0}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-md flex items-center gap-2 shrink-0 transition-all"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Revert Duplicate Photos ({revertiblePlaces.length})</span>
+                </Button>
               </div>
 
               <div className="divide-y divide-purple-100">
@@ -3161,6 +3717,42 @@ export default function AdminItineraryPhotoManager({
 
                 {/* Action Button */}
                 <div className="p-5 pt-0">
+                  {/* Quick Auto-Fill button if matching repeated place photo exists */}
+                  {(() => {
+                    const autofillCand = !place.hasPhoto ? autoFillCandidates.find(c => c.id === place.id) : null;
+                    if (!autofillCand) return null;
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenAutoFillReview(place.id)}
+                        className="w-full mb-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-all"
+                        title={`Auto-fill photo available from ${autofillCand.sourcePlaceName}`}
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Auto-Fill Photo Available</span>
+                      </Button>
+                    );
+                  })()}
+
+                  {/* Revert Auto-Fill button if this place was auto-filled */}
+                  {(() => {
+                    const isAutoFilled = place.hasPhoto && (place.autoFilledRepeated || revertiblePlaces.some(r => r.id === place.id));
+                    if (!isAutoFilled) return null;
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenRevertModal(place.id)}
+                        className="w-full mb-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-all"
+                        title="Revert this auto-filled photo"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
+                        <span>Revert Auto-Fill</span>
+                      </Button>
+                    );
+                  })()}
+
                   <Button
                     onClick={() => handleOpenPhotoSelector(place)}
                     className={`w-full text-sm font-semibold flex items-center justify-center gap-2 rounded-xl transition-all shadow-sm ${
@@ -3271,6 +3863,37 @@ export default function AdminItineraryPhotoManager({
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
+                        {(() => {
+                          const autofillCand = !place.hasPhoto ? autoFillCandidates.find(c => c.id === place.id) : null;
+                          if (!autofillCand) return null;
+                          return (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenAutoFillReview(place.id)}
+                              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-lg flex items-center gap-1 shadow-2xs transition-all"
+                              title={`Auto-fill photo available from ${autofillCand.sourcePlaceName}`}
+                            >
+                              <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                              <span>Auto-Fill</span>
+                            </Button>
+                          );
+                        })()}
+                        {(() => {
+                          const isAutoFilled = place.hasPhoto && (place.autoFilledRepeated || revertiblePlaces.some(r => r.id === place.id));
+                          if (!isAutoFilled) return null;
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenRevertModal(place.id)}
+                              className="bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 text-xs font-bold rounded-lg flex items-center gap-1 shadow-2xs transition-all"
+                              title="Revert this auto-filled photo"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
+                              <span>Revert</span>
+                            </Button>
+                          );
+                        })()}
                         <Button
                           size="sm"
                           onClick={() => handleOpenPhotoSelector(place)}
@@ -3293,10 +3916,488 @@ export default function AdminItineraryPhotoManager({
         </div>
       ) : null}
 
+      {/* ─── AUTO-FILL REPEATED PLACES REVIEW MODAL ─── */}
+      {isAutoFillReviewOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-gray-100 flex items-start justify-between bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-white">
+              <div className="flex items-start gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-200">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-black text-gray-900">
+                      Auto-Fill Repeated Place Photos
+                    </h2>
+                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-bold text-xs">
+                      {autoFillCandidates.length} Found
+                    </Badge>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                    Review which image will be copied and why. Uncheck any place you wish to skip, then click <strong>Done</strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAutoFillReviewOpen(false)}
+                disabled={isAutoFillingRepeated}
+                className="text-gray-400 hover:text-gray-700 p-2 rounded-xl hover:bg-gray-100 transition-colors shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Filter & Selection Controls */}
+            <div className="p-4 bg-gray-50 border-b border-gray-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Filter place or package..."
+                  value={autoFillModalSearch}
+                  onChange={e => setAutoFillModalSearch(e.target.value)}
+                  className="pl-9 h-9 text-xs sm:text-sm bg-white border-gray-300 rounded-xl"
+                />
+                {autoFillModalSearch && (
+                  <button
+                    onClick={() => setAutoFillModalSearch('')}
+                    className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto w-full sm:w-auto justify-between sm:justify-end">
+                <div className="text-xs font-semibold text-gray-600">
+                  <span className="text-emerald-700 font-bold">{selectedCandidateIds.size}</span> of {autoFillCandidates.length} selected
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSelectAllCandidates(filteredCandidates)}
+                    className="h-8 text-xs font-medium rounded-lg"
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeselectAllCandidates(filteredCandidates)}
+                    className="h-8 text-xs font-medium rounded-lg text-gray-500"
+                  >
+                    Deselect All
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Candidate List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
+              {filteredCandidates.length === 0 ? (
+                <div className="p-10 text-center text-gray-500">
+                  <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold">No candidates match your search</p>
+                  <p className="text-xs text-gray-400 mt-1">Try clearing or changing your filter term.</p>
+                </div>
+              ) : (
+                filteredCandidates.map(c => {
+                  const isChecked = selectedCandidateIds.has(c.id);
+                  return (
+                    <div
+                      key={c.id}
+                      className={`transition-all rounded-xl p-3 border ${
+                        isChecked
+                          ? 'bg-emerald-50/30 border-emerald-200'
+                          : 'bg-gray-50/60 border-gray-200 opacity-60'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        {/* Selection Checkbox */}
+                        <div
+                          onClick={() => handleToggleCandidate(c.id)}
+                          className="cursor-pointer shrink-0 mt-1 sm:mt-0"
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${
+                              isChecked
+                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                                : 'border-gray-300 bg-white hover:border-emerald-500'
+                            }`}
+                          >
+                            {isChecked && <Check className="h-4 w-4 stroke-[3]" />}
+                          </div>
+                        </div>
+
+                        {/* Image Preview Thumbnail (Which image it's going to auto-fill) */}
+                        <div
+                          onClick={() => setPreviewFullImageUrl(c.primaryImageUrl)}
+                          className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 shrink-0 bg-gray-100 cursor-pointer group shadow-2xs"
+                          title="Click to view full image"
+                        >
+                          <img
+                            src={c.primaryImageUrl}
+                            alt={c.imageTitle}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={e => { (e.target as HTMLImageElement).src = '/images/placeholder.svg'; }}
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                            <Eye className="h-5 w-5" />
+                          </div>
+                          {c.proposedUrls.length > 1 && (
+                            <span className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                              +{c.proposedUrls.length}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Place & Reasoning Details */}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {/* Target Place Info */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className="bg-gray-900 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
+                              Day {c.targetDayNumber}
+                            </Badge>
+                            <h4 className="font-bold text-gray-900 text-sm sm:text-base truncate">
+                              {c.targetPlaceName}
+                            </h4>
+                            <Badge variant="outline" className="text-[11px] text-gray-600 border-gray-300 bg-white">
+                              <MapPin className="h-3 w-3 mr-1 text-indigo-500" />
+                              {c.targetDestination}
+                            </Badge>
+                          </div>
+
+                          <p className="text-xs text-gray-500 truncate">
+                            In: <span className="font-semibold text-gray-700">{c.targetListingTitle}</span>
+                          </p>
+
+                          {/* "Why" this photo will be auto-filled */}
+                          <div className="bg-white rounded-lg p-2.5 border border-emerald-200/80 shadow-2xs text-xs space-y-1">
+                            <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
+                              <Sparkles className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Why this photo:</span>
+                              <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold py-0 px-1.5 border-none">
+                                {c.matchType === 'exact'
+                                  ? 'Exact Match'
+                                  : c.matchType === 'cleaned'
+                                  ? 'Place Name Match'
+                                  : c.matchType === 'split'
+                                  ? 'Sub-location Match'
+                                  : 'Highlights Match'}
+                              </Badge>
+                            </div>
+                            <p className="text-gray-700 text-xs">
+                              {c.matchReason}
+                            </p>
+                            <p className="text-[11px] text-gray-500">
+                              Photo title: <strong className="text-gray-700 font-medium">{c.imageTitle}</strong>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="shrink-0 self-end sm:self-center">
+                          {isChecked ? (
+                            <Badge className="bg-emerald-600 text-white font-semibold text-xs py-1 px-2.5 rounded-lg flex items-center gap-1">
+                              <Check className="h-3 w-3" /> Will Auto-Fill
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-gray-400 border-gray-300 font-medium text-xs py-1 px-2.5 rounded-lg">
+                              Skipped
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer with DONE option */}
+            <div className="p-4 sm:p-5 bg-white border-t border-gray-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-gray-500 text-center sm:text-left">
+                {selectedCandidateIds.size > 0 ? (
+                  <span>
+                    Will auto-populate <strong>{selectedCandidateIds.size}</strong> itinerary place{selectedCandidateIds.size > 1 ? 's' : ''} across packages.
+                  </span>
+                ) : (
+                  <span className="text-amber-600 font-medium">
+                    No places selected. Select at least one place to apply photos.
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAutoFillReviewOpen(false)}
+                  disabled={isAutoFillingRepeated}
+                  className="rounded-xl px-4 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  onClick={handleExecuteAutoFill}
+                  disabled={selectedCandidateIds.size === 0 || isAutoFillingRepeated}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-5 text-xs sm:text-sm flex items-center gap-2 shadow-md transition-all"
+                >
+                  {isAutoFillingRepeated ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Applying Photos...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-200" />
+                      <span>Done (Auto-Fill {selectedCandidateIds.size})</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── REVERT AUTO-FILLED PLACES MODAL ─── */}
+      {isRevertModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-gray-100 flex items-start justify-between bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-white">
+              <div className="flex items-start gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-200">
+                  <RotateCcw className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-black text-gray-900">
+                      Revert Auto-Filled Photos
+                    </h2>
+                    <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-none font-bold text-xs">
+                      {revertiblePlaces.length} Auto-Filled
+                    </Badge>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                    Select the places whose auto-filled photos you want to remove. Uncheck any place you wish to keep, then click <strong>Revert Selected</strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsRevertModalOpen(false)}
+                disabled={isReverting}
+                className="text-gray-400 hover:text-gray-700 p-2 rounded-xl hover:bg-gray-100 transition-colors shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Filter & Selection Controls */}
+            <div className="p-4 bg-gray-50 border-b border-gray-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Filter place or package..."
+                  value={revertModalSearch}
+                  onChange={e => setRevertModalSearch(e.target.value)}
+                  className="pl-9 h-9 text-xs sm:text-sm bg-white border-gray-300 rounded-xl"
+                />
+                {revertModalSearch && (
+                  <button
+                    onClick={() => setRevertModalSearch('')}
+                    className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto w-full sm:w-auto justify-between sm:justify-end">
+                <div className="text-xs font-semibold text-gray-600">
+                  <span className="text-amber-800 font-bold">{selectedRevertIds.size}</span> of {revertiblePlaces.length} selected
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSelectAllRevert(filteredRevertPlaces)}
+                    className="h-8 text-xs font-medium rounded-lg"
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeselectAllRevert(filteredRevertPlaces)}
+                    className="h-8 text-xs font-medium rounded-lg text-gray-500"
+                  >
+                    Deselect All
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Items List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
+              {filteredRevertPlaces.length === 0 ? (
+                <div className="p-10 text-center text-gray-500">
+                  <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold">No auto-filled places match your search</p>
+                  <p className="text-xs text-gray-400 mt-1">Try clearing or changing your search query.</p>
+                </div>
+              ) : (
+                filteredRevertPlaces.map(item => {
+                  const isChecked = selectedRevertIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`transition-all rounded-xl p-3 border ${
+                        isChecked
+                          ? 'bg-amber-50/40 border-amber-200'
+                          : 'bg-gray-50/60 border-gray-200 opacity-60'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        {/* Checkbox */}
+                        <div
+                          onClick={() => handleToggleRevertItem(item.id)}
+                          className="cursor-pointer shrink-0 mt-1 sm:mt-0"
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${
+                              isChecked
+                                ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
+                                : 'border-gray-300 bg-white hover:border-amber-500'
+                            }`}
+                          >
+                            {isChecked && <Check className="h-4 w-4 stroke-[3]" />}
+                          </div>
+                        </div>
+
+                        {/* Image Preview Thumbnail */}
+                        <div
+                          onClick={() => setPreviewFullImageUrl(item.imageUrl)}
+                          className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 shrink-0 bg-gray-100 cursor-pointer group shadow-2xs"
+                          title="Click to view full image"
+                        >
+                          <img
+                            src={item.imageUrl}
+                            alt={item.placeName}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={e => { (e.target as HTMLImageElement).src = '/images/placeholder.svg'; }}
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                            <Eye className="h-5 w-5" />
+                          </div>
+                          {item.imageUrls.length > 1 && (
+                            <span className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                              +{item.imageUrls.length}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Place Details */}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className="bg-gray-900 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
+                              Day {item.dayNumber}
+                            </Badge>
+                            <h4 className="font-bold text-gray-900 text-sm sm:text-base truncate">
+                              {item.placeName}
+                            </h4>
+                            <Badge variant="outline" className="text-[11px] text-gray-600 border-gray-300 bg-white">
+                              <MapPin className="h-3 w-3 mr-1 text-indigo-500" />
+                              {item.destination}
+                            </Badge>
+                          </div>
+
+                          <p className="text-xs text-gray-500 truncate">
+                            In: <span className="font-semibold text-gray-700">{item.listingTitle}</span>
+                          </p>
+
+                          <div className="bg-white rounded-lg p-2 border border-amber-200/80 shadow-2xs text-xs flex items-center gap-2 text-amber-900">
+                            <RotateCcw className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                            <span>
+                              Auto-filled photo asset: <strong>{extractImageTitleFromUrl(item.imageUrl)}</strong>
+                              {item.sourcePlaceName && <span> (matched from: {item.sourcePlaceName})</span>}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="shrink-0 self-end sm:self-center">
+                          {isChecked ? (
+                            <Badge className="bg-rose-600 text-white font-semibold text-xs py-1 px-2.5 rounded-lg flex items-center gap-1">
+                              Will Revert (Clear Photo)
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-emerald-700 border-emerald-300 font-medium text-xs py-1 px-2.5 rounded-lg">
+                              Keep Photo
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 bg-white border-t border-gray-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-gray-500 text-center sm:text-left">
+                {selectedRevertIds.size > 0 ? (
+                  <span>
+                    Will remove auto-filled photos from <strong>{selectedRevertIds.size}</strong> place{selectedRevertIds.size > 1 ? 's' : ''} and mark them missing again.
+                  </span>
+                ) : (
+                  <span className="text-gray-500 font-medium">
+                    No places selected to revert.
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsRevertModalOpen(false)}
+                  disabled={isReverting}
+                  className="rounded-xl px-4 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  onClick={handleExecuteRevert}
+                  disabled={selectedRevertIds.size === 0 || isReverting}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl px-5 text-xs sm:text-sm flex items-center gap-2 shadow-md transition-all"
+                >
+                  {isReverting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Reverting Photos...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="h-4 w-4" />
+                      <span>Revert Selected ({selectedRevertIds.size})</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── FULL SIZE IMAGE PREVIEW LIGHTBOX ─── */}
       {previewFullImageUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 animate-in fade-in"
           onClick={() => setPreviewFullImageUrl(null)}
         >
           <div className="relative max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl">

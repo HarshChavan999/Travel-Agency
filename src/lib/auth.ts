@@ -1,44 +1,73 @@
 import * as admin from 'firebase-admin';
 import { cert } from 'firebase-admin/app';
+import fs from 'fs';
+import path from 'path';
 
 // Initialize Firebase Admin
 let firebaseApp: any = null;
 
-export function initializeFirebase() {
-  if (!admin.apps.length) {
-    // For Cloud Run/App Hosting, use Application Default Credentials if private key is not provided
-    let serviceAccount: any = null;
+function getServiceAccount(): any {
+  // Strategy 1: Check known file paths in root and cwd
+  const candidatePaths = [
+    path.join(process.cwd(), 'firebase-admin-key.json'),
+    path.resolve(__dirname, '../../firebase-admin-key.json'),
+    path.resolve(__dirname, '../../../firebase-admin-key.json')
+  ];
 
-    try {
-      // First try to load from the local JSON file which is bulletproof against parsing errors
-      serviceAccount = require('../../firebase-admin-key.json');
-    } catch (e) {
-      // Fallback to environment variables
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY || process.env.FB_PRIVATE_KEY;
-      if (privateKey) {
-        serviceAccount = {
-          type: "service_account",
-          project_id: process.env.FIREBASE_PROJECT_ID || process.env.FB_PROJECT_ID,
-          private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || process.env.FB_PRIVATE_KEY_ID,
-          private_key: privateKey.replace(/\\n/g, '\n').replace(/"/g, ''),
-          client_email: process.env.FIREBASE_CLIENT_EMAIL || process.env.FB_CLIENT_EMAIL,
-          client_id: process.env.FIREBASE_CLIENT_ID || process.env.FB_CLIENT_ID,
-          auth_uri: process.env.FIREBASE_AUTH_URI || process.env.FB_AUTH_URI,
-          token_uri: process.env.FIREBASE_TOKEN_URI || process.env.FB_TOKEN_URI,
-          auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || process.env.FB_AUTH_PROVIDER_X509_CERT_URL,
-          client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL || process.env.FB_CLIENT_X509_CERT_URL
-        };
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        return JSON.parse(fs.readFileSync(p, 'utf8'));
+      } catch (e) {
+        console.error(`Failed to parse service account at ${p}:`, e);
       }
     }
+  }
 
+  // Strategy 2: Check any *firebase-adminsdk*.json in cwd
+  try {
+    const rootFiles = fs.readdirSync(process.cwd());
+    const matched = rootFiles.find(f => f.includes('firebase-adminsdk') && f.endsWith('.json'));
+    if (matched) {
+      const fullPath = path.join(process.cwd(), matched);
+      return JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+    }
+  } catch (e) {}
+
+  // Strategy 3: Check environment variables
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY || process.env.FB_PRIVATE_KEY;
+  if (privateKey) {
+    return {
+      type: "service_account",
+      project_id: process.env.FIREBASE_PROJECT_ID || process.env.FB_PROJECT_ID || 'travel-agent-management-29c27',
+      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || process.env.FB_PRIVATE_KEY_ID,
+      private_key: privateKey.replace(/\\n/g, '\n').replace(/"/g, ''),
+      client_email: process.env.FIREBASE_CLIENT_EMAIL || process.env.FB_CLIENT_EMAIL,
+      client_id: process.env.FIREBASE_CLIENT_ID || process.env.FB_CLIENT_ID,
+      auth_uri: process.env.FIREBASE_AUTH_URI || process.env.FB_AUTH_URI,
+      token_uri: process.env.FIREBASE_TOKEN_URI || process.env.FB_TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || process.env.FB_AUTH_PROVIDER_X509_CERT_URL,
+      client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL || process.env.FB_CLIENT_X509_CERT_URL
+    };
+  }
+
+  return null;
+}
+
+export function initializeFirebase() {
+  const serviceAccount = getServiceAccount();
+
+  if (!admin.apps.length) {
     if (serviceAccount) {
-        firebaseApp = admin.initializeApp({
-          credential: cert(serviceAccount),
-          projectId: serviceAccount.project_id || process.env.FIREBASE_PROJECT_ID || process.env.FB_PROJECT_ID
-        });
+      firebaseApp = admin.initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id || process.env.FIREBASE_PROJECT_ID || process.env.FB_PROJECT_ID || 'travel-agent-management-29c27'
+      });
     } else {
-        // App Hosting natively injects the service account credentials
-        firebaseApp = admin.initializeApp();
+      // App Hosting natively injects the service account credentials
+      firebaseApp = admin.initializeApp({
+        projectId: process.env.FIREBASE_PROJECT_ID || process.env.FB_PROJECT_ID || 'travel-agent-management-29c27'
+      });
     }
   } else {
     firebaseApp = admin.app();
