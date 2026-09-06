@@ -559,6 +559,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   // Cache for user profile data - persists across re-renders so we don't re-fetch on every message update
   const agencyUserProfileCacheRef = useRef<Map<string, { name: string; logo: string | null }>>(new Map());
   const [agencyChatSearchQuery, setAgencyChatSearchQuery] = useState<string>('');
+  const [agencyListingSearchQuery, setAgencyListingSearchQuery] = useState<string>('');
   const [showAgencyEmojiPicker, setShowAgencyEmojiPicker] = useState<boolean>(false);
   const [adminBuyerReplies, setAdminBuyerReplies] = useState<string[]>([]);
   const [adminSellerReplies, setAdminSellerReplies] = useState<string[]>([]);
@@ -7064,16 +7065,16 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
           <div className={`w-64 bg-white border-r border-gray-200 flex flex-col z-20 shrink-0 ${agencyActiveSection === 'chat' ? 'hidden' : ''}`}>
             <div className="p-6 border-b border-gray-200 flex flex-col items-center text-center shrink-0">
-              <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden mb-4 shrink-0">
+              <div className="w-28 h-20 flex items-center justify-center mb-3 shrink-0">
                 {(agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo) ? (
                   <img
                     src={agencyLogoUrl || userData?.logoUrl || userData?.agencyLogo}
                     alt={userData?.companyName || 'Agency Logo'}
-                    className="w-full h-full object-contain p-1"
+                    className="max-h-20 max-w-[140px] object-contain"
                     onError={() => setAgencyLogoError(true)}
                   />
                 ) : (
-                  <Building2 className="h-8 w-8 text-indigo-500" />
+                  <Building2 className="h-10 w-10 text-orange-500" />
                 )}
               </div>
               <div className="w-full">
@@ -7386,104 +7387,176 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       )}
 
                       {/* My Listings */}
-                      {!showListingForm && !showBulkUpload && !viewingListing && (
-                        <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden w-full" style={{ borderRadius: '8px' }}>
-                          <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-6">
-                            <CardTitle className="flex items-center text-xl font-bold text-gray-900">
-                              <Palmtree className="mr-2 h-6 w-6 text-amber-600" />
-                              Your Travel Listings
-                            </CardTitle>
-                            <CardDescription className="text-gray-500 text-xs mt-1">
-                              Manage your travel packages and destinations
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="p-6">
-                            <div className="space-y-4">
-                              {agencyListings.length === 0 ? (
-                                <div className="text-center py-12">
-                                  <div className="w-16 h-16 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center mx-auto mb-4" style={{ borderRadius: '6px' }}>
-                                    <ClipboardList className="h-8 w-8 text-amber-600" />
-                                  </div>
-                                  <h3 className="text-lg font-bold text-gray-900 mb-2">No Listings Yet</h3>
-                                  <p className="text-gray-500 text-xs mb-4 max-w-sm mx-auto leading-relaxed">
-                                    Create your first travel package to start attracting customers.
-                                  </p>
+                      {!showListingForm && !showBulkUpload && !viewingListing && (() => {
+                        const filteredAgencyListings = agencyListingSearchQuery.trim()
+                          ? agencyListings.filter((listing) => {
+                              const q = agencyListingSearchQuery.toLowerCase().trim();
+                              const titleMatch = listing.title?.toLowerCase().includes(q);
+                              const destMatch = listing.destination?.toLowerCase().includes(q);
+                              const stateMatch = listing.stateName?.toLowerCase().includes(q);
+                              const countryMatch = listing.countryName?.toLowerCase().includes(q);
+                              const typeMatch = listing.packageType?.toLowerCase().includes(q);
+                              const priceMatch = (listing.cost?.toString() || listing.price?.toString() || '').includes(q);
+                              const statusMatch = listing.approved ? 'approved'.includes(q) : 'pending'.includes(q);
+                              const placesMatch = Array.isArray(listing.placesCovered) && listing.placesCovered.some((p: any) => p?.name?.toLowerCase().includes(q));
+                              return titleMatch || destMatch || stateMatch || countryMatch || typeMatch || priceMatch || statusMatch || placesMatch;
+                            })
+                          : agencyListings;
+
+                        return (
+                          <Card className="bg-white border border-slate-200/80 shadow-xs rounded-md overflow-hidden w-full" style={{ borderRadius: '8px' }}>
+                            <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                              <div>
+                                <CardTitle className="flex items-center text-xl font-bold text-gray-900">
+                                  <Palmtree className="mr-2 h-6 w-6 text-amber-600" />
+                                  Your Travel Listings
+                                </CardTitle>
+                                <CardDescription className="text-gray-500 text-xs mt-1">
+                                  Manage and search your travel packages ({agencyListings.length} total)
+                                </CardDescription>
+                              </div>
+
+                              {/* Search Bar */}
+                              {agencyListings.length > 0 && (
+                                <div className="relative w-full sm:w-72 md:w-80">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                  <input
+                                    type="text"
+                                    placeholder="Search packages by title, state, price..."
+                                    value={agencyListingSearchQuery}
+                                    onChange={(e) => setAgencyListingSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all shadow-2xs"
+                                  />
+                                  {agencyListingSearchQuery && (
+                                    <button
+                                      onClick={() => setAgencyListingSearchQuery('')}
+                                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
+                                      title="Clear search"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </CardHeader>
+                            <CardContent className="p-6">
+                              {agencyListingSearchQuery && (
+                                <div className="mb-4 flex items-center justify-between text-xs text-slate-600 bg-amber-50/70 border border-amber-200/60 px-3.5 py-2 rounded-lg">
+                                  <span>
+                                    Found <strong className="text-slate-900">{filteredAgencyListings.length}</strong> {filteredAgencyListings.length === 1 ? 'package' : 'packages'} matching &ldquo;<strong className="text-amber-800">{agencyListingSearchQuery}</strong>&rdquo;
+                                  </span>
                                   <button
-                                    onClick={() => {
-                                      setShowListingForm(true);
-                                      setShowBulkUpload(false);
-                                      setEditingListing(null);
-                                    }}
-                                    className="px-5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 inline-flex items-center gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]"
-                                    style={{ borderRadius: '6px' }}
+                                    onClick={() => setAgencyListingSearchQuery('')}
+                                    className="text-amber-700 hover:text-amber-900 font-semibold underline ml-2 cursor-pointer"
                                   >
-                                    <Plus className="h-4 w-4" /> Create Your First Listing
+                                    Clear
                                   </button>
                                 </div>
-                              ) : (
-                                agencyListings.map((listing) => (
-                                  <div key={listing.id} className="flex items-center justify-between p-4 bg-white border border-slate-200/80 hover:border-amber-300 hover:shadow-xs transition-all duration-200 rounded-md" style={{ borderRadius: '6px' }}>
-                                    <div className="flex items-center space-x-4">
-                                      <div className="w-12 h-12 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center shrink-0" style={{ borderRadius: '6px' }}>
-                                        <Palmtree className="h-6 w-6 text-amber-600" />
-                                      </div>
-                                      <div>
-                                        <h3 className="font-bold text-gray-900 text-sm">{listing.title}</h3>
-                                        {listing.packageType && (
-                                          <p className="text-xs text-slate-600 mb-1 font-semibold">
-                                            {listing.packageType === 'international' ? ' International' : ' Domestic'}
-                                            {listing.packageType === 'international' && listing.countryName && ` • ${listing.countryName}`}
-                                            {listing.packageType === 'domestic' && listing.stateName && ` • ${listing.stateName}`}
-                                          </p>
-                                        )}
-                                        <p className="text-xs text-gray-500">
-                                          {listing.itinerary?.length || 0} days • {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || listing.price || 'N/A'}
-                                          <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold border ${listing.approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                                            }`} style={{ borderRadius: '4px' }}>
-                                            {listing.approved ? 'Approved' : 'Pending'}
-                                          </span>
-                                        </p>
-                                        {listing.placesCovered && listing.placesCovered.length > 0 && (
-                                          <p className="text-[11px] text-gray-400 mt-1">
-                                            Places: {listing.placesCovered.map((place: any) => place.name).join(', ')}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                      <button
-                                        onClick={() => handleViewListing(listing)}
-                                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
-                                        style={{ borderRadius: '6px' }}
-                                      >
-                                        Preview
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setShowListingForm(true);
-                                          setShowBulkUpload(false);
-                                          setEditingListing(listing);
-                                        }}
-                                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
-                                        style={{ borderRadius: '6px' }}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteListing(listing.id)}
-                                        className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
-                                        style={{ borderRadius: '6px' }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
                               )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
+
+                              <div className="space-y-4">
+                                {agencyListings.length === 0 ? (
+                                  <div className="text-center py-12">
+                                    <div className="w-16 h-16 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center mx-auto mb-4" style={{ borderRadius: '6px' }}>
+                                      <ClipboardList className="h-8 w-8 text-amber-600" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-2">No Listings Yet</h3>
+                                    <p className="text-gray-500 text-xs mb-4 max-w-sm mx-auto leading-relaxed">
+                                      Create your first travel package to start attracting customers.
+                                    </p>
+                                    <button
+                                      onClick={() => {
+                                        setShowListingForm(true);
+                                        setShowBulkUpload(false);
+                                        setEditingListing(null);
+                                      }}
+                                      className="px-5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 inline-flex items-center gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/25 border border-amber-400/50 hover:scale-[1.02]"
+                                      style={{ borderRadius: '6px' }}
+                                    >
+                                      <Plus className="h-4 w-4" /> Create Your First Listing
+                                    </button>
+                                  </div>
+                                ) : filteredAgencyListings.length === 0 ? (
+                                  <div className="text-center py-12 bg-slate-50/50 border border-dashed border-slate-200 rounded-xl">
+                                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
+                                      <Search className="h-5 w-5" />
+                                    </div>
+                                    <h4 className="text-sm font-bold text-slate-800 mb-1">No packages found</h4>
+                                    <p className="text-xs text-slate-500 mb-3">
+                                      No packages matched your search &ldquo;{agencyListingSearchQuery}&rdquo;
+                                    </p>
+                                    <button
+                                      onClick={() => setAgencyListingSearchQuery('')}
+                                      className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                                    >
+                                      Clear search
+                                    </button>
+                                  </div>
+                                ) : (
+                                  filteredAgencyListings.map((listing) => (
+                                    <div key={listing.id} className="flex items-center justify-between p-4 bg-white border border-slate-200/80 hover:border-amber-300 hover:shadow-xs transition-all duration-200 rounded-md" style={{ borderRadius: '6px' }}>
+                                      <div className="flex items-center space-x-4">
+                                        <div className="w-12 h-12 bg-amber-50 border border-amber-200/60 rounded-md flex items-center justify-center shrink-0" style={{ borderRadius: '6px' }}>
+                                          <Palmtree className="h-6 w-6 text-amber-600" />
+                                        </div>
+                                        <div>
+                                          <h3 className="font-bold text-gray-900 text-sm">{listing.title}</h3>
+                                          {listing.packageType && (
+                                            <p className="text-xs text-slate-600 mb-1 font-semibold">
+                                              {listing.packageType === 'international' ? ' International' : ' Domestic'}
+                                              {listing.packageType === 'international' && listing.countryName && ` • ${listing.countryName}`}
+                                              {listing.packageType === 'domestic' && listing.stateName && ` • ${listing.stateName}`}
+                                            </p>
+                                          )}
+                                          <p className="text-xs text-gray-500">
+                                            {listing.itinerary?.length || 0} days • {listing.packageType === 'international' ? '$' : '₹'}{listing.cost || listing.price || 'N/A'}
+                                            <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold border ${listing.approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                              }`} style={{ borderRadius: '4px' }}>
+                                              {listing.approved ? 'Approved' : 'Pending'}
+                                            </span>
+                                          </p>
+                                          {listing.placesCovered && listing.placesCovered.length > 0 && (
+                                            <p className="text-[11px] text-gray-400 mt-1">
+                                              Places: {listing.placesCovered.map((place: any) => place.name).join(', ')}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex space-x-2">
+                                        <button
+                                          onClick={() => handleViewListing(listing)}
+                                          className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                          style={{ borderRadius: '6px' }}
+                                        >
+                                          Preview
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setShowListingForm(true);
+                                            setShowBulkUpload(false);
+                                            setEditingListing(listing);
+                                          }}
+                                          className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white/90 border border-slate-200/80 text-slate-700 hover:bg-white hover:text-slate-900 hover:border-slate-300 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                          style={{ borderRadius: '6px' }}
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteListing(listing.id)}
+                                          className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:text-red-700 hover:shadow-xs hover:scale-[1.02] transition-all duration-200 cursor-pointer"
+                                          style={{ borderRadius: '6px' }}
+                                        >
+                                          Delete
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })()}
 
                       {/* Preview Listing */}
                       {!showListingForm && !showBulkUpload && viewingListing && (
@@ -7649,7 +7722,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
                   )}
                   {agencyActiveSection === 'chat' && (
-                    <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 min-w-0 w-full mb-6">
+                    <div className="bg-white flex flex-col md:flex-row flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden">
                       {/* Left Column: Conversations List */}
                       <div className={`w-full md:w-80 md:min-w-[20rem] md:max-w-[20rem] flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full min-w-0 overflow-hidden ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                         {/* Sidebar Header */}
@@ -8143,13 +8216,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                   </div>
                                 </div>
                               ) : (
-                                <div className="p-4 bg-white border-t border-gray-150 shrink-0">
-                                  <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-                                    <div className="space-y-1 text-center sm:text-left">
-                                      <h4 className="text-sm font-bold text-gray-805 flex items-center gap-1.5 justify-center sm:justify-start">
-                                        <Lock className="h-4 w-4 text-gray-700" /> Conversation Locked
+                                  <div className="px-6 py-3.5 bg-white border-t border-gray-200 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="space-y-0.5 text-center sm:text-left">
+                                      <h4 className="text-xs font-bold text-gray-900 flex items-center gap-1.5 justify-center sm:justify-start">
+                                        <Lock className="h-3.5 w-3.5 text-amber-600" /> Conversation Locked
                                       </h4>
-                                      <p className="text-xs text-gray-500">
+                                      <p className="text-[11px] text-gray-500">
                                         To reply to this traveler, you need to unlock the conversation. Cost: {
                                           userData?.plan === 'vip' ? '30 Credits' : 
                                           userData?.plan === 'premium' ? '40 Credits' : 
@@ -8160,20 +8232,18 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     <div className="flex items-center gap-3">
                                       <div className="text-right hidden md:block">
                                         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Your Balance</p>
-                                        <p className="text-xs font-black text-gray-700">
+                                        <p className="text-xs font-black text-gray-800">
                                           {`${userData?.credits ?? 0} Credits`}
                                         </p>
                                       </div>
                                       <button
                                         onClick={() => unlockCustomerChat(selectedConversation.userId, selectedConversation.userName)}
-                                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-semibold px-4 py-2 rounded-md transition-all duration-200 shadow-md shadow-amber-500/25 border border-amber-400/50 flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
-                                        style={{ borderRadius: '6px' }}
+                                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95"
                                       >
-                                        <Sparkles className="h-4 w-4" /> Unlock to Reply
+                                        <Sparkles className="h-3.5 w-3.5" /> Unlock to Reply
                                       </button>
                                     </div>
                                   </div>
-                                </div>
                               );
                             })()}
                           </div>
