@@ -112,7 +112,7 @@ export default function UserProfile({
     } else {
       fetchIpLocation();
     }
-  }, [userData]);
+  }, [userData?.role]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24 font-inter">

@@ -1,5 +1,7 @@
 'use client';
-import { useSearchParams } from 'next/navigation';import { useState, useEffect, useRef, useMemo } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo, Fragment } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,9 +58,12 @@ import {
   Clock,
   XCircle,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
   Calendar,
   DollarSign,
   Check,
+  CheckCheck,
   X,
   Building2,
   Tag,
@@ -116,6 +121,47 @@ const SELLER_QUICK_REPLIES = [
   "How many people are travelling?",
   "We have a special offer going on, would you like to hear about it?"
 ];
+
+// Format conversation list timestamp (e.g. 03:25 pm, Yesterday, 04 Sep)
+const formatConversationTime = (timestamp: any) => {
+  if (!timestamp) return '';
+  const date = timestamp?.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp);
+  if (isNaN(date.getTime())) return '';
+  
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+  if (isYesterday) {
+    return 'Yesterday';
+  }
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+  return date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
+};
+
+// Format date pill for chat grouping (e.g. Today, Yesterday, 04 Sep 2026)
+const formatChatDateDivider = (timestamp: any) => {
+  if (!timestamp) return '';
+  const date = timestamp?.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp);
+  if (isNaN(date.getTime())) return '';
+  
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return 'Today';
+  
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 const getTabIcon = (id: string, className?: string) => {
   switch (id) {
@@ -373,9 +419,24 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     }
   }, [mobileMenuOpen]);
 
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<any[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('user_chat_messages');
+        return saved ? JSON.parse(saved) : [];
+      }
+    } catch {}
+    return [];
+  });
   const [chatInput, setChatInput] = useState('');
-  const [currentChatAgency, setCurrentChatAgency] = useState<string>('agency1');
+  const [currentChatAgency, setCurrentChatAgency] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        return sessionStorage.getItem('user_current_chat_agency') || '';
+      }
+    } catch {}
+    return '';
+  });
 
   // Checkout Modal State for Agency Plan Upgrades
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
@@ -397,11 +458,24 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     }
     setCheckoutModalOpen(true);
   };
-  const [currentChatAgencyName, setCurrentChatAgencyName] = useState<string>('Adventure Travels');
+  const [currentChatAgencyName, setCurrentChatAgencyName] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        return sessionStorage.getItem('user_current_chat_agency_name') || '';
+      }
+    } catch {}
+    return '';
+  });
   const [currentChatAgencyIsOnline, setCurrentChatAgencyIsOnline] = useState<boolean>(false);
   const [currentChatAgencyLogo, setCurrentChatAgencyLogo] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
   const [chatSearchQuery, setChatSearchQuery] = useState<string>('');
+  const [showInChatSearch, setShowInChatSearch] = useState<boolean>(false);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState<string>('');
+  const [inChatSearchIndex, setInChatSearchIndex] = useState<number>(0);
+  const [showAgencyInChatSearch, setShowAgencyInChatSearch] = useState<boolean>(false);
+  const [agencyInChatSearchQuery, setAgencyInChatSearchQuery] = useState<string>('');
+  const [agencyInChatSearchIndex, setAgencyInChatSearchIndex] = useState<number>(0);
   const [listings, setListings] = useState<any[]>(initialListings);
 
   // ─── Admin Photo Manager helpers (merged from stash) ────────────────
@@ -519,7 +593,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [agencyBookings, setAgencyBookings] = useState<any[]>([]);
   const [userBookings, setUserBookings] = useState<any[]>([]);
-  const [userConversations, setUserConversations] = useState<any[]>([]);
+  const [userConversations, setUserConversations] = useState<any[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('user_conversations');
+        return saved ? JSON.parse(saved) : [];
+      }
+    } catch {}
+    return [];
+  });
+  // Cache for agency profile data on user chat side - persists across re-renders to prevent re-fetching
+  const userAgencyProfileCacheRef = useRef<Map<string, { name: string; isOnline: boolean; logoUrl: string | null }>>(new Map());
   // Customer Support & Dispute Resolution States
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [submittingSupportTicket, setSubmittingSupportTicket] = useState(false);
@@ -645,6 +729,53 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       }
     } catch {}
   }, [selectedConversation]);
+
+  // Persist user chat data to sessionStorage to eliminate stale-state flash on tab switches / Alt+Tab
+  useEffect(() => {
+    try {
+      if (userConversations.length > 0) {
+        sessionStorage.setItem('user_conversations', JSON.stringify(userConversations));
+      }
+    } catch {}
+  }, [userConversations]);
+
+  useEffect(() => {
+    try {
+      if (chatMessages.length > 0) {
+        sessionStorage.setItem('user_chat_messages', JSON.stringify(chatMessages));
+      }
+    } catch {}
+  }, [chatMessages]);
+
+  useEffect(() => {
+    try {
+      if (currentChatAgency) {
+        sessionStorage.setItem('user_current_chat_agency', currentChatAgency);
+        sessionStorage.setItem('user_current_chat_agency_name', currentChatAgencyName);
+      } else {
+        sessionStorage.removeItem('user_current_chat_agency');
+        sessionStorage.removeItem('user_current_chat_agency_name');
+      }
+    } catch {}
+  }, [currentChatAgency, currentChatAgencyName]);
+
+  // Synchronize current chat agency details when conversations change
+  useEffect(() => {
+    if (currentChatAgency && userConversations.length > 0) {
+      const matched = userConversations.find(c => c.agencyId === currentChatAgency);
+      if (matched) {
+        if (matched.agencyName && matched.agencyName !== 'Unknown Agency' && currentChatAgencyName !== matched.agencyName) {
+          setCurrentChatAgencyName(matched.agencyName);
+        }
+        if (matched.logoUrl && matched.logoUrl !== currentChatAgencyLogo) {
+          setCurrentChatAgencyLogo(matched.logoUrl || null);
+        }
+        if (typeof matched.isOnline === 'boolean' && matched.isOnline !== currentChatAgencyIsOnline) {
+          setCurrentChatAgencyIsOnline(matched.isOnline);
+        }
+      }
+    }
+  }, [userConversations, currentChatAgency]);
 
   // Deep linking for Chat, Book, and Wishlist from SEO routes
   useEffect(() => {
@@ -994,7 +1125,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       setProfileImageError(false);
       setCoTravellers(userData.coTravellers || []);
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role, userData?.name, userData?.phone, userData?.contactNumber, userData?.avatarUrl, userData?.coTravellers]);
 
   // Fetch user's pincode automatically with robust API waterfall & IP fallback
   useEffect(() => {
@@ -1164,7 +1295,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
     } else if (!user) {
       loadedAgencyUserIdRef.current = null;
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   // Upload Agency Logo to Firebase Storage and update user document
   const handleAgencyLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1268,7 +1399,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       }
     };
     migrateExistingAgency();
-  }, [user, userData]);
+  }, [user?.uid, userData?.role, userData?.plan]);
 
   // Intercept chat request and direct to chat
   const handleInitiateChat = (listingData: any) => {
@@ -1689,7 +1820,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       // Cleanup function to unsubscribe from the listener
       return () => unsubscribe();
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   // Function to update wishlist in Firestore
   const updateWishlistInFirestore = async (newWishlist: string[]) => {
@@ -1774,7 +1905,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       // Cleanup subscription
       return () => unsubscribe();
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   // Fetch user's support tickets with real-time updates
   useEffect(() => {
@@ -1825,7 +1956,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
       return () => unsubscribe();
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   // Reset scroll position when user switches tabs in the dashboard
   useEffect(() => {
@@ -1901,7 +2032,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       fetchPendingListings();
       fetchAllListings();
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   useEffect(() => {
     if (user && userData?.role === 'user') {
@@ -1914,75 +2045,79 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         messages.sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0));
         setChatMessages(messages);
 
-        // Create conversations list with agencies the user has chatted with
-        const conversationsMap = new Map();
-        const fetchConversations = async () => {
-          for (const msg of messages) {
-            try {
-              // For user conversations, we want the other party (agency)
-              const otherUserId = msg.sender === user.uid ? msg.receiverId : msg.sender;
+        const tsMs = (ts: any) => Number(ts?.seconds ? ts.seconds * 1000 : ts) || 0;
 
-              // Skip messages with invalid user IDs
-              if (!otherUserId || typeof otherUserId !== 'string' || otherUserId.trim() === '') {
-                console.warn('Skipping message with invalid user ID:', msg);
-                continue;
-              }
-
-              if (!conversationsMap.has(otherUserId)) {
-                try {
-                  // Fetch agency name
-                  const agencyDoc = await getDoc(doc(getDbInstance()!, 'users', otherUserId));
-                  const agencyData = agencyDoc.exists() ? agencyDoc.data() as any : null;
-                  const agencyName = agencyData?.companyName || 'Unknown Agency';
-                  const isOnline = agencyData?.isOnline || agencyData?.is_online || false;
-                  const logoUrl = agencyData?.logoUrl || agencyData?.agencyLogo || agencyData?.avatarUrl || null;
-
-                  conversationsMap.set(otherUserId, {
-                    agencyId: otherUserId,
-                    agencyName,
-                    chatId: msg.chatId,
-                    lastMessage: msg.text,
-                    lastMessageTime: msg.timestamp,
-                    unreadCount: 0, // Could implement read status
-                    isOnline,
-                    logoUrl,
-                  });
-                } catch (error) {
-                  // Ignore cancelled requests on logout
-                  // Still add conversation with default name
-                  conversationsMap.set(otherUserId, {
-                    agencyId: otherUserId,
-                    agencyName: 'Unknown Agency',
-                    chatId: msg.chatId,
-                    lastMessage: msg.text,
-                    lastMessageTime: msg.timestamp,
-                    unreadCount: 0,
-                    isOnline: false,
-                    logoUrl: null,
-                  });
-                }
-              }
-              const existing = conversationsMap.get(otherUserId);
-              if (existing) {
-                existing.lastMessage = msg.text;
-                existing.lastMessageTime = msg.timestamp;
-                if (msg.sender === otherUserId && msg.status !== 'read') {
-                  existing.unreadCount = (existing.unreadCount || 0) + 1;
-                }
-                if (msg.sender === user.uid) {
-                  existing.unreadCount = 0;
-                }
-              }
-            } catch (error) {
-              console.warn('Error processing message for conversation:', error, msg);
-              continue;
-            }
+        // Identify unique other-user IDs (agencies)
+        const otherAgencyIds = new Set<string>();
+        for (const msg of messages) {
+          const id = msg.sender === user.uid ? msg.receiverId : msg.sender;
+          if (id && typeof id === 'string' && id.trim()) {
+            otherAgencyIds.add(id);
           }
-          const conversations = Array.from(conversationsMap.values());
-          conversations.sort((a: any, b: any) => (Number(b.lastMessageTime?.seconds ? b.lastMessageTime.seconds * 1000 : b.lastMessageTime) || 0) - (Number(a.lastMessageTime?.seconds ? a.lastMessageTime.seconds * 1000 : a.lastMessageTime) || 0));
-          setUserConversations(conversations);
-        };
-        fetchConversations();
+        }
+
+        // Fetch agency profiles we don't have cached yet — in parallel, single batch
+        const missingIds = [...otherAgencyIds].filter(id => !userAgencyProfileCacheRef.current.has(id));
+        if (missingIds.length > 0) {
+          await Promise.all(missingIds.map(async (id) => {
+            try {
+              const agencyDoc = await getDoc(doc(getDbInstance()!, 'users', id));
+              const d = agencyDoc.exists() ? agencyDoc.data() as any : null;
+              userAgencyProfileCacheRef.current.set(id, {
+                name: d?.companyName || d?.name || d?.agencyName || 'Travel Agency',
+                isOnline: Boolean(d?.isOnline || d?.is_online),
+                logoUrl: d?.logoUrl || d?.agencyLogo || d?.avatarUrl || d?.photoURL || null,
+              });
+            } catch {
+              userAgencyProfileCacheRef.current.set(id, {
+                name: 'Travel Agency',
+                isOnline: false,
+                logoUrl: null,
+              });
+            }
+          }));
+        }
+
+        // Build conversations map entirely from cache — synchronous, instantaneous
+        const conversationsMap = new Map<string, any>();
+        for (const msg of messages) {
+          const otherUserId = msg.sender === user.uid ? msg.receiverId : msg.sender;
+          if (!otherUserId || typeof otherUserId !== 'string' || !otherUserId.trim()) continue;
+
+          const profile = userAgencyProfileCacheRef.current.get(otherUserId) || {
+            name: 'Travel Agency',
+            isOnline: false,
+            logoUrl: null,
+          };
+
+          if (!conversationsMap.has(otherUserId)) {
+            conversationsMap.set(otherUserId, {
+              agencyId: otherUserId,
+              agencyName: profile.name,
+              chatId: msg.chatId,
+              lastMessage: msg.text,
+              lastMessageTime: msg.timestamp,
+              unreadCount: 0,
+              isOnline: profile.isOnline,
+              logoUrl: profile.logoUrl,
+            });
+          }
+
+          const existing = conversationsMap.get(otherUserId)!;
+          existing.lastMessage = msg.text;
+          existing.lastMessageTime = msg.timestamp;
+          if (msg.sender === otherUserId && msg.status !== 'read') {
+            existing.unreadCount = (existing.unreadCount || 0) + 1;
+          }
+          if (msg.sender === user.uid) {
+            existing.unreadCount = 0;
+          }
+        }
+
+        const conversations = Array.from(conversationsMap.values());
+        conversations.sort((a: any, b: any) => tsMs(b.lastMessageTime) - tsMs(a.lastMessageTime));
+
+        setUserConversations(conversations);
       };
 
       let webMsgs: any[] = [];
@@ -1996,9 +2131,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       };
 
       // Listen to web app messages collection
-      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), { includeMetadataChanges: true }, (snapshot) => {
-        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
-        if (snapshot.metadata.fromCache) return;
+      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), (snapshot) => {
         const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
@@ -2012,16 +2145,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       });
 
       // Also listen to mobile app messages collection (chat_messages)
-      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), { includeMetadataChanges: true }, (snapshot) => {
-        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
-        if (snapshot.metadata.fromCache) return;
+      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), (snapshot) => {
         const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Convert mobile app format to web app format
           // Include messages where user is sender OR receiver
           if (msgData.from_user_id === user.uid || msgData.to_user_id === user.uid) {
-            // Create consistent chatId by sorting user IDs
             const chatId = [msgData.from_user_id, msgData.to_user_id].sort().join('_');
             msgs.push({
               id: doc.id,
@@ -2044,7 +2174,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         unsubscribeMobileMessages();
       };
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   useEffect(() => {
     if (user && userData?.role === 'agency') {
@@ -2138,9 +2268,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       };
 
       // Listen to web app messages collection
-      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), { includeMetadataChanges: true }, (snapshot) => {
-        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
-        if (snapshot.metadata.fromCache) return;
+      const unsubscribeWebMessages = onSnapshot(collection(dbInstance, 'messages'), (snapshot) => {
         const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
@@ -2154,16 +2282,13 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       });
 
       // Also listen to mobile app messages collection (chat_messages)
-      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), { includeMetadataChanges: true }, (snapshot) => {
-        // Skip stale cache snapshots to prevent flash of old data on Alt+Tab
-        if (snapshot.metadata.fromCache) return;
+      const unsubscribeMobileMessages = onSnapshot(collection(dbInstance, 'chat_messages'), (snapshot) => {
         const msgs: any[] = [];
         snapshot.forEach((doc) => {
           const msgData = doc.data();
           // Convert mobile app format to web app format
           // Include messages where agency is sender OR receiver
           if (msgData.from_user_id === user.uid || msgData.to_user_id === user.uid) {
-            // Create consistent chatId by sorting user IDs
             const chatId = [msgData.from_user_id, msgData.to_user_id].sort().join('_');
             msgs.push({
               id: doc.id,
@@ -2186,7 +2311,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
         unsubscribeMobileMessages();
       };
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   useEffect(() => {
     // Fetch listings for users - only when user is authenticated
@@ -2226,7 +2351,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       // Cleanup function to unsubscribe from the listener
       return () => unsubscribe();
     }
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     // Fetch agency's own listings
@@ -2245,7 +2370,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       };
       fetchAgencyListings();
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   useEffect(() => {
     // Fetch agency's bookings
@@ -2266,7 +2391,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       };
       fetchAgencyBookings();
     }
-  }, [user, userData]);
+  }, [user?.uid, userData?.role]);
 
   const approveAgency = async (id: string) => {
     try {
@@ -2403,6 +2528,42 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
       }
       return part;
     });
+  };
+
+  const highlightSearchMatch = (content: React.ReactNode, query: string, isActiveMatch = false): React.ReactNode => {
+    if (!query || !query.trim()) return content;
+    const q = query.trim();
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+
+    if (typeof content === 'string') {
+      const parts = content.split(regex);
+      if (parts.length <= 1) return content;
+      return parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark 
+            key={i} 
+            className={`${
+              isActiveMatch 
+                ? 'bg-amber-400 text-gray-950 font-bold shadow-xs ring-1 ring-amber-500' 
+                : 'bg-amber-200 text-gray-900 font-medium'
+            } rounded-2xs px-0.5 transition-all`}
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      );
+    }
+
+    if (Array.isArray(content)) {
+      return content.map((item, idx) => (
+        <React.Fragment key={idx}>{highlightSearchMatch(item, q, isActiveMatch)}</React.Fragment>
+      ));
+    }
+
+    return content;
   };
 
   const sendMessage = async () => {
@@ -4723,12 +4884,12 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
 
           {/* Main Dashboard Scroll Area */}
           <div
-            className={`flex-1 w-full ${
-              userActiveSection === 'chat' ? 'overflow-hidden flex flex-col h-full' : ''
+            className={`flex-1 w-full min-w-0 ${
+              userActiveSection === 'chat' ? 'overflow-hidden flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0' : ''
             }`}
             id="user-dashboard-scroll-container"
           >
-            <main className={`${userActiveSection === 'chat' ? 'w-full h-full flex-1 flex flex-col min-h-0 !p-0 !max-w-none' : (userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'listings') ? 'w-full max-w-[1600px] mx-auto px-4 sm:px-8' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? '' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
+            <main className={`${userActiveSection === 'chat' ? 'w-full h-full flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden !p-0 !max-w-none' : (userActiveSection === 'profile' || userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'wishlist' || userActiveSection === 'listings') ? 'w-full max-w-[1600px] mx-auto px-4 sm:px-8' : 'px-6 max-w-7xl mx-auto w-full'} ${userActiveSection === 'chat' ? '' : (userActiveSection === 'wishlist' && wishlist.length === 0) ? 'pb-0' : (userActiveSection === 'comparison' || (showComparison && userActiveSection === 'listings') || userActiveSection === 'profile') ? 'pb-0' : 'pb-10'}`}>
               {/* Header logic adjusted for non-listings sections (excludes bookings and profile which have their own layouts) */}
               {userActiveSection !== 'listings' && userActiveSection !== 'bookings' && userActiveSection !== 'profile' && userActiveSection !== 'comparison' && userActiveSection !== 'wishlist' && userActiveSection !== 'chat' && (
                 <div className="mb-6 mt-6 px-6 max-w-7xl mx-auto flex justify-between items-center border-b pb-4 border-gray-200">
@@ -5819,9 +5980,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
               )}
 
               {userActiveSection === 'chat' && (
-                <div className="flex flex-col md:flex-row flex-1 min-h-0 w-full bg-white">
+                <div className="flex flex-col md:flex-row flex-1 min-h-0 min-w-0 w-full h-full bg-white overflow-hidden">
                   {/* Left Column: Conversations List */}
-                  <div className={`w-full md:w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full z-10 ${currentChatAgency ? 'hidden md:flex' : 'flex'}`}>
+                  <div className={`w-full md:w-80 md:min-w-[20rem] md:max-w-[20rem] flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full z-10 min-w-0 overflow-hidden ${currentChatAgency ? 'hidden md:flex' : 'flex'}`}>
                     {/* Sidebar Header */}
                     <div className="p-4 border-b border-gray-200 bg-white shrink-0">
                       <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -5831,16 +5992,24 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                     </div>
 
                     {/* Search Bar */}
-                    <div className="px-4 pb-3 bg-white border-b border-gray-150 shrink-0">
-                      <div className="relative">
-                        <Input
+                    <div className="px-3.5 py-2.5 bg-white border-b border-gray-200/80 shrink-0">
+                      <div className="relative flex items-center">
+                        <Search className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <input
                           type="text"
                           placeholder="Search conversations..."
-                          className="w-full pl-8 pr-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white h-8"
+                          className="w-full pl-9 pr-8 py-1.5 h-9 rounded-full text-xs text-gray-800 border border-gray-200 bg-gray-50/80 focus:bg-white focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder-gray-400 transition-all leading-normal"
                           value={chatSearchQuery}
                           onChange={(e) => setChatSearchQuery(e.target.value)}
                         />
-                        <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                        {chatSearchQuery && (
+                          <button
+                            onClick={() => setChatSearchQuery('')}
+                            className="absolute right-2.5 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -5858,6 +6027,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                           .map((conversation) => {
                             const isActive = currentChatAgency === conversation.agencyId;
                             const initials = conversation.agencyName ? conversation.agencyName.slice(0, 2).toUpperCase() : 'AG';
+                            const formattedTime = formatConversationTime(conversation.lastMessageTime);
                             return (
                               <div
                                 key={conversation.agencyId}
@@ -5875,16 +6045,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     } catch (e) {}
                                   });
                                 }}
-                                className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 border border-l-4 ${
+                                className={`p-3 rounded-xl cursor-pointer transition-all duration-150 flex items-center gap-3 ${
                                   isActive
-                                    ? 'bg-orange-50/45 border-orange-500 border-l-orange-600 shadow-sm ring-1 ring-orange-500/10'
-                                    : 'bg-white/60 hover:bg-white border-transparent border-l-transparent hover:shadow-sm'
+                                    ? 'bg-[#f0f2f5] text-gray-900 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]'
+                                    : 'bg-transparent hover:bg-[#f5f6f6] text-gray-700'
                                 }`}
                               >
                                 {/* Avatar */}
-                                <div className={`w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm relative ${
-                                  !conversation.logoUrl && conversation.isOnline ? 'bg-orange-600' : (!conversation.logoUrl ? 'bg-slate-900' : '')
-                                }}`}>
+                                <div className={`w-10 h-10 text-slate-700 bg-[#dfe5e7] rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-xs relative overflow-visible`}>
                                   {conversation.logoUrl ? (
                                     <img src={conversation.logoUrl} alt={initials} className="w-full h-full object-cover rounded-full" />
                                   ) : (
@@ -5900,22 +6068,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     <span className="font-semibold text-xs text-gray-900 truncate pr-2">
                                       {conversation.agencyName}
                                     </span>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      {conversation.unreadCount > 0 && (
-                                        <span className="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                                          {conversation.unreadCount}
-                                        </span>
-                                      )}
-                                      <span className={`text-[9px] font-semibold ${
-                                        conversation.isOnline ? 'text-orange-600' : 'text-gray-400'
-                                      }`}>
-                                        {conversation.isOnline ? 'Online' : 'Offline'}
+                                    {formattedTime && (
+                                      <span className="text-[10px] text-gray-400 font-normal shrink-0">
+                                        {formattedTime}
                                       </span>
-                                    </div>
+                                    )}
                                   </div>
-                                  <p className="text-[11px] text-gray-500 truncate">
-                                    {conversation.lastMessage || "No messages yet"}
-                                  </p>
+                                  <div className="flex items-center justify-between gap-1">
+                                    <p className="text-[11px] text-gray-500 truncate flex-1">
+                                      {conversation.lastMessage || "No messages yet"}
+                                    </p>
+                                    {conversation.unreadCount > 0 && (
+                                      <span className="bg-[#25D366] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 min-w-[18px] text-center">
+                                        {conversation.unreadCount}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -5925,9 +6093,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   </div>
 
                   {/* Right Column: Chat Content */}
-                  <div className={`flex-1 flex flex-col h-full bg-[#efeae2] bg-[radial-gradient(#d1ccc5_1.2px,transparent_1.2px)] [background-size:20px_20px] ${!currentChatAgency ? 'hidden md:flex' : 'flex'}`}>
+                  <div className={`flex-1 flex flex-col h-full chat-travel-bg min-w-0 min-h-0 overflow-hidden ${!currentChatAgency ? 'hidden md:flex' : 'flex'}`}>
                     {currentChatAgency ? (
-                      <div className="flex flex-col h-full relative">
+                      <div className="flex flex-col h-full relative min-w-0 min-h-0 overflow-hidden">
                         {/* Conversation Header */}
                         <div className="px-4 md:px-6 py-3 bg-[#f0f2f5] border-b border-gray-200 flex items-center justify-between z-10 shrink-0">
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5938,6 +6106,8 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 setCurrentChatAgencyName('');
                                 setCurrentChatAgencyIsOnline(false);
                                 setCurrentChatAgencyLogo(null);
+                                setShowInChatSearch(false);
+                                setInChatSearchQuery('');
                               }}
                               className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition-colors flex items-center gap-1 font-semibold text-xs"
                               aria-label="Back to conversations"
@@ -5946,11 +6116,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               <span className="hidden xs:inline">Back</span>
                             </button>
 
-                            <div className="w-9 h-9 bg-orange-100 text-orange-755 rounded-full flex items-center justify-center font-bold text-xs shadow-inner shrink-0">
+                            <div className="w-9 h-9 bg-[#dfe5e7] text-slate-700 rounded-full flex items-center justify-center font-bold text-xs shrink-0 relative">
                               {currentChatAgencyLogo ? (
                                 <img src={currentChatAgencyLogo} alt={currentChatAgencyName || 'AG'} className="w-full h-full object-cover rounded-full" />
                               ) : (
                                 currentChatAgencyName ? currentChatAgencyName.slice(0, 2).toUpperCase() : 'AG'
+                              )}
+                              {currentChatAgencyIsOnline && (
+                                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full z-10" />
                               )}
                             </div>
                             <div>
@@ -5969,51 +6142,238 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             </div>
                           </div>
                           
-                          {/* Close/Back Button */}
-                          <button 
-                            onClick={() => {
-                              setCurrentChatAgency('');
-                              setCurrentChatAgencyName('');
-                              setCurrentChatAgencyIsOnline(false);
-                              setCurrentChatAgencyLogo(null);
-                            }}
-                            className="text-gray-400 hover:text-gray-650 p-1.5 hover:bg-gray-100 rounded-xl transition-all"
-                            title="Close Chat"
-                          >
-                            ✕
-                          </button>
+                          {/* Header Actions: Search & Close */}
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => {
+                                setShowInChatSearch(prev => !prev);
+                                if (showInChatSearch) setInChatSearchQuery('');
+                              }}
+                              className={`p-2 rounded-full transition-all flex items-center justify-center ${
+                                showInChatSearch 
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200/70'
+                              }`}
+                              title="Search in chat"
+                              aria-label="Search messages"
+                            >
+                              <Search className="w-4 h-4" />
+                            </button>
+                            
+                            <button 
+                              onClick={() => {
+                                setCurrentChatAgency('');
+                                setCurrentChatAgencyName('');
+                                setCurrentChatAgencyIsOnline(false);
+                                setCurrentChatAgencyLogo(null);
+                                setShowInChatSearch(false);
+                                setInChatSearchQuery('');
+                              }}
+                              className="text-gray-400 hover:text-gray-700 p-2 hover:bg-gray-200/60 rounded-full transition-all flex items-center justify-center"
+                              title="Close Chat"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Messages Area */}
-                        <div className="flex-1 p-6 space-y-4 chat-scroll">
-                          {[...chatMessages]
+                        {/* Search in chat bar (slides down under header) */}
+                        {showInChatSearch && (() => {
+                          const currentConvMsgs = chatMessages
                             .filter(msg => (msg.sender === currentChatAgency && msg.receiverId === user?.uid) || (msg.sender === user?.uid && msg.receiverId === currentChatAgency))
-                            .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0))
-                            .map((msg, index) => {
-                              const isSelf = msg.sender === user?.uid;
-                              return (
-                                <div key={msg.id || index} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
-                                  <div 
-                                    className={`max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm leading-relaxed text-sm border-r-4 ${
-                                      isSelf 
-                                        ? 'bg-[#1C1F26] text-white rounded-tr-none border-r-orange-500 shadow-md shadow-slate-900/10' 
-                                        : 'bg-white text-gray-900 border border-gray-150 rounded-tl-none border-r-transparent'
-                                    }`}
+                            .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0));
+                          
+                          const userSearchMatches = inChatSearchQuery.trim()
+                            ? currentConvMsgs
+                                .map((msg, idx) => ((msg.text || '').toLowerCase().includes(inChatSearchQuery.toLowerCase()) ? idx : -1))
+                                .filter(idx => idx !== -1)
+                            : [];
+
+                          const jumpToMatch = (targetIdx: number) => {
+                            if (userSearchMatches.length === 0) return;
+                            const nextIndex = (targetIdx + userSearchMatches.length) % userSearchMatches.length;
+                            setInChatSearchIndex(nextIndex);
+                            const msgIdx = userSearchMatches[nextIndex];
+                            const targetId = `user-msg-${currentConvMsgs[msgIdx]?.id || msgIdx}`;
+                            const el = document.getElementById(targetId);
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          };
+
+                          return (
+                            <div className="px-4 py-2 bg-[#f0f2f5] border-b border-gray-200 flex items-center gap-2 z-10 shrink-0">
+                              <div className="relative flex-1 flex items-center">
+                                <Search className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={inChatSearchQuery}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setInChatSearchQuery(val);
+                                    setInChatSearchIndex(0);
+                                    if (val.trim()) {
+                                      const matches = currentConvMsgs
+                                        .map((msg, idx) => ((msg.text || '').toLowerCase().includes(val.toLowerCase()) ? idx : -1))
+                                        .filter(idx => idx !== -1);
+                                      if (matches.length > 0) {
+                                        const targetId = `user-msg-${currentConvMsgs[matches[0]]?.id || matches[0]}`;
+                                        setTimeout(() => {
+                                          const el = document.getElementById(targetId);
+                                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }, 40);
+                                      }
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      if (e.shiftKey) {
+                                        jumpToMatch(inChatSearchIndex - 1);
+                                      } else {
+                                        jumpToMatch(inChatSearchIndex + 1);
+                                      }
+                                    } else if (e.key === 'Escape') {
+                                      setShowInChatSearch(false);
+                                      setInChatSearchQuery('');
+                                    }
+                                  }}
+                                  placeholder="Search messages... (Enter for next, Shift+Enter for prev)"
+                                  className="w-full pl-9 pr-8 py-1.5 bg-white text-xs text-gray-800 rounded-lg border border-gray-300 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder-gray-400"
+                                />
+                                {inChatSearchQuery && (
+                                  <button
+                                    onClick={() => {
+                                      setInChatSearchQuery('');
+                                      setInChatSearchIndex(0);
+                                    }}
+                                    className="absolute right-2.5 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
                                   >
-                                    <p className="break-words">{msg.text}</p>
-                                    <span className={`text-[9px] mt-1.5 block text-right font-semibold ${isSelf ? 'text-orange-300' : 'text-gray-450'}`}>
-                                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                              
+                              {/* Match counter & Navigation Arrows */}
+                              <div className="flex items-center gap-1 shrink-0 select-none">
+                                <span className="text-[11px] text-gray-500 font-medium px-1.5 min-w-[45px] text-center">
+                                  {userSearchMatches.length > 0 
+                                    ? `${inChatSearchIndex + 1} of ${userSearchMatches.length}` 
+                                    : inChatSearchQuery.trim() ? '0 of 0' : ''
+                                  }
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={userSearchMatches.length <= 1}
+                                  onClick={() => jumpToMatch(inChatSearchIndex - 1)}
+                                  className="p-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200/80 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                  title="Previous match (Shift+Enter)"
+                                >
+                                  <ChevronUp className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={userSearchMatches.length <= 1}
+                                  onClick={() => jumpToMatch(inChatSearchIndex + 1)}
+                                  className="p-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200/80 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                  title="Next match (Enter)"
+                                >
+                                  <ChevronDown className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  setShowInChatSearch(false);
+                                  setInChatSearchQuery('');
+                                  setInChatSearchIndex(0);
+                                }}
+                                className="text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                                title="Close search (Esc)"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Messages Area */}
+                        <div className="flex-1 p-4 md:p-6 space-y-3 chat-scroll overflow-y-auto overflow-x-hidden min-w-0">
+                          {(() => {
+                            const filteredMsgs = [...chatMessages]
+                              .filter(msg => (msg.sender === currentChatAgency && msg.receiverId === user?.uid) || (msg.sender === user?.uid && msg.receiverId === currentChatAgency))
+                              .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0));
+
+                            const userSearchMatches = inChatSearchQuery.trim()
+                              ? filteredMsgs
+                                  .map((msg, idx) => ((msg.text || '').toLowerCase().includes(inChatSearchQuery.toLowerCase()) ? idx : -1))
+                                  .filter(idx => idx !== -1)
+                              : [];
+
+                            let lastDateDivider = '';
+
+                            return filteredMsgs.map((msg, index) => {
+                              const isSelf = msg.sender === user?.uid;
+                              const dateDivider = formatChatDateDivider(msg.timestamp);
+                              const showDivider = dateDivider && dateDivider !== lastDateDivider;
+                              if (showDivider) {
+                                lastDateDivider = dateDivider;
+                              }
+
+                              const isCurrentActiveMatch = userSearchMatches.length > 0 && userSearchMatches[inChatSearchIndex] === index;
+
+                              const msgTimeStr = msg.timestamp 
+                                ? (msg.timestamp?.seconds ? new Date(msg.timestamp.seconds * 1000) : new Date(msg.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                                : '';
+
+                              return (
+                                <React.Fragment key={msg.id || index}>
+                                  {showDivider && (
+                                    <div className="flex justify-center my-3 select-none">
+                                      <span className="bg-white/90 backdrop-blur-xs text-gray-500 text-[11px] font-medium px-3 py-1 rounded-lg shadow-[0_1px_1px_rgba(0,0,0,0.06)] border border-gray-100">
+                                        {dateDivider}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div 
+                                    id={`user-msg-${msg.id || index}`}
+                                    className={`flex ${isSelf ? 'justify-end' : 'justify-start'} transition-all duration-300 scroll-mt-24`}
+                                  >
+                                    <div 
+                                      className={`max-w-[82%] sm:max-w-[70%] px-3 py-1.5 rounded-2xl shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] transition-all duration-300 ${
+                                        isCurrentActiveMatch ? 'ring-2 ring-emerald-500 shadow-[0_0_16px_rgba(16,185,129,0.4)] scale-[1.02]' : ''
+                                      } ${
+                                        isSelf 
+                                          ? 'bg-[#d9fdd3] text-gray-900 rounded-tr-xs border border-[#c4ebb8]/40' 
+                                          : 'bg-white text-gray-900 rounded-tl-xs border border-gray-100'
+                                      }`}
+                                    >
+                                      <div className="text-[13px] leading-[1.4] text-gray-900 break-words select-text">
+                                        <span className="inline">{highlightSearchMatch(msg.text, inChatSearchQuery, isCurrentActiveMatch)}</span>
+                                        <span className="inline-flex items-center gap-1 float-right align-bottom ml-2.5 translate-y-0.5 select-none text-[10px] text-gray-500 font-normal">
+                                          <span>{msgTimeStr}</span>
+                                          {isSelf && (
+                                            msg.status === 'read' ? (
+                                              <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" />
+                                            ) : (
+                                              <Check className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                            )
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
+                                </React.Fragment>
                               );
-                            })}
+                            });
+                          })()}
                           <div ref={userChatEndRef} />
                         </div>
 
                         {/* Message Input Box & Quick Replies */}
-                        <div className="bg-white border-t border-gray-150 flex flex-col shrink-0">
-                          {/* Quick Replies */}
+                        <div className="bg-white flex flex-col shrink-0 min-w-0 w-full overflow-hidden">
+                          {/* Quick Replies Carousel */}
                           {(() => {
                             const currentChatMsgs = chatMessages.filter(msg => msg.chatId === [user?.uid, currentChatAgency].sort().join('_'));
                             const mySentTexts = new Set(currentChatMsgs.filter(msg => msg.sender === user?.uid).map(msg => msg.text));
@@ -6027,7 +6387,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             
                             if (availableBuyerReplies.length === 0) return null;
                             return (
-                              <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2">
+                              <div className="px-4 pt-2.5 pb-2 bg-[#f0f2f5] border-t border-gray-200/80 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full max-w-full min-w-0 shrink-0">
                                 {availableBuyerReplies.map((reply, idx) => (
                                   <button
                                     key={idx}
@@ -6043,7 +6403,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                       const dbInstance = getDbInstance();
                                       if (dbInstance) await addDoc(collection(dbInstance, 'chat_messages'), messageData);
                                     }}
-                                    className="shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
+                                    className="shrink-0 px-3 py-1.5 bg-white hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 border border-gray-200 hover:border-emerald-300 text-xs rounded-full whitespace-nowrap transition-all shadow-2xs active:scale-95 font-medium"
                                   >
                                     {reply}
                                   </button>
@@ -6052,56 +6412,56 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                             );
                           })()}
 
-                          <div className="px-4 py-3 bg-[#f0f2f5] flex items-center gap-3 relative shrink-0">
+                          <div className="px-4 py-2.5 bg-[#f0f2f5] border-t border-gray-200 flex items-center gap-2 relative shrink-0 w-full max-w-full min-w-0">
                             {/* Emoji Visual Indicator */}
-                          <div className="relative shrink-0">
-                            <button 
-                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                              className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none flex items-center justify-center" 
-                              title="Add Emoji"
-                            >
-                              <Smile className="h-5 w-5 text-gray-500" />
-                            </button>
-                            
-                            {showEmojiPicker && (
-                              <div className="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-3xl p-3 shadow-xl z-30 w-56 animate-in slide-in-from-bottom-2 duration-150">
-                                <div className="grid grid-cols-6 gap-1.5 max-h-32 overflow-y-auto">
-                                  {['😊', '😂', '🤣', '👍', '❤️', '🔥', '✈️', '🏝️', '🗺️', '🏨', '🚗', '👏', '😍', '🎉', '🙌', '🙏', '✨', '🌍', '🌅', '🎒', '💬', '🎫', '🏝', '⛰', '🌟', '🛶', '🏄', '🏔', '⛺', '🧭'].map((emoji) => (
-                                    <button
-                                      key={emoji}
-                                      onClick={() => {
-                                        setChatInput((prev) => prev + emoji);
-                                        setShowEmojiPicker(false);
-                                      }}
-                                      className="hover:bg-gray-100 p-1.5 rounded-lg text-lg transition-all active:scale-90 flex items-center justify-center"
-                                    >
-                                      {emoji}
-                                    </button>
-                                  ))}
+                            <div className="relative shrink-0">
+                              <button 
+                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                className="text-gray-500 hover:text-gray-700 transition-colors p-1.5 hover:bg-gray-200/60 rounded-full focus:outline-none flex items-center justify-center" 
+                                title="Add Emoji"
+                              >
+                                <Smile className="h-5 w-5" />
+                              </button>
+                              
+                              {showEmojiPicker && (
+                                <div className="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-2xl p-3 shadow-xl z-30 w-56 animate-in slide-in-from-bottom-2 duration-150">
+                                  <div className="grid grid-cols-6 gap-1.5 max-h-32 overflow-y-auto">
+                                    {['😊', '😂', '🤣', '👍', '❤️', '🔥', '✈️', '🏝️', '🗺️', '🏨', '🚗', '👏', '😍', '🎉', '🙌', '🙏', '✨', '🌍', '🌅', '🎒', '💬', '🎫', '🏝', '⛰', '🌟', '🛶', '🏄', '🏔', '⛺', '🧭'].map((emoji) => (
+                                      <button
+                                        key={emoji}
+                                        onClick={() => {
+                                          setChatInput((prev) => prev + emoji);
+                                          setShowEmojiPicker(false);
+                                        }}
+                                        className="hover:bg-gray-100 p-1.5 rounded-lg text-lg transition-all active:scale-90 flex items-center justify-center"
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                          <Input
-                            value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
-                            placeholder="Type your message..."
-                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                            className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-gray-900 text-xs h-10"
-                          />
-                          
-                          <button 
-                            onClick={sendMessage} 
-                            disabled={!chatInput.trim()}
-                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md shrink-0 ${
-                              chatInput.trim()
-                                ? 'bg-[#1C1F26] hover:bg-black text-white active:scale-95' 
-                                : 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none'
-                            }`}
-                            title="Send Message"
-                          >
-                            <span className="text-xs font-bold leading-none transform translate-x-px -translate-y-px">➤</span>
-                          </button>
+                              )}
+                            </div>
+                            <Input
+                              value={chatInput}
+                              onChange={(e) => setChatInput(e.target.value)}
+                              placeholder="Type a message..."
+                              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                              className="flex-1 rounded-full border border-gray-200 px-4 py-2 bg-white focus-visible:ring-1 focus-visible:ring-[#00a884] text-gray-900 text-xs h-10 shadow-2xs min-w-0"
+                            />
+                            
+                            <button 
+                              onClick={sendMessage} 
+                              disabled={!chatInput.trim()}
+                              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                                chatInput.trim()
+                                  ? 'bg-[#00a884] hover:bg-[#008f6f] text-white shadow-sm active:scale-95 cursor-pointer' 
+                                  : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                              }`}
+                              title="Send Message"
+                            >
+                              <Send className="w-4 h-4 ml-0.5" />
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -7291,7 +7651,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                   {agencyActiveSection === 'chat' && (
                     <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row flex-1 min-h-0 min-w-0 w-full mb-6">
                       {/* Left Column: Conversations List */}
-                      <div className={`w-full md:w-80 flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+                      <div className={`w-full md:w-80 md:min-w-[20rem] md:max-w-[20rem] flex-shrink-0 border-r border-gray-150 bg-gray-50/40 flex flex-col h-full min-w-0 overflow-hidden ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                         {/* Sidebar Header */}
                         <div className="p-4 border-b border-gray-150 bg-white shrink-0">
                           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -7301,16 +7661,24 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                         </div>
 
                         {/* Search Bar */}
-                        <div className="px-4 pb-3 bg-white border-b border-gray-150 shrink-0">
-                          <div className="relative">
-                            <Input
+                        <div className="px-3.5 py-2.5 bg-white border-b border-gray-200/80 shrink-0">
+                          <div className="relative flex items-center">
+                            <Search className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                            <input
                               type="text"
                               placeholder="Search conversations..."
-                              className="w-full pl-8 pr-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white h-8"
+                              className="w-full pl-9 pr-8 py-1.5 h-9 rounded-full text-xs text-gray-800 border border-gray-200 bg-gray-50/80 focus:bg-white focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder-gray-400 transition-all leading-normal"
                               value={agencyChatSearchQuery}
                               onChange={(e) => setAgencyChatSearchQuery(e.target.value)}
                             />
-                            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                            {agencyChatSearchQuery && (
+                              <button
+                                onClick={() => setAgencyChatSearchQuery('')}
+                                className="absolute right-2.5 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -7328,6 +7696,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               .map((conversation) => {
                                 const isActive = selectedConversation?.userId === conversation.userId;
                                 const initials = conversation.userName ? conversation.userName.slice(0, 2).toUpperCase() : 'US';
+                                const formattedTime = formatConversationTime(conversation.lastMessageTime);
                                 return (
                                   <div
                                     key={conversation.userId}
@@ -7343,16 +7712,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         } catch (e) {}
                                       });
                                     }}
-                                    className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 border border-l-4 ${
+                                    className={`p-3 rounded-xl cursor-pointer transition-all duration-150 flex items-center gap-3 ${
                                       isActive
-                                        ? 'bg-orange-50/45 border-orange-500 border-l-orange-600 shadow-sm ring-1 ring-orange-500/10'
-                                        : 'bg-white/60 hover:bg-white border-transparent border-l-transparent hover:shadow-sm'
+                                        ? 'bg-[#f0f2f5] text-gray-900 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]'
+                                        : 'bg-transparent hover:bg-[#f5f6f6] text-gray-700'
                                     }`}
                                   >
                                     {/* Avatar */}
-                                    <div className={`w-9 h-9 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm relative ${
-                                      !conversation.userLogo ? 'bg-slate-900' : ''
-                                    }`}>
+                                    <div className="w-10 h-10 text-slate-700 bg-[#dfe5e7] rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-xs relative overflow-visible">
                                       {conversation.userLogo ? (
                                         <img src={conversation.userLogo} alt={initials} className="w-full h-full object-cover rounded-full" />
                                       ) : (
@@ -7365,15 +7732,22 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                         <span className="font-semibold text-xs text-gray-900 truncate pr-2">
                                           {conversation.userName}
                                         </span>
+                                        {formattedTime && (
+                                          <span className="text-[10px] text-gray-400 font-normal shrink-0">
+                                            {formattedTime}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center justify-between gap-1">
+                                        <p className="text-[11px] text-gray-500 truncate flex-1">
+                                          {conversation.lastMessage || "No messages yet"}
+                                        </p>
                                         {conversation.unreadCount > 0 && (
-                                          <span className="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                                          <span className="bg-[#25D366] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 min-w-[18px] text-center">
                                             {conversation.unreadCount}
                                           </span>
                                         )}
                                       </div>
-                                      <p className="text-[11px] text-gray-500 truncate">
-                                        {conversation.lastMessage || "No messages yet"}
-                                      </p>
                                     </div>
                                   </div>
                                 );
@@ -7383,9 +7757,9 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                       </div>
 
                       {/* Right Column: Chat Content */}
-                      <div className={`flex-1 flex flex-col h-full bg-[#FAF9F5] bg-[radial-gradient(#e5e7eb_1.2px,transparent_1.2px)] [background-size:20px_20px] min-w-0 overflow-hidden ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+                      <div className={`flex-1 flex flex-col h-full chat-travel-bg min-w-0 min-h-0 overflow-hidden ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                         {selectedConversation ? (
-                          <div className="flex flex-col h-full relative min-w-0 overflow-hidden">
+                          <div className="flex flex-col h-full relative min-w-0 min-h-0 overflow-hidden">
                             {/* Conversation Header */}
                             {(() => {
                               const unlockRecord = (userData?.unlockedUsers as any[] || []).find((u: any) => typeof u === 'string' ? u === selectedConversation.userId : u.userId === selectedConversation.userId);
@@ -7395,15 +7769,17 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                 : null;
 
                               return (
-                                <div className="px-4 md:px-6 py-3 bg-white border-b border-gray-150 flex items-center justify-between shadow-sm z-10 shrink-0">
+                                <div className="px-4 md:px-6 py-3 bg-[#f0f2f5] border-b border-gray-200 flex items-center justify-between shadow-2xs z-10 shrink-0">
                                   <div className="flex items-center gap-2 sm:gap-3">
                                     {/* Mobile Back Button */}
                                     <button
                                       onClick={() => {
                                         hasManuallyClosedChatRef.current = true;
                                         setSelectedConversation(null);
+                                        setShowAgencyInChatSearch(false);
+                                        setAgencyInChatSearchQuery('');
                                       }}
-                                      className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors flex items-center gap-1 font-semibold text-xs"
+                                      className="md:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl transition-colors flex items-center gap-1 font-semibold text-xs"
                                       aria-label="Back to conversations"
                                     >
                                       <ChevronLeft className="h-4 w-4" />
@@ -7426,47 +7802,238 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     </div>
                                   </div>
                                   
-                                  {/* Close/Back Button */}
-                                  <button 
+                                  {/* Header Actions: Search & Close */}
+                                  <div className="flex items-center gap-1">
+                                    <button 
+                                      onClick={() => {
+                                        setShowAgencyInChatSearch(prev => !prev);
+                                        if (showAgencyInChatSearch) setAgencyInChatSearchQuery('');
+                                      }}
+                                      className={`p-2 rounded-full transition-all flex items-center justify-center ${
+                                        showAgencyInChatSearch 
+                                          ? 'bg-emerald-100 text-emerald-700' 
+                                          : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200/70'
+                                      }`}
+                                      title="Search in chat"
+                                      aria-label="Search messages"
+                                    >
+                                      <Search className="w-4 h-4" />
+                                    </button>
+
+                                    <button 
+                                      onClick={() => {
+                                        hasManuallyClosedChatRef.current = true;
+                                        setSelectedConversation(null);
+                                        setShowAgencyInChatSearch(false);
+                                        setAgencyInChatSearchQuery('');
+                                      }}
+                                      className="text-gray-400 hover:text-gray-700 p-2 hover:bg-gray-200/60 rounded-full transition-all flex items-center justify-center"
+                                      title="Close Chat"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Agency Search in chat bar */}
+                            {showAgencyInChatSearch && (() => {
+                              const currentConvMsgs = agencyChatMessages
+                                .filter(msg => (msg.sender === selectedConversation.userId && msg.receiverId === user?.uid) || (msg.sender === user?.uid && msg.receiverId === selectedConversation.userId))
+                                .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0));
+
+                              const agencySearchMatches = agencyInChatSearchQuery.trim()
+                                ? currentConvMsgs
+                                    .map((msg, idx) => ((msg.text || '').toLowerCase().includes(agencyInChatSearchQuery.toLowerCase()) ? idx : -1))
+                                    .filter(idx => idx !== -1)
+                                : [];
+
+                              const jumpToAgencyMatch = (targetIdx: number) => {
+                                if (agencySearchMatches.length === 0) return;
+                                const nextIndex = (targetIdx + agencySearchMatches.length) % agencySearchMatches.length;
+                                setAgencyInChatSearchIndex(nextIndex);
+                                const msgIdx = agencySearchMatches[nextIndex];
+                                const targetId = `agency-msg-${currentConvMsgs[msgIdx]?.id || msgIdx}`;
+                                const el = document.getElementById(targetId);
+                                if (el) {
+                                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                              };
+
+                              return (
+                                <div className="px-4 py-2 bg-[#f0f2f5] border-b border-gray-200 flex items-center gap-2 z-10 shrink-0">
+                                  <div className="relative flex-1 flex items-center">
+                                    <Search className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={agencyInChatSearchQuery}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setAgencyInChatSearchQuery(val);
+                                        setAgencyInChatSearchIndex(0);
+                                        if (val.trim()) {
+                                          const matches = currentConvMsgs
+                                            .map((msg, idx) => ((msg.text || '').toLowerCase().includes(val.toLowerCase()) ? idx : -1))
+                                            .filter(idx => idx !== -1);
+                                          if (matches.length > 0) {
+                                            const targetId = `agency-msg-${currentConvMsgs[matches[0]]?.id || matches[0]}`;
+                                            setTimeout(() => {
+                                              const el = document.getElementById(targetId);
+                                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            }, 40);
+                                          }
+                                        }
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          if (e.shiftKey) {
+                                            jumpToAgencyMatch(agencyInChatSearchIndex - 1);
+                                          } else {
+                                            jumpToAgencyMatch(agencyInChatSearchIndex + 1);
+                                          }
+                                        } else if (e.key === 'Escape') {
+                                          setShowAgencyInChatSearch(false);
+                                          setAgencyInChatSearchQuery('');
+                                        }
+                                      }}
+                                      placeholder="Search messages... (Enter / Shift+Enter to jump)"
+                                      className="w-full pl-9 pr-8 py-1.5 bg-white text-xs text-gray-800 rounded-lg border border-gray-300 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder-gray-400"
+                                    />
+                                    {agencyInChatSearchQuery && (
+                                      <button
+                                        onClick={() => {
+                                          setAgencyInChatSearchQuery('');
+                                          setAgencyInChatSearchIndex(0);
+                                        }}
+                                        className="absolute right-2.5 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Match counter & Navigation Arrows */}
+                                  <div className="flex items-center gap-1 shrink-0 select-none">
+                                    <span className="text-[11px] text-gray-500 font-medium px-1.5 min-w-[45px] text-center">
+                                      {agencySearchMatches.length > 0 
+                                        ? `${agencyInChatSearchIndex + 1} of ${agencySearchMatches.length}` 
+                                        : agencyInChatSearchQuery.trim() ? '0 of 0' : ''
+                                      }
+                                    </span>
+                                    <button
+                                      type="button"
+                                      disabled={agencySearchMatches.length <= 1}
+                                      onClick={() => jumpToAgencyMatch(agencyInChatSearchIndex - 1)}
+                                      className="p-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200/80 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                      title="Previous match (Shift+Enter)"
+                                    >
+                                      <ChevronUp className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={agencySearchMatches.length <= 1}
+                                      onClick={() => jumpToAgencyMatch(agencyInChatSearchIndex + 1)}
+                                      className="p-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200/80 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                      title="Next match (Enter)"
+                                    >
+                                      <ChevronDown className="w-4 h-4" />
+                                    </button>
+                                  </div>
+
+                                  <button
                                     onClick={() => {
-                                      hasManuallyClosedChatRef.current = true;
-                                      setSelectedConversation(null);
+                                      setShowAgencyInChatSearch(false);
+                                      setAgencyInChatSearchQuery('');
+                                      setAgencyInChatSearchIndex(0);
                                     }}
-                                    className="text-gray-400 hover:text-gray-650 p-1.5 hover:bg-gray-100 rounded-xl transition-all"
-                                    title="Close Chat"
+                                    className="text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                                    title="Close search (Esc)"
                                   >
-                                    ✕
+                                    <X className="w-4 h-4" />
                                   </button>
                                 </div>
                               );
                             })()}
 
                             {/* Messages Area */}
-                            <div className="flex-1 p-6 space-y-4 chat-scroll overflow-y-auto overflow-x-hidden w-full min-w-0">
-                              {[...agencyChatMessages]
-                                .filter(msg => (msg.sender === selectedConversation.userId && msg.receiverId === user?.uid) || (msg.sender === user?.uid && msg.receiverId === selectedConversation.userId))
-                                .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0))
-                                .map((msg, index) => {
+                            <div className="flex-1 p-4 md:p-6 space-y-3 chat-scroll overflow-y-auto overflow-x-hidden w-full min-w-0">
+                              {(() => {
+                                const filteredMsgs = [...agencyChatMessages]
+                                  .filter(msg => (msg.sender === selectedConversation.userId && msg.receiverId === user?.uid) || (msg.sender === user?.uid && msg.receiverId === selectedConversation.userId))
+                                  .sort((a, b) => (Number(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp) || 0) - (Number(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp) || 0));
+
+                                const agencySearchMatches = agencyInChatSearchQuery.trim()
+                                  ? filteredMsgs
+                                      .map((msg, idx) => ((msg.text || '').toLowerCase().includes(agencyInChatSearchQuery.toLowerCase()) ? idx : -1))
+                                      .filter(idx => idx !== -1)
+                                  : [];
+
+                                let lastDateDivider = '';
+
+                                return filteredMsgs.map((msg, index) => {
                                   const isSelf = msg.sender === user?.uid;
+                                  const dateDivider = formatChatDateDivider(msg.timestamp);
+                                  const showDivider = dateDivider && dateDivider !== lastDateDivider;
+                                  if (showDivider) {
+                                    lastDateDivider = dateDivider;
+                                  }
+
+                                  const isCurrentActiveMatch = agencySearchMatches.length > 0 && agencySearchMatches[agencyInChatSearchIndex] === index;
+
+                                  const msgTimeStr = msg.timestamp 
+                                    ? (msg.timestamp?.seconds ? new Date(msg.timestamp.seconds * 1000) : new Date(msg.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                                    : '';
+
                                   return (
-                                    <div key={msg.id || index} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                                    <React.Fragment key={msg.id || index}>
+                                      {showDivider && (
+                                        <div className="flex justify-center my-3 select-none">
+                                          <span className="bg-white/90 backdrop-blur-xs text-gray-500 text-[11px] font-medium px-3 py-1 rounded-lg shadow-[0_1px_1px_rgba(0,0,0,0.06)] border border-gray-100">
+                                            {dateDivider}
+                                          </span>
+                                        </div>
+                                      )}
                                       <div 
-                                        className={`max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm leading-relaxed text-sm border-r-4 ${
-                                          isSelf 
-                                            ? 'bg-[#1C1F26] text-white rounded-tr-none border-r-orange-500 shadow-md shadow-slate-900/10' 
-                                            : 'bg-white text-gray-900 border border-gray-150 rounded-tl-none border-r-transparent'
-                                        }`}
+                                        id={`agency-msg-${msg.id || index}`}
+                                        className={`flex ${isSelf ? 'justify-end' : 'justify-start'} transition-all duration-300 scroll-mt-24`}
                                       >
-                                        <p className="break-words">
-                                          {renderMessageText(msg.text, userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan))}
-                                        </p>
-                                        <span className={`text-[9px] mt-1.5 block text-right font-semibold ${isSelf ? 'text-orange-300' : 'text-gray-450'}`}>
-                                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                                        <div 
+                                          className={`max-w-[82%] sm:max-w-[70%] px-3 py-1.5 rounded-2xl shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] transition-all duration-300 ${
+                                            isCurrentActiveMatch ? 'ring-2 ring-emerald-500 shadow-[0_0_16px_rgba(16,185,129,0.4)] scale-[1.02]' : ''
+                                          } ${
+                                            isSelf 
+                                              ? 'bg-[#d9fdd3] text-gray-900 rounded-tr-xs border border-[#c4ebb8]/40' 
+                                              : 'bg-white text-gray-900 rounded-tl-xs border border-gray-100'
+                                          }`}
+                                        >
+                                          <div className="text-[13px] leading-[1.4] text-gray-900 break-words select-text">
+                                            <span className="inline">
+                                              {highlightSearchMatch(
+                                                renderMessageText(msg.text, userData?.role === 'agency' && (userData?.plan === 'free' || !userData?.plan)),
+                                                agencyInChatSearchQuery,
+                                                isCurrentActiveMatch
+                                              )}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 float-right align-bottom ml-2.5 translate-y-0.5 select-none text-[10px] text-gray-500 font-normal">
+                                              <span>{msgTimeStr}</span>
+                                              {isSelf && (
+                                                msg.status === 'read' ? (
+                                                  <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" />
+                                                ) : (
+                                                  <Check className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                )
+                                              )}
+                                            </span>
+                                          </div>
+                                        </div>
                                       </div>
-                                    </div>
+                                    </React.Fragment>
                                   );
-                                })}
+                                });
+                              })()}
                               <div ref={agencyChatEndRef} />
                             </div>
 
@@ -7482,14 +8049,14 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                               const isFreePlan = (userData?.role as string) === 'agency' && (userData?.plan === 'free' || !userData?.plan);
                               const hasPhoneInInput = isFreePlan && agencyChatInput.replace(/\D/g, '').length >= 10;
                               return isUnlocked ? (
-                                <div className="bg-white border-t border-gray-150 flex flex-col shrink-0 relative">
+                                <div className="bg-white flex flex-col shrink-0 relative min-w-0 w-full overflow-hidden">
                                   {hasPhoneInInput && (
                                     <div className="absolute -top-8 left-4 text-[10px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-md border border-red-200 shadow-sm animate-pulse z-20">
                                       <span className="flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" /> Phone numbers cannot be sent on the Free Plan. Upgrade to Starter/Premium.</span>
                                     </div>
                                   )}
 
-                                  {/* Quick Replies */}
+                                  {/* Quick Replies Carousel */}
                                   {(() => {
                                     const currentAgencyMsgs = agencyChatMessages.filter(msg => msg.chatId === [user?.uid, selectedConversation?.userId].sort().join('_'));
                                     const mySentAgencyTexts = new Set(currentAgencyMsgs.filter(msg => msg.sender === user?.uid).map(msg => msg.text));
@@ -7497,7 +8064,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     
                                     if (availableSellerReplies.length === 0) return null;
                                     return (
-                                      <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2">
+                                      <div className="px-4 pt-2.5 pb-2 bg-[#f0f2f5] border-t border-gray-200/80 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full max-w-full min-w-0 shrink-0">
                                         {availableSellerReplies.map((reply, idx) => (
                                           <button
                                             key={idx}
@@ -7513,7 +8080,7 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                               const dbInstance = getDbInstance();
                                               if (dbInstance) await addDoc(collection(dbInstance, 'chat_messages'), messageData);
                                             }}
-                                            className="shrink-0 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 border border-gray-200 hover:border-orange-200 text-xs rounded-full whitespace-nowrap transition-all shadow-sm active:scale-95"
+                                            className="shrink-0 px-3 py-1.5 bg-white hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 border border-gray-200 hover:border-emerald-300 text-xs rounded-full whitespace-nowrap transition-all shadow-2xs active:scale-95 font-medium"
                                           >
                                             {reply}
                                           </button>
@@ -7522,57 +8089,57 @@ export default function HomeClient({ initialListings = [], routeMode }: { initia
                                     );
                                   })()}
                                   
-                                  <div className="p-4 flex items-center gap-3 relative">
+                                  <div className="px-4 py-2.5 bg-[#f0f2f5] border-t border-gray-200 flex items-center gap-2 relative shrink-0 w-full max-w-full min-w-0">
                                     {/* Emoji Visual Indicator */}
-                                  <div className="relative shrink-0">
-                                    <button 
-                                      onClick={() => setShowAgencyEmojiPicker(!showAgencyEmojiPicker)}
-                                      className="text-gray-400 hover:text-gray-600 transition-colors text-lg focus:outline-none flex items-center justify-center" 
-                                      title="Add Emoji"
-                                    >
-                                      <Smile className="h-5 w-5 text-gray-500" />
-                                    </button>
-                                    
-                                    {showAgencyEmojiPicker && (
-                                      <div className="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-3xl p-3 shadow-xl z-30 w-56 animate-in slide-in-from-bottom-2 duration-150">
-                                        <div className="grid grid-cols-6 gap-1.5 max-h-32 overflow-y-auto">
-                                          {['😊', '😂', '🤣', '👍', '❤️', '🔥', '✈️', '🏝️', '🗺️', '🏨', '🚗', '👏', '😍', '🎉', '🙌', '🙏', '✨', '🌍', '🌅', '🎒', '💬', '🎫', '🏝', '⛰', '🌟', '🛶', '🏄', '🏔', '⛺', '🧭'].map((emoji) => (
-                                            <button
-                                              key={emoji}
-                                              onClick={() => {
-                                                setAgencyChatInput((prev) => prev + emoji);
-                                                setShowAgencyEmojiPicker(false);
-                                              }}
-                                              className="hover:bg-gray-100 p-1.5 rounded-lg text-lg transition-all active:scale-90 flex items-center justify-center"
-                                            >
-                                              {emoji}
-                                            </button>
-                                          ))}
+                                    <div className="relative shrink-0">
+                                      <button 
+                                        onClick={() => setShowAgencyEmojiPicker(!showAgencyEmojiPicker)}
+                                        className="text-gray-500 hover:text-gray-700 transition-colors p-1.5 hover:bg-gray-200/60 rounded-full focus:outline-none flex items-center justify-center" 
+                                        title="Add Emoji"
+                                      >
+                                        <Smile className="h-5 w-5" />
+                                      </button>
+                                      
+                                      {showAgencyEmojiPicker && (
+                                        <div className="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-2xl p-3 shadow-xl z-30 w-56 animate-in slide-in-from-bottom-2 duration-150">
+                                          <div className="grid grid-cols-6 gap-1.5 max-h-32 overflow-y-auto">
+                                            {['😊', '😂', '🤣', '👍', '❤️', '🔥', '✈️', '🏝️', '🗺️', '🏨', '🚗', '👏', '😍', '🎉', '🙌', '🙏', '✨', '🌍', '🌅', '🎒', '💬', '🎫', '🏝', '⛰', '🌟', '🛶', '🏄', '🏔', '⛺', '🧭'].map((emoji) => (
+                                              <button
+                                                key={emoji}
+                                                onClick={() => {
+                                                  setAgencyChatInput((prev) => prev + emoji);
+                                                  setShowAgencyEmojiPicker(false);
+                                                }}
+                                                className="hover:bg-gray-100 p-1.5 rounded-lg text-lg transition-all active:scale-90 flex items-center justify-center"
+                                              >
+                                                {emoji}
+                                              </button>
+                                            ))}
+                                          </div>
                                         </div>
-                                      </div>
-                                    )}
-                                  </div>
+                                      )}
+                                    </div>
 
-                                  <Input
-                                    value={agencyChatInput}
-                                    onChange={(e) => setAgencyChatInput(e.target.value)}
-                                    placeholder="Type your reply..."
-                                    onKeyPress={(e) => e.key === 'Enter' && !hasPhoneInInput && sendAgencyMessage()}
-                                    className="flex-1 rounded-full border-gray-200 px-5 py-2.5 bg-gray-50/80 focus-visible:ring-orange-500 focus-visible:bg-white text-gray-900 text-xs h-10"
-                                  />
-                                  
-                                  <button 
-                                    onClick={sendAgencyMessage} 
-                                    disabled={!agencyChatInput.trim() || hasPhoneInInput}
-                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md shrink-0 ${
-                                      agencyChatInput.trim() && !hasPhoneInInput
-                                        ? 'bg-[#1C1F26] hover:bg-black text-white active:scale-95' 
-                                        : 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none'
-                                    }`}
-                                    title="Send Message"
-                                  >
-                                    <Send className="h-4 w-4" />
-                                  </button>
+                                    <Input
+                                      value={agencyChatInput}
+                                      onChange={(e) => setAgencyChatInput(e.target.value)}
+                                      placeholder="Type a message..."
+                                      onKeyPress={(e) => e.key === 'Enter' && !hasPhoneInInput && sendAgencyMessage()}
+                                      className="flex-1 rounded-full border border-gray-200 px-4 py-2 bg-white focus-visible:ring-1 focus-visible:ring-[#00a884] text-gray-900 text-xs h-10 shadow-2xs min-w-0"
+                                    />
+                                    
+                                    <button 
+                                      onClick={sendAgencyMessage} 
+                                      disabled={!agencyChatInput.trim() || hasPhoneInInput}
+                                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                                        agencyChatInput.trim() && !hasPhoneInInput
+                                          ? 'bg-[#00a884] hover:bg-[#008f6f] text-white shadow-sm active:scale-95 cursor-pointer' 
+                                          : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                                      }`}
+                                      title="Send Message"
+                                    >
+                                      <Send className="w-4 h-4 ml-0.5" />
+                                    </button>
                                   </div>
                                 </div>
                               ) : (
